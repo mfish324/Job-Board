@@ -1,0 +1,84 @@
+{% extends 'jobs/base.html' %}
+
+{% block title %}Employer Dashboard - JobBoard{% endblock %}
+
+{% block content %}
+<h1>Employer Dashboard</h1>
+<p>Welcome, {{ user.userprofile.company_name|default:user.username }}!</p>
+
+<div style="margin: 2rem 0;">
+    <a href="{% url 'post_job' %}" class="btn">+ Post New Job</a>
+</div>
+
+<h2>Your Job Postings</h2>
+
+{% if jobs %}
+    {% for job in jobs %}
+    <div class="job-card">
+        <h3>{{ job.title }}</h3>
+        <p class="job-meta">
+            📍 {{ job.location }} | 
+            {% if job.salary %}💰 {{ job.salary }} | {% endif %}
+            Posted: {{ job.posted_date|date:"M d, Y" }} |
+            Applications: {{ job.applications.count }}
+        </p>
+        <p>{{ job.description|truncatewords:30 }}</p>
+        
+        <div style="margin-top: 1rem;">
+            <a href="{% url 'job_detail' job.id %}" class="btn">View Job</a>
+            
+            {% if job.applications.count > 0 %}
+            <button onclick="toggleApplications('job-{{ job.id }}')" 
+                    style="margin-left: 1rem; padding: 0.5rem 1rem; background: #27ae60; color: white; border: none; border-radius: 3px; cursor: pointer;">
+                View {{ job.applications.count }} Application{{ job.applications.count|pluralize }}
+            </button>
+            {% endif %}
+        </div>
+        
+        {% if job.applications.count > 0 %}
+        <div id="job-{{ job.id }}" style="display: none; margin-top: 1rem; padding: 1rem; background: #f9f9f9; border-radius: 5px;">
+            <h4>Applications:</h4>
+            {% for application in job.applications.all %}
+            <div style="padding: 1rem; background: white; margin: 0.5rem 0; border-radius: 3px; border-left: 3px solid #3498db;">
+                <p><strong>Applicant:</strong> {{ application.applicant.get_full_name|default:application.applicant.username }}</p>
+                <p><strong>Email:</strong> {{ application.applicant.email }}</p>
+                <p><strong>Applied:</strong> {{ application.applied_date|date:"M d, Y g:i A" }}</p>
+                
+                {% if application.get_resume %}
+                <p>
+                    <a href="{% url 'download_resume' application.id %}" class="btn" style="background: #3498db;">
+                        📄 Download Resume
+                    </a>
+                </p>
+                {% else %}
+                <p style="color: #e74c3c;">No resume provided</p>
+                {% endif %}
+                
+                {% if application.cover_letter %}
+                <p><strong>Cover Letter:</strong></p>
+                <div style="padding: 0.5rem; background: #f0f0f0; border-radius: 3px;">
+                    {{ application.cover_letter }}
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+{% else %}
+    <p>You haven't posted any jobs yet.</p>
+    <a href="{% url 'post_job' %}" class="btn">Post Your First Job</a>
+{% endif %}
+
+<script>
+function toggleApplications(jobId) {
+    var element = document.getElementById(jobId);
+    if (element.style.display === "none") {
+        element.style.display = "block";
+    } else {
+        element.style.display = "none";
+    }
+}
+</script>
+{% endblock %}

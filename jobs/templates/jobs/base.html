@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}JobBoard{% endblock %}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        header {
+            background: #2c3e50;
+            color: white;
+            padding: 1rem 0;
+            margin-bottom: 2rem;
+        }
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        nav a {
+            color: white;
+            text-decoration: none;
+            margin-left: 2rem;
+        }
+        nav a:hover {
+            text-decoration: underline;
+        }
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        .job-card {
+            background: #f4f4f4;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            border-radius: 5px;
+            border-left: 4px solid #3498db;
+        }
+        .job-card h3 {
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+        }
+        .job-meta {
+            color: #666;
+            font-size: 0.9rem;
+            margin: 0.5rem 0;
+        }
+        .btn {
+            display: inline-block;
+            background: #3498db;
+            color: white;
+            padding: 0.5rem 1rem;
+            text-decoration: none;
+            border-radius: 3px;
+            margin-top: 0.5rem;
+        }
+        .btn:hover {
+            background: #2980b9;
+        }
+        .hero {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 3rem 0;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+        .hero h1 {
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <header>
+       <!-- Replace the nav section in base.html with this -->
+    <nav class="container">
+        <div class="logo">JobBoard</div>
+        <div>
+            <a href="{% url 'home' %}">Home</a>
+            <a href="{% url 'job_list' %}">Browse Jobs</a>
+            
+            {% if user.is_authenticated %}
+                {% if user.userprofile.user_type == 'employer' %}
+                    <a href="{% url 'employer_dashboard' %}">Dashboard</a>
+                    <a href="{% url 'post_job' %}">Post Job</a>
+                {% else %}
+                    <a href="{% url 'user_profile' %}">My Applications</a>
+                {% endif %}
+                <a href="{% url 'privacy_settings' %}">Privacy</a>
+                <span style="color: #ecf0f1; margin: 0 1rem;">Hi, {{ user.username }}!</span>
+                <a href="{% url 'logout' %}">Logout</a>
+            {% else %}
+                <a href="{% url 'login' %}">Login</a>
+                <a href="{% url 'signup_choice' %}" style="background: #3498db; padding: 0.5rem 1rem; border-radius: 3px;">Sign Up</a>
+            {% endif %}
+        </div>
+    </nav>
+    </header>
+
+    <main class="container">
+        {% block content %}
+        {% endblock %}
+    </main>
+
+    <!-- Add this before closing </body> tag in base.html -->
+    <footer style="background: #2c3e50; color: white; padding: 2rem 0; margin-top: 4rem;">
+        <div class="container">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+                <div>
+                    <p style="margin: 0;">© 2024 JobBoard. All rights reserved.</p>
+                    <p style="margin: 0.5rem 0; font-size: 0.9rem; color: #95a5a6;">
+                        🔒 Your data is secure and private
+                    </p>
+                </div>
+                <div>
+                    <a href="{% url 'privacy_policy' %}" style="color: white; margin-right: 1rem;">Privacy Policy</a>
+                    <a href="{% url 'terms_of_service' %}" style="color: white; margin-right: 1rem;">Terms of Service</a>
+                    <a href="#" style="color: white;">Contact</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>

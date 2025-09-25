@@ -1,0 +1,79 @@
+{% extends 'jobs/base.html' %}
+
+{% block title %}Privacy Settings - JobBoard{% endblock %}
+
+{% block content %}
+<div style="max-width: 800px; margin: 0 auto;">
+    <h1>Privacy Settings</h1>
+    
+    {% if messages %}
+        {% for message in messages %}
+        <div style="background: #27ae60; color: white; padding: 1rem; margin-bottom: 1rem; border-radius: 3px;">
+            {{ message }}
+        </div>
+        {% endfor %}
+    {% endif %}
+    
+    <div class="job-card">
+        <h3>🔒 Account Security</h3>
+        <p>Your account is protected with:</p>
+        <ul>
+            <li>✅ Encrypted password (Django's PBKDF2 algorithm)</li>
+            <li>✅ Secure session management</li>
+            <li>✅ CSRF protection on all forms</li>
+        </ul>
+        {% if user.last_login %}
+        <p><strong>Last login:</strong> {{ user.last_login|date:"F d, Y g:i A" }}</p>
+        {% else %}
+        <p><strong>Last login:</strong> This is your first login</p>
+        {% endif %}
+    </div>
+    
+    <div class="job-card">
+        <h3>📧 Email Preferences</h3>
+        <form method="post" style="margin-top: 1rem;">
+            {% csrf_token %}
+            <label>
+                <input type="checkbox" checked> Receive application updates
+            </label><br>
+            <label>
+                <input type="checkbox" checked> Receive job recommendations
+            </label><br>
+            <label>
+                <input type="checkbox"> Receive newsletter
+            </label><br>
+            <button type="submit" name="action" value="update_preferences" class="btn" style="margin-top: 1rem;">
+                Save Preferences
+            </button>
+        </form>
+    </div>
+    
+    <div class="job-card">
+        <h3>📊 Your Data</h3>
+        <p>You have control over your personal information:</p>
+        
+        <form method="post" style="margin-top: 1rem;">
+            {% csrf_token %}
+            <button type="submit" name="action" value="download_data" class="btn">
+                Download My Data
+            </button>
+            <p style="font-size: 0.9rem; color: #666; margin-top: 0.5rem;">
+                Get a copy of all your data in JSON format
+            </p>
+        </form>
+    </div>
+    
+    <div class="job-card" style="border-left-color: #e74c3c;">
+        <h3>⚠️ Danger Zone</h3>
+        <p>Permanently delete your account and all associated data:</p>
+        <form method="post" style="margin-top: 1rem;" 
+              onsubmit="return confirm('Are you sure? This cannot be undone!');">
+            {% csrf_token %}
+            <button type="submit" name="action" value="delete_account" 
+                    style="background: #e74c3c; color: white; padding: 0.5rem 1rem; border: none; border-radius: 3px; cursor: pointer;">
+                Delete My Account
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

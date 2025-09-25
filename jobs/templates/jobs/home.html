@@ -1,0 +1,37 @@
+{% extends 'jobs/base.html' %}
+
+{% block title %}Home - JobBoard{% endblock %}
+
+{% block content %}
+<div class="hero">
+    <h1>Find Your Dream Job</h1>
+    <p>Discover opportunities from top companies</p>
+    <h2>{{ total_jobs }} Jobs Available Now!</h2>
+</div>
+
+<section>
+    <h2>Recent Job Postings</h2>
+    <br>
+    
+    {% if recent_jobs %}
+        {% for job in recent_jobs %}
+        <div class="job-card">
+            <h3>{{ job.title }}</h3>
+            <p class="job-meta">
+                <strong>{{ job.company }}</strong> | 
+                📍 {{ job.location }} | 
+                {% if job.salary %}💰 {{ job.salary }}{% endif %}
+            </p>
+            <p>{{ job.description|truncatewords:30 }}</p>
+            <a href="{% url 'job_detail' job.id %}" class="btn">View Details</a>
+        </div>
+        {% endfor %}
+        
+        <div style="text-align: center; margin-top: 2rem;">
+            <a href="{% url 'job_list' %}" class="btn">View All Jobs</a>
+        </div>
+    {% else %}
+        <p>No jobs posted yet. Check back soon!</p>
+    {% endif %}
+</section>
+{% endblock %}

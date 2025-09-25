@@ -1,0 +1,46 @@
+{% extends 'jobs/base.html' %}
+
+{% block title %}All Jobs - JobBoard{% endblock %}
+
+{% block content %}
+<h1>All Job Openings</h1>
+
+<div style="margin: 1.5rem 0;">
+    <form method="get" action="{% url 'job_list' %}">
+        <input type="text" name="search" placeholder="Search jobs, companies, locations..." 
+               value="{{ search_query }}"
+               style="padding: 0.5rem; width: 300px; border: 1px solid #ddd; border-radius: 3px;">
+        <button type="submit" style="padding: 0.5rem 1rem; background: #3498db; color: white; border: none; border-radius: 3px; cursor: pointer;">
+            Search
+        </button>
+        {% if search_query %}
+        <a href="{% url 'job_list' %}" style="margin-left: 1rem; color: #3498db;">Clear</a>
+        {% endif %}
+    </form>
+</div>
+
+{% if search_query %}
+<p>Search results for: <strong>"{{ search_query }}"</strong></p>
+{% endif %}
+
+<p>Found {{ jobs|length }} active position{{ jobs|length|pluralize }}</p>
+<br>
+
+{% if jobs %}
+    {% for job in jobs %}
+    <div class="job-card">
+        <h3>{{ job.title }}</h3>
+        <p class="job-meta">
+            <strong>{{ job.company }}</strong> | 
+            📍 {{ job.location }} | 
+            {% if job.salary %}💰 {{ job.salary }}{% endif %} |
+            Posted: {{ job.posted_date|date:"M d, Y" }}
+        </p>
+        <p>{{ job.description|truncatewords:30 }}</p>
+        <a href="{% url 'job_detail' job.id %}" class="btn">View Details</a>
+    </div>
+    {% endfor %}
+{% else %}
+    <p>No jobs found matching your search.</p>
+{% endif %}
+{% endblock %}

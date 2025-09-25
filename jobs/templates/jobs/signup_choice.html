@@ -1,0 +1,32 @@
+{% extends 'jobs/base.html' %}
+
+{% block title %}Sign Up - JobBoard{% endblock %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 0 auto; text-align: center;">
+    <h1>Join JobBoard</h1>
+    <p>Choose how you want to use JobBoard</p>
+    
+    <div style="display: flex; gap: 2rem; margin-top: 3rem; justify-content: center;">
+        <div style="flex: 1; max-width: 250px;">
+            <div class="job-card" style="text-align: center; padding: 2rem;">
+                <h2>I'm a Job Seeker</h2>
+                <p style="margin: 1rem 0;">Find and apply to jobs</p>
+                <a href="{% url 'jobseeker_signup' %}" class="btn" style="display: block;">Sign Up as Job Seeker</a>
+            </div>
+        </div>
+        
+        <div style="flex: 1; max-width: 250px;">
+            <div class="job-card" style="text-align: center; padding: 2rem;">
+                <h2>I'm an Employer</h2>
+                <p style="margin: 1rem 0;">Post jobs and find talent</p>
+                <a href="{% url 'employer_signup' %}" class="btn" style="display: block;">Sign Up as Employer</a>
+            </div>
+        </div>
+    </div>
+    
+    <p style="margin-top: 2rem;">
+        Already have an account? <a href="{% url 'login' %}" style="color: #3498db;">Login here</a>
+    </p>
+</div>
+{% endblock %}

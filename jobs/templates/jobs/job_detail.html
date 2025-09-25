@@ -1,0 +1,52 @@
+{% extends 'jobs/base.html' %}
+
+{% block title %}{{ job.title }} - JobBoard{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 2rem;">
+    <a href="{% url 'job_list' %}" style="color: #3498db;">← Back to all jobs</a>
+</div>
+
+<div class="job-card">
+    <h1>{{ job.title }}</h1>
+    <p class="job-meta" style="font-size: 1.1rem;">
+        <strong>{{ job.company }}</strong><br>
+        📍 {{ job.location }}<br>
+        {% if job.salary %}💰 {{ job.salary }}<br>{% endif %}
+        Posted: {{ job.posted_date|date:"F d, Y" }}
+        {% if job.posted_by %}
+            by {{ job.posted_by.userprofile.company_name|default:job.posted_by.username }}
+        {% endif %}
+    </p>
+</div>
+
+<div style="margin-top: 2rem;">
+    <h2>Job Description</h2>
+    <div style="background: #f9f9f9; padding: 1.5rem; border-radius: 5px; margin-top: 1rem;">
+        <p style="white-space: pre-wrap;">{{ job.description }}</p>
+    </div>
+</div>
+
+<div style="margin-top: 2rem;">
+    {% if user.is_authenticated %}
+        {% if user == job.posted_by %}
+            <p style="background: #f39c12; color: white; padding: 1rem; border-radius: 3px;">
+                This is your job posting. {{ job.applications.count }} applicant{{ job.applications.count|pluralize }} so far.
+            </p>
+        {% elif user_has_applied %}
+            <p style="background: #27ae60; color: white; padding: 1rem; border-radius: 3px;">
+                ✓ You have applied for this position
+            </p>
+        {% elif user.userprofile.user_type == 'employer' %}
+            <p style="background: #95a5a6; color: white; padding: 1rem; border-radius: 3px;">
+                Employer accounts cannot apply for jobs
+            </p>
+        {% else %}
+            <a href="{% url 'apply_job' job.id %}" class="btn" style="font-size: 1.1rem; padding: 0.75rem 2rem;">Apply Now</a>
+        {% endif %}
+    {% else %}
+        <p><a href="{% url 'login' %}" class="btn">Login to Apply</a></p>
+        <p style="margin-top: 0.5rem;">New user? <a href="{% url 'signup_choice' %}" style="color: #3498db;">Sign up here</a></p>
+    {% endif %}
+</div>
+{% endblock %}

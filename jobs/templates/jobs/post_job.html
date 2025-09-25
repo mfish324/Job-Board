@@ -1,0 +1,39 @@
+{% extends 'jobs/base.html' %}
+
+{% block title %}Post a Job - JobBoard{% endblock %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 0 auto;">
+    <h1>Post a New Job</h1>
+    
+    <form method="post" style="background: #f9f9f9; padding: 2rem; border-radius: 5px;">
+        {% csrf_token %}
+        
+        {% for field in form %}
+        <div style="margin-bottom: 1rem;">
+            <label for="{{ field.id_for_label }}" style="display: block; margin-bottom: 0.5rem; font-weight: bold;">
+                {{ field.label }}
+            </label>
+            {{ field }}
+            {% if field.errors %}
+                <div style="color: #e74c3c; font-size: 0.9rem; margin-top: 0.25rem;">
+                    {{ field.errors.0 }}
+                </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+        
+        <button type="submit" class="btn" style="width: 100%; padding: 0.75rem;">Post Job</button>
+    </form>
+</div>
+
+<style>
+    input, textarea {
+        width: 100%;
+        padding: 0.5rem;
+        border: 1px solid #ddd;
+        border-radius: 3px;
+        font-size: 1rem;
+    }
+</style>
+{% endblock %}
