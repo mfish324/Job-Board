@@ -4,10 +4,15 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Q
 from django.http import HttpResponse
-from .models import Job, UserProfile, JobApplication
+from django.utils import timezone
+from django.conf import settings
+from .models import Job, UserProfile, JobApplication, PhoneVerification, EmailVerification
 from .forms import JobSeekerSignUpForm, EmployerSignUpForm, JobPostForm, JobApplicationForm
-from .forms import (JobSeekerSignUpForm, EmployerSignUpForm, JobPostForm, 
+from .forms import (JobSeekerSignUpForm, EmployerSignUpForm, JobPostForm,
                    JobApplicationForm, JobSeekerProfileForm, EmployerProfileForm)
+from .utils import (generate_verification_code, generate_verification_token,
+                   send_phone_verification_code, send_email_verification,
+                   format_phone_number, is_valid_phone_number)
 
 
 # Your existing views stay the same
@@ -65,13 +70,46 @@ def jobseeker_signup(request):
     if request.method == 'POST':
         form = JobSeekerSignUpForm(request.POST)
         if form.is_valid():
+            # Validate phone number
+            phone_number = form.cleaned_data.get('phone_number')
+            if not is_valid_phone_number(phone_number):
+                messages.error(request, 'Please enter a valid phone number.')
+                return render(request, 'jobs/signup.html', {'form': form, 'user_type': 'Job Seeker'})
+
+            # Create user
             user = form.save()
             username = form.cleaned_data.get('username')
             password = form.cleaned_data.get('password1')
             user = authenticate(username=username, password=password)
             login(request, user)
-            messages.success(request, 'Account created successfully!')
-            return redirect('home')
+
+            # Create phone verification
+            formatted_phone = format_phone_number(phone_number)
+            verification_code = generate_verification_code()
+            PhoneVerification.objects.create(
+                user=user,
+                phone_number=formatted_phone,
+                verification_code=verification_code
+            )
+
+            # Send SMS verification code
+            if send_phone_verification_code(formatted_phone, verification_code):
+                messages.success(request, 'Account created! Please verify your phone number.')
+            else:
+                messages.warning(request, 'Account created, but we could not send verification code. Please contact support.')
+
+            # Create email verification
+            verification_token = generate_verification_token()
+            EmailVerification.objects.create(
+                user=user,
+                verification_token=verification_token
+            )
+
+            # Send email verification
+            send_email_verification(user, verification_token)
+
+            # Redirect to phone verification
+            return redirect('verify_phone')
     else:
         form = JobSeekerSignUpForm()
     return render(request, 'jobs/signup.html', {'form': form, 'user_type': 'Job Seeker'})
@@ -80,13 +118,46 @@ def employer_signup(request):
     if request.method == 'POST':
         form = EmployerSignUpForm(request.POST)
         if form.is_valid():
+            # Validate phone number
+            phone_number = form.cleaned_data.get('phone_number')
+            if not is_valid_phone_number(phone_number):
+                messages.error(request, 'Please enter a valid phone number.')
+                return render(request, 'jobs/signup.html', {'form': form, 'user_type': 'Employer'})
+
+            # Create user
             user = form.save()
             username = form.cleaned_data.get('username')
             password = form.cleaned_data.get('password1')
             user = authenticate(username=username, password=password)
             login(request, user)
-            messages.success(request, 'Employer account created successfully!')
-            return redirect('employer_dashboard')
+
+            # Create phone verification
+            formatted_phone = format_phone_number(phone_number)
+            verification_code = generate_verification_code()
+            PhoneVerification.objects.create(
+                user=user,
+                phone_number=formatted_phone,
+                verification_code=verification_code
+            )
+
+            # Send SMS verification code
+            if send_phone_verification_code(formatted_phone, verification_code):
+                messages.success(request, 'Employer account created! Please verify your phone number.')
+            else:
+                messages.warning(request, 'Account created, but we could not send verification code. Please contact support.')
+
+            # Create email verification
+            verification_token = generate_verification_token()
+            EmailVerification.objects.create(
+                user=user,
+                verification_token=verification_token
+            )
+
+            # Send email verification
+            send_email_verification(user, verification_token)
+
+            # Redirect to phone verification
+            return redirect('verify_phone')
     else:
         form = EmployerSignUpForm()
     return render(request, 'jobs/signup.html', {'form': form, 'user_type': 'Employer'})
@@ -288,3 +359,104 @@ def contact(request):
         return redirect('contact')
 
     return render(request, 'jobs/contact.html')
+
+
+# Verification Views
+@login_required
+def verify_phone_code(request):
+    """View for entering phone verification code"""
+    try:
+        phone_verification = PhoneVerification.objects.get(user=request.user)
+    except PhoneVerification.DoesNotExist:
+        messages.error(request, 'No phone verification record found.')
+        return redirect('home')
+
+    # If already verified, redirect
+    if phone_verification.is_verified:
+        messages.info(request, 'Your phone is already verified.')
+        return redirect('user_profile')
+
+    if request.method == 'POST':
+        entered_code = request.POST.get('verification_code', '').strip()
+
+        # Check if code is expired
+        if phone_verification.is_code_expired():
+            messages.error(request, 'Verification code has expired. Please request a new code.')
+            return render(request, 'jobs/verify_phone.html', {
+                'phone_number': phone_verification.phone_number,
+                'expired': True
+            })
+
+        # Verify the code
+        if entered_code == phone_verification.verification_code:
+            phone_verification.is_verified = True
+            phone_verification.verified_at = timezone.now()
+            phone_verification.save()
+            messages.success(request, 'Phone verified successfully!')
+            return redirect('user_profile')
+        else:
+            messages.error(request, 'Invalid verification code. Please try again.')
+
+    return render(request, 'jobs/verify_phone.html', {
+        'phone_number': phone_verification.phone_number
+    })
+
+
+def verify_email(request, token):
+    """View for email verification via link"""
+    try:
+        email_verification = EmailVerification.objects.get(verification_token=token)
+    except EmailVerification.DoesNotExist:
+        messages.error(request, 'Invalid verification link.')
+        return redirect('home')
+
+    # Check if already verified
+    if email_verification.is_verified:
+        messages.info(request, 'Your email is already verified.')
+        return redirect('home')
+
+    # Check if token is expired
+    if email_verification.is_token_expired():
+        messages.error(request, 'Verification link has expired. Please request a new one.')
+        return redirect('home')
+
+    # Verify the email
+    email_verification.is_verified = True
+    email_verification.verified_at = timezone.now()
+    email_verification.save()
+
+    # Log the user in if not already logged in
+    if not request.user.is_authenticated:
+        login(request, email_verification.user, backend='django.contrib.auth.backends.ModelBackend')
+
+    return render(request, 'jobs/verify_email_success.html', {
+        'user': email_verification.user
+    })
+
+
+@login_required
+def resend_verification_code(request):
+    """Resend phone verification code"""
+    try:
+        phone_verification = PhoneVerification.objects.get(user=request.user)
+    except PhoneVerification.DoesNotExist:
+        messages.error(request, 'No phone verification record found.')
+        return redirect('home')
+
+    if phone_verification.is_verified:
+        messages.info(request, 'Your phone is already verified.')
+        return redirect('user_profile')
+
+    # Generate new code
+    new_code = generate_verification_code()
+    phone_verification.verification_code = new_code
+    phone_verification.created_at = timezone.now()  # Reset expiry time
+    phone_verification.save()
+
+    # Send new code
+    if send_phone_verification_code(phone_verification.phone_number, new_code):
+        messages.success(request, 'A new verification code has been sent to your phone.')
+    else:
+        messages.error(request, 'Failed to send verification code. Please try again later.')
+
+    return redirect('verify_phone')

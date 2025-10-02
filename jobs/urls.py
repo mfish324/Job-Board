@@ -32,4 +32,9 @@ urlpatterns = [
     path('account/profile/edit/', views.edit_profile, name='edit_profile'),
     path('application/<int:application_id>/', views.view_application, name='view_application'),
     path('application/<int:application_id>/resume/', views.download_resume, name='download_resume'),
+
+    # Verification URLs
+    path('verify-phone/', views.verify_phone_code, name='verify_phone'),
+    path('verify-email/<str:token>/', views.verify_email, name='verify_email'),
+    path('resend-code/', views.resend_verification_code, name='resend_code'),
 ]

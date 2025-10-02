@@ -82,3 +82,36 @@ class JobApplication(models.Model):
         elif self.applicant.userprofile.resume:
             return self.applicant.userprofile.resume
         return None
+class PhoneVerification(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='phone_verification')
+    phone_number = models.CharField(max_length=15)
+    verification_code = models.CharField(max_length=6)
+    is_verified = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    verified_at = models.DateTimeField(null=True, blank=True)
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.phone_number} - {'Verified' if self.is_verified else 'Pending'}"
+    
+    def is_code_expired(self):
+        from django.conf import settings
+        from django.utils import timezone
+        from datetime import timedelta
+        expiry_time = self.created_at + timedelta(minutes=settings.VERIFICATION_CODE_EXPIRY_MINUTES)
+        return timezone.now() > expiry_time
+
+class EmailVerification(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='email_verification')
+    verification_token = models.CharField(max_length=64, unique=True)
+    is_verified = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    verified_at = models.DateTimeField(null=True, blank=True)
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.user.email} - {'Verified' if self.is_verified else 'Pending'}"
+    
+    def is_token_expired(self):
+        from django.utils import timezone
+        from datetime import timedelta
+        expiry_time = self.created_at + timedelta(hours=24)  # 24 hour expiry for email
+        return timezone.now() > expiry_time

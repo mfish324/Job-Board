@@ -8,16 +8,23 @@ class JobSeekerSignUpForm(UserCreationForm):
     email = forms.EmailField(required=True)
     first_name = forms.CharField(max_length=100)
     last_name = forms.CharField(max_length=100)
+    phone_number = forms.CharField(
+        max_length=15,
+        required=True,
+        label='Phone Number',
+        help_text='Enter your phone number with country code (e.g., +1234567890)',
+        widget=forms.TextInput(attrs={'placeholder': '+1234567890'})
+    )
     privacy_consent = forms.BooleanField(
         required=True,
         label='I agree to the Privacy Policy and Terms of Service',
         help_text='We will never sell your data or spam you.'
     )
-    
+
     class Meta:
         model = User
-        fields = ('username', 'email', 'first_name', 'last_name', 'password1', 'password2', 'privacy_consent')
-    
+        fields = ('username', 'email', 'first_name', 'last_name', 'phone_number', 'password1', 'password2', 'privacy_consent')
+
     def save(self, commit=True):
         user = super().save(commit=False)
         user.email = self.cleaned_data['email']
@@ -32,6 +39,13 @@ class EmployerSignUpForm(UserCreationForm):
     email = forms.EmailField(required=True)
     company_name = forms.CharField(max_length=200)
     company_website = forms.URLField(required=False)
+    phone_number = forms.CharField(
+        max_length=15,
+        required=True,
+        label='Phone Number',
+        help_text='Enter your phone number with country code (e.g., +1234567890)',
+        widget=forms.TextInput(attrs={'placeholder': '+1234567890'})
+    )
     privacy_consent = forms.BooleanField(
         required=True,
         label='I agree to the Privacy Policy and Terms of Service'
@@ -39,7 +53,7 @@ class EmployerSignUpForm(UserCreationForm):
 
     class Meta:
         model = User
-        fields = ('username', 'email', 'password1', 'password2', 'privacy_consent')
+        fields = ('username', 'email', 'phone_number', 'password1', 'password2', 'privacy_consent')
 
     def save(self, commit=True):
         user = super().save(commit=False)
