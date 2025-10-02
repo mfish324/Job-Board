@@ -1,0 +1,145 @@
+{% extends 'jobs/base.html' %}
+
+{% block title %}Application Details - Real Jobs, Real People{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="fw-bold mb-0">
+                    <i class="bi bi-file-earmark-text text-primary me-2"></i>Application Details
+                </h1>
+                {% if user == application.job.posted_by %}
+                    <a href="{% url 'employer_dashboard' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left me-2"></i>Back to Dashboard
+                    </a>
+                {% else %}
+                    <a href="{% url 'user_profile' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left me-2"></i>Back to Applications
+                    </a>
+                {% endif %}
+            </div>
+
+            <!-- Job Info Card -->
+            <div class="card mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-briefcase me-2 text-primary"></i>Job Position
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <h4 class="mb-3">{{ application.job.title }}</h4>
+                    <div class="row">
+                        <div class="col-md-4 mb-2">
+                            <i class="bi bi-building text-muted me-2"></i>
+                            <strong>Company:</strong><br>
+                            <span class="ms-4">{{ application.job.company }}</span>
+                        </div>
+                        <div class="col-md-4 mb-2">
+                            <i class="bi bi-geo-alt text-muted me-2"></i>
+                            <strong>Location:</strong><br>
+                            <span class="ms-4">{{ application.job.location }}</span>
+                        </div>
+                        <div class="col-md-4 mb-2">
+                            <i class="bi bi-calendar3 text-muted me-2"></i>
+                            <strong>Posted:</strong><br>
+                            <span class="ms-4">{{ application.job.posted_date|date:"M d, Y" }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Applicant Info Card -->
+            <div class="card mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-person me-2 text-primary"></i>Applicant Information
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6 mb-3">
+                            <strong><i class="bi bi-person-badge me-2"></i>Name:</strong>
+                            <p class="mb-0 ms-4">{{ application.applicant.get_full_name|default:application.applicant.username }}</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <strong><i class="bi bi-envelope me-2"></i>Email:</strong>
+                            <p class="mb-0 ms-4">{{ application.applicant.email }}</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <strong><i class="bi bi-calendar-check me-2"></i>Applied:</strong>
+                            <p class="mb-0 ms-4">{{ application.applied_date|date:"F d, Y" }}</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <strong><i class="bi bi-flag me-2"></i>Status:</strong>
+                            <p class="mb-0 ms-4">
+                                <span class="badge
+                                    {% if application.status == 'accepted' %}bg-success
+                                    {% elif application.status == 'rejected' %}bg-danger
+                                    {% elif application.status == 'reviewed' %}bg-warning
+                                    {% else %}bg-secondary{% endif %}">
+                                    {{ application.get_status_display }}
+                                </span>
+                            </p>
+                        </div>
+                    </div>
+
+                    {% if application.cover_letter %}
+                    <div class="mt-4">
+                        <h6 class="fw-bold mb-3">
+                            <i class="bi bi-file-text me-2"></i>Cover Letter
+                        </h6>
+                        <div class="bg-light p-3 rounded" style="white-space: pre-wrap; border-left: 4px solid var(--primary-color);">
+                            {{ application.cover_letter }}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="mt-4">
+                        <h6 class="fw-bold mb-3">
+                            <i class="bi bi-file-earmark-pdf me-2"></i>Resume
+                        </h6>
+                        {% if application.get_resume %}
+                            {% if user == application.job.posted_by %}
+                                <a href="{% url 'download_resume' application.id %}" class="btn btn-primary">
+                                    <i class="bi bi-download me-2"></i>Download Resume
+                                </a>
+                            {% else %}
+                                <div class="alert alert-success">
+                                    <i class="bi bi-check-circle me-2"></i>Resume uploaded successfully
+                                </div>
+                            {% endif %}
+                        {% else %}
+                            <div class="alert alert-warning">
+                                <i class="bi bi-exclamation-triangle me-2"></i>No resume available for this application
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    {% if user.userprofile.user_type == 'job_seeker' %}
+                    <div class="mt-4 pt-4 border-top">
+                        <h6 class="fw-bold mb-3">
+                            <i class="bi bi-star me-2"></i>Your Skills & Experience
+                        </h6>
+                        {% if user.userprofile.skills %}
+                            <p class="mb-3">{{ user.userprofile.skills }}</p>
+                        {% else %}
+                            <p class="text-muted">
+                                No skills listed.
+                                <a href="{% url 'edit_profile' %}" class="text-decoration-none">Update your profile</a>
+                            </p>
+                        {% endif %}
+                        <p class="mb-0">
+                            <strong><i class="bi bi-briefcase me-2"></i>Experience:</strong>
+                            {{ user.userprofile.experience_years }} years
+                        </p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

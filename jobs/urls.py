@@ -21,9 +21,10 @@ urlpatterns = [
     # Job Application
     path('jobs/<int:job_id>/apply/', views.apply_job, name='apply_job'),
 
-    # Privacy
+    # Privacy & Info Pages
     path('privacy/', views.privacy_policy, name='privacy_policy'),
     path('terms/', views.terms_of_service, name='terms_of_service'),
+    path('contact/', views.contact, name='contact'),
 
     path('account/privacy/', views.privacy_settings, name='privacy_settings'),
     path('account/profile/', views.user_profile, name='user_profile'),

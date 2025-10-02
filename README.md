@@ -1,4 +1,4 @@
-# JobBoard - Online Job Portal
+# Real Jobs, Real People - Online Job Portal
 
 A full-featured job board application built with Django that connects job seekers with employers.
 
@@ -38,9 +38,28 @@ A full-featured job board application built with Django that connects job seeker
 - pip (Python package manager)
 - Virtual environment (recommended)
 
+## Environment Setup
+
+1. Copy `.env.example` to `.env`:
+```bash
+cp .env.example .env
+
 ### Setup Instructions
 
 1. **Clone the repository**
 ```bash
 git clone https://github.com/YOUR_USERNAME/job_board_project.git
 cd job_board_project
+
+## Step 10: Commit Your Changes (Without Secrets!)
+```bash
+# Check what will be committed (make sure .env is NOT in the list)
+git status
+
+# If you see .env in the list, make sure .gitignore is correct, then:
+git rm --cached .env  # This removes it from git but keeps the file
+
+# Add your changes
+git add .
+git commit -m "Add environment variable configuration for security"
+git push

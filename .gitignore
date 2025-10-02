@@ -35,6 +35,10 @@ staticfiles/
 # Environment variables
 .env
 .env.local
+*.env
+
+# But allow the example file
+!.env.example
 
 # Security - IMPORTANT!
 secrets.py

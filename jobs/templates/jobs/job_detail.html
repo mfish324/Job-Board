@@ -1,52 +1,166 @@
 {% extends 'jobs/base.html' %}
 
-{% block title %}{{ job.title }} - JobBoard{% endblock %}
+{% block title %}{{ job.title }} at {{ job.company }} - Real Jobs, Real People{% endblock %}
 
 {% block content %}
-<div style="margin-bottom: 2rem;">
-    <a href="{% url 'job_list' %}" style="color: #3498db;">← Back to all jobs</a>
-</div>
+<div class="container">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'home' %}">Home</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'job_list' %}">Jobs</a></li>
+            <li class="breadcrumb-item active">{{ job.title }}</li>
+        </ol>
+    </nav>
 
-<div class="job-card">
-    <h1>{{ job.title }}</h1>
-    <p class="job-meta" style="font-size: 1.1rem;">
-        <strong>{{ job.company }}</strong><br>
-        📍 {{ job.location }}<br>
-        {% if job.salary %}💰 {{ job.salary }}<br>{% endif %}
-        Posted: {{ job.posted_date|date:"F d, Y" }}
-        {% if job.posted_by %}
-            by {{ job.posted_by.userprofile.company_name|default:job.posted_by.username }}
-        {% endif %}
-    </p>
-</div>
+    <div class="row">
+        <!-- Main Content -->
+        <div class="col-lg-8">
+            <!-- Job Header -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div>
+                            <h1 class="h2 fw-bold mb-2">{{ job.title }}</h1>
+                            <h5 class="text-primary mb-0">
+                                <i class="bi bi-building me-2"></i>{{ job.company }}
+                            </h5>
+                        </div>
+                        {% if job.salary %}
+                        <span class="badge bg-success" style="font-size: 1.2rem; padding: 0.75rem 1.5rem;">
+                            {{ job.salary }}
+                        </span>
+                        {% endif %}
+                    </div>
 
-<div style="margin-top: 2rem;">
-    <h2>Job Description</h2>
-    <div style="background: #f9f9f9; padding: 1.5rem; border-radius: 5px; margin-top: 1rem;">
-        <p style="white-space: pre-wrap;">{{ job.description }}</p>
+                    <div class="d-flex flex-wrap gap-3 mb-3">
+                        <span class="badge bg-light text-dark p-2">
+                            <i class="bi bi-geo-alt-fill me-1"></i>{{ job.location }}
+                        </span>
+                        <span class="badge bg-light text-dark p-2">
+                            <i class="bi bi-calendar3 me-1"></i>Posted {{ job.posted_date|timesince }} ago
+                        </span>
+                        {% if job.posted_by %}
+                        <span class="badge bg-light text-dark p-2">
+                            <i class="bi bi-person me-1"></i>{{ job.posted_by.userprofile.company_name|default:job.posted_by.username }}
+                        </span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Application Status -->
+                    {% if user.is_authenticated %}
+                        {% if user == job.posted_by %}
+                            <div class="alert alert-warning">
+                                <i class="bi bi-info-circle me-2"></i>
+                                <strong>This is your job posting.</strong>
+                                {{ job.applications.count }} applicant{{ job.applications.count|pluralize }} so far.
+                                <a href="{% url 'employer_dashboard' %}" class="alert-link ms-2">View applications</a>
+                            </div>
+                        {% elif user_has_applied %}
+                            <div class="alert alert-success">
+                                <i class="bi bi-check-circle me-2"></i>
+                                <strong>Application submitted!</strong> You have already applied for this position.
+                            </div>
+                        {% elif user.userprofile.user_type == 'employer' %}
+                            <div class="alert alert-secondary">
+                                <i class="bi bi-exclamation-circle me-2"></i>
+                                Employer accounts cannot apply for jobs.
+                            </div>
+                        {% else %}
+                            <a href="{% url 'apply_job' job.id %}" class="btn btn-primary btn-lg w-100">
+                                <i class="bi bi-file-earmark-text me-2"></i>Apply for this Position
+                            </a>
+                        {% endif %}
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>
+                            <a href="{% url 'login' %}" class="alert-link">Login</a> or
+                            <a href="{% url 'signup_choice' %}" class="alert-link">sign up</a> to apply for this job.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Job Description -->
+            <div class="card">
+                <div class="card-header bg-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-file-text me-2 text-primary"></i>Job Description
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="job-description" style="white-space: pre-wrap; line-height: 1.8;">
+                        {{ job.description }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Quick Actions -->
+            <div class="card mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Quick Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        {% if user.is_authenticated and user != job.posted_by and not user_has_applied and user.userprofile.user_type != 'employer' %}
+                        <a href="{% url 'apply_job' job.id %}" class="btn btn-primary">
+                            <i class="bi bi-send me-2"></i>Apply Now
+                        </a>
+                        {% endif %}
+                        <a href="{% url 'job_list' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left me-2"></i>Back to Jobs
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Job Info -->
+            <div class="card">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Job Information</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled mb-0">
+                        <li class="mb-3">
+                            <i class="bi bi-building text-primary me-2"></i>
+                            <strong>Company:</strong><br>
+                            <span class="ms-4">{{ job.company }}</span>
+                        </li>
+                        <li class="mb-3">
+                            <i class="bi bi-geo-alt text-primary me-2"></i>
+                            <strong>Location:</strong><br>
+                            <span class="ms-4">{{ job.location }}</span>
+                        </li>
+                        {% if job.salary %}
+                        <li class="mb-3">
+                            <i class="bi bi-cash text-primary me-2"></i>
+                            <strong>Salary:</strong><br>
+                            <span class="ms-4">{{ job.salary }}</span>
+                        </li>
+                        {% endif %}
+                        <li class="mb-3">
+                            <i class="bi bi-calendar-check text-primary me-2"></i>
+                            <strong>Posted:</strong><br>
+                            <span class="ms-4">{{ job.posted_date|date:"F d, Y" }}</span>
+                        </li>
+                        <li class="mb-0">
+                            <i class="bi bi-briefcase text-primary me-2"></i>
+                            <strong>Status:</strong><br>
+                            <span class="ms-4">
+                                {% if job.is_active %}
+                                <span class="badge bg-success">Active</span>
+                                {% else %}
+                                <span class="badge bg-secondary">Inactive</span>
+                                {% endif %}
+                            </span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
     </div>
-</div>
-
-<div style="margin-top: 2rem;">
-    {% if user.is_authenticated %}
-        {% if user == job.posted_by %}
-            <p style="background: #f39c12; color: white; padding: 1rem; border-radius: 3px;">
-                This is your job posting. {{ job.applications.count }} applicant{{ job.applications.count|pluralize }} so far.
-            </p>
-        {% elif user_has_applied %}
-            <p style="background: #27ae60; color: white; padding: 1rem; border-radius: 3px;">
-                ✓ You have applied for this position
-            </p>
-        {% elif user.userprofile.user_type == 'employer' %}
-            <p style="background: #95a5a6; color: white; padding: 1rem; border-radius: 3px;">
-                Employer accounts cannot apply for jobs
-            </p>
-        {% else %}
-            <a href="{% url 'apply_job' job.id %}" class="btn" style="font-size: 1.1rem; padding: 0.75rem 2rem;">Apply Now</a>
-        {% endif %}
-    {% else %}
-        <p><a href="{% url 'login' %}" class="btn">Login to Apply</a></p>
-        <p style="margin-top: 0.5rem;">New user? <a href="{% url 'signup_choice' %}" style="color: #3498db;">Sign up here</a></p>
-    {% endif %}
 </div>
 {% endblock %}

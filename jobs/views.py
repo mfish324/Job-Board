@@ -14,9 +14,13 @@ from .forms import (JobSeekerSignUpForm, EmployerSignUpForm, JobPostForm,
 def home(request):
     recent_jobs = Job.objects.filter(is_active=True).order_by('-posted_date')[:5]
     total_jobs = Job.objects.filter(is_active=True).count()
+    total_companies = Job.objects.values('company').distinct().count(),
+    total_seekers = UserProfile.objects.filter(user_type='job_seeker').count()
     context = {
         'recent_jobs': recent_jobs,
-        'total_jobs': total_jobs
+        'total_jobs': total_jobs,
+        'total_companies': total_companies,
+        'total_seekers': total_seekers
     }
     return render(request, 'jobs/home.html', context)
 
@@ -238,16 +242,26 @@ def view_application(request, application_id):
 @login_required
 def download_resume(request, application_id):
     application = get_object_or_404(JobApplication, id=application_id)
-    
+
     # Only the employer who posted the job can download resumes
     if request.user != application.job.posted_by:
         messages.error(request, 'You do not have permission to download this resume.')
         return redirect('home')
-    
+
     resume = application.get_resume()
     if resume:
+        import os
+        from django.utils.encoding import escape_uri_path
+
+        # Get the original filename or construct a safe one
+        original_filename = os.path.basename(resume.name)
+        if not original_filename:
+            # Construct filename from applicant info and job title
+            safe_job_title = "".join(c for c in application.job.title if c.isalnum() or c in (' ', '-', '_')).strip()
+            original_filename = f"{application.applicant.username}_{safe_job_title}_resume.pdf"
+
         response = HttpResponse(resume.file.read(), content_type='application/octet-stream')
-        response['Content-Disposition'] = f'attachment; filename="{application.applicant.username}_resume.pdf"'
+        response['Content-Disposition'] = f'attachment; filename="{escape_uri_path(original_filename)}"'
         return response
     else:
         messages.error(request, 'No resume available for this applicant.')
@@ -258,3 +272,19 @@ def privacy_policy(request):
 
 def terms_of_service(request):
     return render(request, 'jobs/terms.html')
+
+def contact(request):
+    if request.method == 'POST':
+        # Get form data
+        name = request.POST.get('name')
+        email = request.POST.get('email')
+        subject = request.POST.get('subject')
+        message = request.POST.get('message')
+        user_type = request.POST.get('user_type')
+
+        # For now, just show a success message
+        # In production, you would send an email or save to database
+        messages.success(request, f'Thank you {name}! Your message has been received. We will get back to you at {email} soon.')
+        return redirect('contact')
+
+    return render(request, 'jobs/contact.html')

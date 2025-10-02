@@ -8,64 +8,6 @@ class JobSeekerSignUpForm(UserCreationForm):
     email = forms.EmailField(required=True)
     first_name = forms.CharField(max_length=100)
     last_name = forms.CharField(max_length=100)
-    
-    class Meta:
-        model = User
-        fields = ('username', 'email', 'first_name', 'last_name', 'password1', 'password2')
-    
-    def save(self, commit=True):
-        user = super().save(commit=False)
-        user.email = self.cleaned_data['email']
-        user.first_name = self.cleaned_data['first_name']
-        user.last_name = self.cleaned_data['last_name']
-        if commit:
-            user.save()
-            UserProfile.objects.create(user=user, user_type='job_seeker')
-        return user
-
-class EmployerSignUpForm(UserCreationForm):
-    email = forms.EmailField(required=True)
-    company_name = forms.CharField(max_length=200)
-    company_website = forms.URLField(required=False)
-    
-    class Meta:
-        model = User
-        fields = ('username', 'email', 'password1', 'password2')
-    
-    def save(self, commit=True):
-        user = super().save(commit=False)
-        user.email = self.cleaned_data['email']
-        if commit:
-            user.save()
-            UserProfile.objects.create(
-                user=user,
-                user_type='employer',
-                company_name=self.cleaned_data['company_name'],
-                company_website=self.cleaned_data.get('company_website', '')
-            )
-        return user
-
-class JobPostForm(forms.ModelForm):
-    class Meta:
-        model = Job
-        fields = ['title', 'company', 'location', 'salary', 'description']
-        widgets = {
-            'description': forms.Textarea(attrs={'rows': 8}),
-        }
-
-class JobApplicationForm(forms.ModelForm):
-    class Meta:
-        model = JobApplication
-        fields = ['cover_letter']
-        widgets = {
-            'cover_letter': forms.Textarea(attrs={'rows': 6, 
-                                                 'placeholder': 'Tell the employer why you\'re a great fit for this position...'})
-        }
-
-class JobSeekerSignUpForm(UserCreationForm):
-    email = forms.EmailField(required=True)
-    first_name = forms.CharField(max_length=100)
-    last_name = forms.CharField(max_length=100)
     privacy_consent = forms.BooleanField(
         required=True,
         label='I agree to the Privacy Policy and Terms of Service',
@@ -94,13 +36,32 @@ class EmployerSignUpForm(UserCreationForm):
         required=True,
         label='I agree to the Privacy Policy and Terms of Service'
     )
-    
+
     class Meta:
         model = User
         fields = ('username', 'email', 'password1', 'password2', 'privacy_consent')
 
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        user.email = self.cleaned_data['email']
+        if commit:
+            user.save()
+            UserProfile.objects.create(
+                user=user,
+                user_type='employer',
+                company_name=self.cleaned_data['company_name'],
+                company_website=self.cleaned_data.get('company_website', '')
+            )
+        return user
 
-# Your existing forms stay the same...
+
+class JobPostForm(forms.ModelForm):
+    class Meta:
+        model = Job
+        fields = ['title', 'company', 'location', 'salary', 'description']
+        widgets = {
+            'description': forms.Textarea(attrs={'rows': 8}),
+        }
 
 class JobSeekerProfileForm(forms.ModelForm):
     first_name = forms.CharField(max_length=100, required=False)

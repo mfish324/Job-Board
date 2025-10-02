@@ -1,46 +1,133 @@
 {% extends 'jobs/base.html' %}
 
-{% block title %}All Jobs - JobBoard{% endblock %}
+{% block title %}Browse Jobs - Real Jobs, Real People{% endblock %}
 
 {% block content %}
-<h1>All Job Openings</h1>
-
-<div style="margin: 1.5rem 0;">
-    <form method="get" action="{% url 'job_list' %}">
-        <input type="text" name="search" placeholder="Search jobs, companies, locations..." 
-               value="{{ search_query }}"
-               style="padding: 0.5rem; width: 300px; border: 1px solid #ddd; border-radius: 3px;">
-        <button type="submit" style="padding: 0.5rem 1rem; background: #3498db; color: white; border: none; border-radius: 3px; cursor: pointer;">
-            Search
-        </button>
-        {% if search_query %}
-        <a href="{% url 'job_list' %}" style="margin-left: 1rem; color: #3498db;">Clear</a>
-        {% endif %}
-    </form>
-</div>
-
-{% if search_query %}
-<p>Search results for: <strong>"{{ search_query }}"</strong></p>
-{% endif %}
-
-<p>Found {{ jobs|length }} active position{{ jobs|length|pluralize }}</p>
-<br>
-
-{% if jobs %}
-    {% for job in jobs %}
-    <div class="job-card">
-        <h3>{{ job.title }}</h3>
-        <p class="job-meta">
-            <strong>{{ job.company }}</strong> | 
-            📍 {{ job.location }} | 
-            {% if job.salary %}💰 {{ job.salary }}{% endif %} |
-            Posted: {{ job.posted_date|date:"M d, Y" }}
-        </p>
-        <p>{{ job.description|truncatewords:30 }}</p>
-        <a href="{% url 'job_detail' job.id %}" class="btn">View Details</a>
+<div class="container">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="fw-bold mb-3">
+                <i class="bi bi-briefcase text-primary me-2"></i>Browse Job Openings
+            </h1>
+        </div>
     </div>
-    {% endfor %}
-{% else %}
-    <p>No jobs found matching your search.</p>
-{% endif %}
+
+    <!-- Search Bar -->
+    <div class="row mb-4">
+        <div class="col-lg-8 mx-auto">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <form method="get" action="{% url 'job_list' %}" class="row g-3">
+                        <div class="col-md-9">
+                            <div class="input-group input-group-lg">
+                                <span class="input-group-text bg-white">
+                                    <i class="bi bi-search"></i>
+                                </span>
+                                <input type="text"
+                                       name="search"
+                                       class="form-control form-control-lg border-start-0"
+                                       placeholder="Search jobs, companies, locations..."
+                                       value="{{ search_query }}">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <button type="submit" class="btn btn-primary btn-lg w-100">
+                                <i class="bi bi-search me-2"></i>Search
+                            </button>
+                        </div>
+                        {% if search_query %}
+                        <div class="col-12 text-center">
+                            <a href="{% url 'job_list' %}" class="text-decoration-none">
+                                <i class="bi bi-x-circle me-1"></i>Clear search
+                            </a>
+                        </div>
+                        {% endif %}
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results Info -->
+    <div class="row mb-3">
+        <div class="col">
+            {% if search_query %}
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle me-2"></i>
+                Search results for: <strong>"{{ search_query }}"</strong>
+            </div>
+            {% endif %}
+            <h5 class="text-muted">
+                <i class="bi bi-filter-circle me-2"></i>
+                Found <strong>{{ jobs|length }}</strong> active position{{ jobs|length|pluralize }}
+            </h5>
+        </div>
+    </div>
+
+    <!-- Job Listings -->
+    {% if jobs %}
+        <div class="row">
+            {% for job in jobs %}
+            <div class="col-lg-6 mb-4">
+                <div class="card job-card h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div class="flex-grow-1">
+                                <h5 class="card-title fw-bold mb-1">{{ job.title }}</h5>
+                                <h6 class="text-primary mb-0">
+                                    <i class="bi bi-building me-1"></i>{{ job.company }}
+                                </h6>
+                            </div>
+                            {% if job.salary %}
+                            <span class="badge bg-success fs-6 ms-2">{{ job.salary }}</span>
+                            {% endif %}
+                        </div>
+
+                        <p class="card-text text-muted mb-3">
+                            {{ job.description|truncatewords:30 }}
+                        </p>
+
+                        <div class="d-flex flex-wrap gap-2 mb-3">
+                            <span class="badge bg-light text-dark">
+                                <i class="bi bi-geo-alt-fill me-1"></i>{{ job.location }}
+                            </span>
+                            <span class="badge bg-light text-dark">
+                                <i class="bi bi-calendar3 me-1"></i>{{ job.posted_date|date:"M d, Y" }}
+                            </span>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted small">
+                                <i class="bi bi-clock me-1"></i>Posted {{ job.posted_date|timesince }} ago
+                            </span>
+                            <a href="{% url 'job_detail' job.id %}" class="btn btn-primary btn-sm">
+                                View Details <i class="bi bi-arrow-right ms-1"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="row">
+            <div class="col-lg-8 mx-auto">
+                <div class="card">
+                    <div class="card-body text-center py-5">
+                        <i class="bi bi-search text-muted" style="font-size: 4rem;"></i>
+                        <h4 class="mt-3">No jobs found</h4>
+                        <p class="text-muted">
+                            {% if search_query %}
+                            Try adjusting your search terms or <a href="{% url 'job_list' %}">browse all jobs</a>
+                            {% else %}
+                            No jobs are currently available. Check back soon!
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
 {% endblock %}

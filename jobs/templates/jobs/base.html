@@ -1,137 +1,360 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}JobBoard{% endblock %}</title>
+    <title>{% block title %}Real Jobs, Real People - Find Your Dream Job{% endblock %}</title>
+
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        :root {
+            /* Real Jobs, Real People Brand Colors */
+            --primary-color: #7e512f;      /* Dark Brown - Primary */
+            --secondary-color: #dda56c;    /* Tan/Gold - Secondary */
+            --light-bg: #f5f0e5;           /* Cream - Background */
+            --dark-color: #7e512f;         /* Dark Brown */
+            --accent-color: #dda56c;       /* Tan/Gold Accent */
         }
+
         body {
-            font-family: Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 20px;
-        }
-        header {
-            background: #2c3e50;
-            color: white;
-            padding: 1rem 0;
-            margin-bottom: 2rem;
-        }
-        nav {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
             display: flex;
-            justify-content: space-between;
-            align-items: center;
+            flex-direction: column;
+            background-color: var(--light-bg);
         }
-        nav a {
-            color: white;
-            text-decoration: none;
-            margin-left: 2rem;
+
+        .navbar {
+            background: linear-gradient(135deg, var(--primary-color) 0%, #9d6a3d 100%);
+            box-shadow: 0 2px 10px rgba(126, 81, 47, 0.2);
+            padding: 1rem 0;
         }
-        nav a:hover {
-            text-decoration: underline;
-        }
-        .logo {
+
+        .navbar-brand {
+            font-weight: 700;
             font-size: 1.5rem;
-            font-weight: bold;
+            color: white !important;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
         }
+
+        .navbar-brand img.logo {
+            height: 45px;
+            width: auto;
+            max-width: 200px;
+            object-fit: contain;
+        }
+
+        .nav-link {
+            color: rgba(255,255,255,0.9) !important;
+            margin: 0 0.5rem;
+            transition: all 0.3s;
+        }
+
+        .nav-link:hover {
+            color: white !important;
+            transform: translateY(-2px);
+        }
+
+        .btn-signup {
+            background: white;
+            color: var(--primary-color);
+            font-weight: 600;
+            border-radius: 50px;
+            padding: 0.5rem 1.5rem;
+            border: 2px solid white;
+        }
+
+        .btn-signup:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(255,255,255,0.3);
+            background: var(--secondary-color);
+            color: var(--dark-color);
+            border-color: var(--secondary-color);
+        }
+
+        main {
+            flex: 1;
+            padding: 2rem 0;
+        }
+
+        .hero-section {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: white;
+            padding: 4rem 0;
+            margin-bottom: 3rem;
+            border-radius: 0 0 50px 50px;
+            box-shadow: 0 4px 20px rgba(126, 81, 47, 0.2);
+        }
+
         .job-card {
-            background: #f4f4f4;
-            padding: 1.5rem;
-            margin-bottom: 1rem;
-            border-radius: 5px;
-            border-left: 4px solid #3498db;
+            border: none;
+            border-radius: 12px;
+            background: white;
+            box-shadow: 0 2px 8px rgba(126, 81, 47, 0.1);
+            transition: all 0.3s;
+            margin-bottom: 1.5rem;
+            border-left: 4px solid var(--secondary-color);
         }
-        .job-card h3 {
-            color: #2c3e50;
-            margin-bottom: 0.5rem;
+
+        .job-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(126, 81, 47, 0.2);
+            border-left-color: var(--primary-color);
         }
-        .job-meta {
-            color: #666;
-            font-size: 0.9rem;
-            margin: 0.5rem 0;
-        }
-        .btn {
-            display: inline-block;
-            background: #3498db;
+
+        .btn-primary {
+            background: var(--primary-color);
+            border: none;
+            border-radius: 8px;
+            padding: 0.6rem 1.5rem;
+            font-weight: 600;
+            transition: all 0.3s;
             color: white;
+        }
+
+        .btn-primary:hover {
+            background: #6a4428;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(126, 81, 47, 0.3);
+            color: white;
+        }
+
+        .badge {
             padding: 0.5rem 1rem;
-            text-decoration: none;
-            border-radius: 3px;
-            margin-top: 0.5rem;
+            border-radius: 50px;
+            font-weight: 500;
         }
-        .btn:hover {
-            background: #2980b9;
-        }
-        .hero {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+
+        footer {
+            background: var(--dark-color);
             color: white;
-            padding: 3rem 0;
-            margin-bottom: 2rem;
-            text-align: center;
+            padding: 3rem 0 1.5rem;
+            margin-top: auto;
         }
-        .hero h1 {
-            margin-bottom: 1rem;
+
+        footer a {
+            color: rgba(255,255,255,0.8);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        footer a:hover {
+            color: white;
+        }
+
+        .alert {
+            border-radius: 12px;
+            border: none;
+        }
+
+        .form-control, .form-select {
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            padding: 0.75rem;
+        }
+
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem rgba(79, 70, 229, 0.1);
+        }
+
+        .card {
+            border: none;
+            border-radius: 12px;
+            background: white;
+            box-shadow: 0 2px 8px rgba(126, 81, 47, 0.1);
+        }
+
+        .card-header {
+            background: white;
+            border-bottom: 2px solid var(--light-bg);
+        }
+
+        .text-primary {
+            color: var(--primary-color) !important;
+        }
+
+        .bg-primary {
+            background-color: var(--primary-color) !important;
+        }
+
+        .border-primary {
+            border-color: var(--primary-color) !important;
+        }
+
+        .btn-outline-primary {
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+        }
+
+        .btn-outline-primary:hover {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+            color: white;
+        }
+
+        .badge.bg-success {
+            background-color: var(--secondary-color) !important;
+            color: var(--dark-color) !important;
+        }
+
+        a {
+            color: var(--primary-color);
+        }
+
+        a:hover {
+            color: #6a4428;
+        }
+
+        .alert-info {
+            background-color: #f5f0e5;
+            border-color: var(--secondary-color);
+            color: var(--dark-color);
+        }
+
+        .breadcrumb-item.active {
+            color: var(--primary-color);
+        }
+
+        .breadcrumb-item a {
+            color: var(--primary-color);
+            text-decoration: none;
         }
     </style>
+
+    {% block extra_css %}{% endblock %}
 </head>
 <body>
-    <header>
-       <!-- Replace the nav section in base.html with this -->
-    <nav class="container">
-        <div class="logo">JobBoard</div>
-        <div>
-            <a href="{% url 'home' %}">Home</a>
-            <a href="{% url 'job_list' %}">Browse Jobs</a>
-            
-            {% if user.is_authenticated %}
-                {% if user.userprofile.user_type == 'employer' %}
-                    <a href="{% url 'employer_dashboard' %}">Dashboard</a>
-                    <a href="{% url 'post_job' %}">Post Job</a>
-                {% else %}
-                    <a href="{% url 'user_profile' %}">My Applications</a>
-                {% endif %}
-                <a href="{% url 'privacy_settings' %}">Privacy</a>
-                <span style="color: #ecf0f1; margin: 0 1rem;">Hi, {{ user.username }}!</span>
-                <a href="{% url 'logout' %}">Logout</a>
-            {% else %}
-                <a href="{% url 'login' %}">Login</a>
-                <a href="{% url 'signup_choice' %}" style="background: #3498db; padding: 0.5rem 1rem; border-radius: 3px;">Sign Up</a>
-            {% endif %}
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container">
+            <a class="navbar-brand" href="{% url 'home' %}">
+                <img src="{% static 'jobs/images/logo.png' %}" alt="Real Jobs, Real People Logo" class="logo">
+                <span class="d-none d-md-inline">Real Jobs, Real People</span>
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto align-items-center">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'home' %}">
+                            <i class="bi bi-house-door me-1"></i>Home
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'job_list' %}">
+                            <i class="bi bi-search me-1"></i>Browse Jobs
+                        </a>
+                    </li>
+
+                    {% if user.is_authenticated %}
+                        {% if user.userprofile.user_type == 'employer' %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'employer_dashboard' %}">
+                                    <i class="bi bi-speedometer2 me-1"></i>Dashboard
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'post_job' %}">
+                                    <i class="bi bi-plus-circle me-1"></i>Post Job
+                                </a>
+                            </li>
+                        {% else %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'user_profile' %}">
+                                    <i class="bi bi-file-earmark-text me-1"></i>My Applications
+                                </a>
+                            </li>
+                        {% endif %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'edit_profile' %}">
+                                <i class="bi bi-person-circle me-1"></i>{{ user.username }}
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'logout' %}">
+                                <i class="bi bi-box-arrow-right me-1"></i>Logout
+                            </a>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'login' %}">Login</a>
+                        </li>
+                        <li class="nav-item ms-2">
+                            <a class="btn btn-signup" href="{% url 'signup_choice' %}">
+                                <i class="bi bi-person-plus me-1"></i>Sign Up
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
         </div>
     </nav>
-    </header>
 
-    <main class="container">
+    <!-- Messages -->
+    {% if messages %}
+        <div class="container mt-3">
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    <i class="bi bi-{% if message.tags == 'success' %}check-circle{% elif message.tags == 'error' %}exclamation-triangle{% else %}info-circle{% endif %} me-2"></i>
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <!-- Main Content -->
+    <main>
         {% block content %}
         {% endblock %}
     </main>
 
-    <!-- Add this before closing </body> tag in base.html -->
-    <footer style="background: #2c3e50; color: white; padding: 2rem 0; margin-top: 4rem;">
+    <!-- Footer -->
+    <footer>
         <div class="container">
-            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
-                <div>
-                    <p style="margin: 0;">© 2024 JobBoard. All rights reserved.</p>
-                    <p style="margin: 0.5rem 0; font-size: 0.9rem; color: #95a5a6;">
-                        🔒 Your data is secure and private
+            <div class="row">
+                <div class="col-md-6 mb-3 mb-md-0">
+                    <h5 class="mb-3">
+                        <i class="bi bi-briefcase-fill me-2"></i>Real Jobs, Real People
+                    </h5>
+                    <p class="text-white-50">
+                        <i class="bi bi-shield-check me-2"></i>Your data is secure and private
                     </p>
+                    <p class="text-white-50 small">© {% now "Y" %} Real Jobs, Real People. All rights reserved.</p>
                 </div>
-                <div>
-                    <a href="{% url 'privacy_policy' %}" style="color: white; margin-right: 1rem;">Privacy Policy</a>
-                    <a href="{% url 'terms_of_service' %}" style="color: white; margin-right: 1rem;">Terms of Service</a>
-                    <a href="#" style="color: white;">Contact</a>
+                <div class="col-md-6">
+                    <h6 class="mb-3">Quick Links</h6>
+                    <div class="row">
+                        <div class="col-6">
+                            <ul class="list-unstyled">
+                                <li class="mb-2"><a href="{% url 'home' %}"><i class="bi bi-arrow-right me-1"></i>Home</a></li>
+                                <li class="mb-2"><a href="{% url 'job_list' %}"><i class="bi bi-arrow-right me-1"></i>Browse Jobs</a></li>
+                                <li class="mb-2"><a href="{% url 'privacy_policy' %}"><i class="bi bi-arrow-right me-1"></i>Privacy Policy</a></li>
+                            </ul>
+                        </div>
+                        <div class="col-6">
+                            <ul class="list-unstyled">
+                                <li class="mb-2"><a href="{% url 'terms_of_service' %}"><i class="bi bi-arrow-right me-1"></i>Terms of Service</a></li>
+                                <li class="mb-2"><a href="{% url 'contact' %}"><i class="bi bi-arrow-right me-1"></i>Contact</a></li>
+                            </ul>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </footer>
+
+    <!-- Bootstrap 5 JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    {% block extra_js %}{% endblock %}
 </body>
 </html>
