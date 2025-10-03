@@ -2,7 +2,7 @@ services:
   - type: web
     name: realjobsrealpeople
     runtime: python
-    buildCommand: "./build.sh"
+    buildCommand: "bash build.sh"
     startCommand: "gunicorn jobboard.wsgi:application"
     envVars:
       - key: PYTHON_VERSION
