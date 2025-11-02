@@ -3,97 +3,201 @@
 {% block title %}My Profile - Real Jobs, Real People{% endblock %}
 
 {% block content %}
-<div style="max-width: 800px; margin: 0 auto;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
-        <h1>My Profile</h1>
-        <a href="{% url 'edit_profile' %}" class="btn">Edit Profile</a>
-    </div>
-    
-    <div class="job-card">
-        <h3>Account Information</h3>
-        <p><strong>Username:</strong> {{ user.username }}</p>
-        <p><strong>Email:</strong> {{ user.email }}</p>
-        {% if user.first_name or user.last_name %}
-        <p><strong>Name:</strong> {{ user.first_name }} {{ user.last_name }}</p>
-        {% endif %}
-        <p><strong>Member since:</strong> {{ user.date_joined|date:"F d, Y" }}</p>
-        {% if user.userprofile %}
-            <p><strong>Account type:</strong> {{ user.userprofile.get_user_type_display }}</p>
-            {% if user.userprofile.phone %}
-            <p><strong>Phone:</strong> {{ user.userprofile.phone }}</p>
-            {% endif %}
-        {% endif %}
-    </div>
-    
-    {% if user.userprofile and user.userprofile.user_type == 'job_seeker' %}
-    <div class="job-card">
-        <h3>Professional Information</h3>
-        {% if user.userprofile.resume %}
-        <p><strong>Resume:</strong> 
-            <a href="{{ user.userprofile.resume.url }}" target="_blank" style="color: #3498db;">
-                📄 View Resume
-            </a>
-        </p>
-        {% else %}
-        <p><strong>Resume:</strong> <span style="color: #e74c3c;">Not uploaded</span> - 
-            <a href="{% url 'edit_profile' %}" style="color: #3498db;">Upload now</a>
-        </p>
-        {% endif %}
-        <p><strong>Experience:</strong> {{ user.userprofile.experience_years }} years</p>
-        {% if user.userprofile.skills %}
-        <p><strong>Skills:</strong> {{ user.userprofile.skills }}</p>
-        {% endif %}
-    </div>
-    
-    <div class="job-card">
-        <h3>My Job Applications</h3>
-        {% if user_applications %}
-            {% for application in user_applications %}
-            <div style="padding: 1rem; background: #f9f9f9; margin-bottom: 1rem; border-radius: 3px;">
-                <h4>{{ application.job.title }}</h4>
-                <p class="job-meta">
-                    {{ application.job.company }} | 
-                    Applied: {{ application.applied_date|date:"M d, Y" }} |
-                    Status: 
-                    {% if application.status == 'accepted' %}
-                        <span style="font-weight: bold; color: #27ae60;">{{ application.get_status_display }}</span>
-                    {% elif application.status == 'rejected' %}
-                        <span style="font-weight: bold; color: #e74c3c;">{{ application.get_status_display }}</span>
-                    {% else %}
-                        <span style="font-weight: bold; color: #f39c12;">{{ application.get_status_display }}</span>
-                    {% endif %}
-                </p>
-                {% if application.custom_resume %}
-                <p>📎 Custom resume uploaded for this application</p>
-                {% endif %}
-                <a href="{% url 'job_detail' application.job.id %}" style="color: #3498db;">View Job →</a>
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="fw-bold">
+                    <i class="bi bi-person-circle me-2"></i>My Profile
+                </h1>
+                <a href="{% url 'edit_profile' %}" class="btn btn-primary">
+                    <i class="bi bi-pencil me-2"></i>Edit Profile
+                </a>
             </div>
-            {% endfor %}
-        {% else %}
-            <p>You haven't applied to any jobs yet.</p>
-            <a href="{% url 'job_list' %}" class="btn">Browse Jobs</a>
-        {% endif %}
+
+            <!-- Account Information -->
+            <div class="card mb-4">
+                <div class="card-header bg-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-info-circle me-2 text-primary"></i>Account Information
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <strong>Username:</strong>
+                            <p>{{ user.username }}</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <strong>Email:</strong>
+                            <p>{{ user.email }}</p>
+                        </div>
+                        {% if user.first_name or user.last_name %}
+                        <div class="col-md-6 mb-3">
+                            <strong>Name:</strong>
+                            <p>{{ user.first_name }} {{ user.last_name }}</p>
+                        </div>
+                        {% endif %}
+                        <div class="col-md-6 mb-3">
+                            <strong>Member since:</strong>
+                            <p>{{ user.date_joined|date:"F d, Y" }}</p>
+                        </div>
+                        {% if user.userprofile %}
+                        <div class="col-md-6 mb-3">
+                            <strong>Account type:</strong>
+                            <p><span class="badge bg-primary">{{ user.userprofile.get_user_type_display }}</span></p>
+                        </div>
+                        {% if user.userprofile.phone %}
+                        <div class="col-md-6 mb-3">
+                            <strong>Phone:</strong>
+                            <p>{{ user.userprofile.phone }}</p>
+                        </div>
+                        {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            {% if user.userprofile and user.userprofile.user_type == 'job_seeker' %}
+            <!-- Professional Information -->
+            <div class="card mb-4">
+                <div class="card-header bg-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-briefcase me-2 text-primary"></i>Professional Information
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <strong>Resume:</strong>
+                            {% if user.userprofile.resume %}
+                            <p>
+                                <a href="{{ user.userprofile.resume.url }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-file-earmark-pdf me-1"></i>View Resume
+                                </a>
+                            </p>
+                            {% else %}
+                            <p class="text-danger">
+                                Not uploaded -
+                                <a href="{% url 'edit_profile' %}">Upload now</a>
+                            </p>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <strong>Experience:</strong>
+                            <p>{{ user.userprofile.experience_years }} years</p>
+                        </div>
+                        {% if user.userprofile.skills %}
+                        <div class="col-md-12 mb-3">
+                            <strong>Skills:</strong>
+                            <p>{{ user.userprofile.skills }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- My Job Applications -->
+            <div class="card">
+                <div class="card-header bg-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-file-earmark-text me-2 text-primary"></i>My Job Applications
+                    </h4>
+                </div>
+                <div class="card-body">
+                    {% if user_applications %}
+                        {% for application in user_applications %}
+                        <div class="card mb-3 border-start border-3 {% if application.status == 'accepted' %}border-success{% elif application.status == 'rejected' %}border-danger{% else %}border-secondary{% endif %}">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <h5 class="mb-1">{{ application.job.title }}</h5>
+                                        <p class="text-muted mb-2">
+                                            <i class="bi bi-building me-1"></i>{{ application.job.company }}
+                                        </p>
+                                        <div class="d-flex flex-wrap gap-2 mb-2">
+                                            <span class="badge bg-light text-dark">
+                                                <i class="bi bi-calendar me-1"></i>Applied {{ application.applied_date|date:"M d, Y" }}
+                                            </span>
+                                            {% if application.custom_resume %}
+                                            <span class="badge bg-light text-dark">
+                                                <i class="bi bi-paperclip me-1"></i>Custom Resume
+                                            </span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="text-end">
+                                        {% if application.status == 'pending' %}
+                                        <span class="badge bg-secondary">Pending Review</span>
+                                        {% elif application.status == 'reviewed' %}
+                                        <span class="badge bg-info">Reviewed</span>
+                                        {% elif application.status == 'accepted' %}
+                                        <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Accepted</span>
+                                        {% elif application.status == 'rejected' %}
+                                        <span class="badge bg-danger">Not Selected</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <a href="{% url 'job_detail' application.job.id %}" class="btn btn-sm btn-outline-primary mt-2">
+                                    <i class="bi bi-eye me-1"></i>View Job
+                                </a>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="bi bi-inbox" style="font-size: 3rem; color: var(--secondary-color);"></i>
+                            <p class="mt-3 text-muted">You haven't applied to any jobs yet.</p>
+                            <a href="{% url 'job_list' %}" class="btn btn-primary mt-2">
+                                <i class="bi bi-search me-2"></i>Browse Jobs
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if user.userprofile and user.userprofile.user_type == 'employer' %}
+            <!-- Company Information -->
+            <div class="card">
+                <div class="card-header bg-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-building me-2 text-primary"></i>Company Information
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <strong>Company:</strong>
+                            <p>{{ user.userprofile.company_name }}</p>
+                        </div>
+                        {% if user.userprofile.company_website %}
+                        <div class="col-md-6 mb-3">
+                            <strong>Website:</strong>
+                            <p><a href="{{ user.userprofile.company_website }}" target="_blank">{{ user.userprofile.company_website }}</a></p>
+                        </div>
+                        {% endif %}
+                        {% if user.userprofile.company_logo %}
+                        <div class="col-md-12 mb-3">
+                            <strong>Logo:</strong><br>
+                            <img src="{{ user.userprofile.company_logo.url }}" alt="Company Logo" style="max-width: 200px; border-radius: 8px; margin-top: 0.5rem;">
+                        </div>
+                        {% endif %}
+                        {% if user.userprofile.company_description %}
+                        <div class="col-md-12 mb-3">
+                            <strong>Description:</strong>
+                            <p>{{ user.userprofile.company_description }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <a href="{% url 'employer_dashboard' %}" class="btn btn-primary">
+                        <i class="bi bi-speedometer2 me-2"></i>Go to Dashboard
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
     </div>
-    {% endif %}
-    
-    {% if user.userprofile and user.userprofile.user_type == 'employer' %}
-    <div class="job-card">
-        <h3>Company Information</h3>
-        <p><strong>Company:</strong> {{ user.userprofile.company_name }}</p>
-        {% if user.userprofile.company_website %}
-        <p><strong>Website:</strong> <a href="{{ user.userprofile.company_website }}" target="_blank" style="color: #3498db;">{{ user.userprofile.company_website }}</a></p>
-        {% endif %}
-        {% if user.userprofile.company_logo %}
-        <p><strong>Logo:</strong></p>
-        <img src="{{ user.userprofile.company_logo.url }}" alt="Company Logo" style="max-width: 200px; border-radius: 5px;">
-        {% endif %}
-        {% if user.userprofile.company_description %}
-        <p><strong>Description:</strong> {{ user.userprofile.company_description }}</p>
-        {% endif %}
-        <p style="margin-top: 1rem;">
-            <a href="{% url 'employer_dashboard' %}" class="btn">Go to Dashboard</a>
-        </p>
-    </div>
-    {% endif %}
 </div>
 {% endblock %}

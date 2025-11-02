@@ -42,4 +42,7 @@ urlpatterns = [
     path('jobs/<int:job_id>/save/', views.save_job, name='save_job'),
     path('jobs/<int:job_id>/unsave/', views.unsave_job, name='unsave_job'),
     path('saved-jobs/', views.saved_jobs_list, name='saved_jobs'),
+
+    # Application Status Update
+    path('application/<int:application_id>/update-status/', views.update_application_status, name='update_application_status'),
 ]

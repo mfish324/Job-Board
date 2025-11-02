@@ -3,82 +3,169 @@
 {% block title %}Employer Dashboard - Real Jobs, Real People{% endblock %}
 
 {% block content %}
-<h1>Employer Dashboard</h1>
-<p>Welcome, {{ user.userprofile.company_name|default:user.username }}!</p>
+<div class="container">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="fw-bold">
+                <i class="bi bi-speedometer2 me-2"></i>Employer Dashboard
+            </h1>
+            <p class="text-muted">Welcome back, {{ user.userprofile.company_name|default:user.username }}!</p>
+        </div>
+        <a href="{% url 'post_job' %}" class="btn btn-primary btn-lg">
+            <i class="bi bi-plus-circle me-2"></i>Post New Job
+        </a>
+    </div>
 
-<div style="margin: 2rem 0;">
-    <a href="{% url 'post_job' %}" class="btn">+ Post New Job</a>
-</div>
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-4 mb-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <i class="bi bi-briefcase" style="font-size: 2.5rem; color: var(--primary-color);"></i>
+                    <h3 class="mt-2">{{ jobs.count }}</h3>
+                    <p class="text-muted mb-0">Active Job{{ jobs.count|pluralize }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <i class="bi bi-file-earmark-text" style="font-size: 2.5rem; color: var(--secondary-color);"></i>
+                    <h3 class="mt-2">{% for job in jobs %}{{ job.applications.count }}{% if not forloop.last %}+{% endif %}{% endfor %}</h3>
+                    <p class="text-muted mb-0">Total Application{{ jobs.count|pluralize }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <i class="bi bi-clock-history" style="font-size: 2.5rem; color: #6c757d;"></i>
+                    <h3 class="mt-2">New</h3>
+                    <p class="text-muted mb-0">Recent Activity</p>
+                </div>
+            </div>
+        </div>
+    </div>
 
-<h2>Your Job Postings</h2>
+    <h2 class="mb-4">Your Job Postings</h2>
 
-{% if jobs %}
-    {% for job in jobs %}
-    <div class="job-card">
-        <h3>{{ job.title }}</h3>
-        <p class="job-meta">
-            📍 {{ job.location }} | 
-            {% if job.salary %}💰 {{ job.salary }} | {% endif %}
-            Posted: {{ job.posted_date|date:"M d, Y" }} |
-            Applications: {{ job.applications.count }}
-        </p>
-        <p>{{ job.description|truncatewords:30 }}</p>
-        
-        <div style="margin-top: 1rem;">
-            <a href="{% url 'job_detail' job.id %}" class="btn">View Job</a>
-            
+    {% if jobs %}
+        {% for job in jobs %}
+        <div class="card mb-4">
+            <div class="card-header bg-white">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h4 class="mb-1">{{ job.title }}</h4>
+                        <div class="d-flex flex-wrap gap-2">
+                            <span class="badge bg-light text-dark">
+                                <i class="bi bi-geo-alt me-1"></i>{{ job.location }}
+                            </span>
+                            {% if job.salary %}
+                            <span class="badge bg-light text-dark">
+                                <i class="bi bi-cash me-1"></i>{{ job.salary }}
+                            </span>
+                            {% endif %}
+                            <span class="badge bg-light text-dark">
+                                <i class="bi bi-calendar me-1"></i>{{ job.posted_date|date:"M d, Y" }}
+                            </span>
+                            <span class="badge bg-primary">
+                                {{ job.applications.count }} Application{{ job.applications.count|pluralize }}
+                            </span>
+                        </div>
+                    </div>
+                    <a href="{% url 'job_detail' job.id %}" class="btn btn-outline-primary">
+                        <i class="bi bi-eye me-1"></i>View Job
+                    </a>
+                </div>
+            </div>
+
             {% if job.applications.count > 0 %}
-            <button onclick="toggleApplications('job-{{ job.id }}')" 
-                    style="margin-left: 1rem; padding: 0.5rem 1rem; background: #27ae60; color: white; border: none; border-radius: 3px; cursor: pointer;">
-                View {{ job.applications.count }} Application{{ job.applications.count|pluralize }}
-            </button>
+            <div class="card-body">
+                <div class="accordion" id="accordion-{{ job.id }}">
+                    {% for application in job.applications.all %}
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#app-{{ application.id }}">
+                                <div class="d-flex justify-content-between align-items-center w-100 me-3">
+                                    <div>
+                                        <strong>{{ application.applicant.get_full_name|default:application.applicant.username }}</strong>
+                                        <span class="text-muted ms-2">{{ application.applicant.email }}</span>
+                                    </div>
+                                    <div>
+                                        {% if application.status == 'pending' %}
+                                        <span class="badge bg-secondary">Pending</span>
+                                        {% elif application.status == 'reviewed' %}
+                                        <span class="badge bg-info">Reviewed</span>
+                                        {% elif application.status == 'accepted' %}
+                                        <span class="badge bg-success">Accepted</span>
+                                        {% elif application.status == 'rejected' %}
+                                        <span class="badge bg-danger">Rejected</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </button>
+                        </h2>
+                        <div id="app-{{ application.id }}" class="accordion-collapse collapse" data-bs-parent="#accordion-{{ job.id }}">
+                            <div class="accordion-body">
+                                <div class="row">
+                                    <div class="col-md-8">
+                                        <p><strong><i class="bi bi-calendar-check me-2"></i>Applied:</strong> {{ application.applied_date|date:"F d, Y g:i A" }}</p>
+
+                                        {% if application.cover_letter %}
+                                        <p><strong><i class="bi bi-envelope me-2"></i>Cover Letter:</strong></p>
+                                        <div class="alert alert-light">
+                                            {{ application.cover_letter }}
+                                        </div>
+                                        {% endif %}
+
+                                        {% if application.get_resume %}
+                                        <a href="{% url 'download_resume' application.id %}" class="btn btn-primary">
+                                            <i class="bi bi-download me-2"></i>Download Resume
+                                        </a>
+                                        {% else %}
+                                        <p class="text-danger"><i class="bi bi-exclamation-circle me-2"></i>No resume provided</p>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-4">
+                                        <form method="post" action="{% url 'update_application_status' application.id %}">
+                                            {% csrf_token %}
+                                            <label class="form-label fw-bold">Update Status:</label>
+                                            <select name="status" class="form-select mb-2" onchange="this.form.submit()">
+                                                <option value="pending" {% if application.status == 'pending' %}selected{% endif %}>Pending</option>
+                                                <option value="reviewed" {% if application.status == 'reviewed' %}selected{% endif %}>Reviewed</option>
+                                                <option value="accepted" {% if application.status == 'accepted' %}selected{% endif %}>Accepted</option>
+                                                <option value="rejected" {% if application.status == 'rejected' %}selected{% endif %}>Rejected</option>
+                                            </select>
+                                        </form>
+                                        <small class="text-muted">Status will update automatically</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% else %}
+            <div class="card-body text-center text-muted">
+                <i class="bi bi-inbox" style="font-size: 3rem;"></i>
+                <p class="mt-2">No applications yet</p>
+            </div>
             {% endif %}
         </div>
-        
-        {% if job.applications.count > 0 %}
-        <div id="job-{{ job.id }}" style="display: none; margin-top: 1rem; padding: 1rem; background: #f9f9f9; border-radius: 5px;">
-            <h4>Applications:</h4>
-            {% for application in job.applications.all %}
-            <div style="padding: 1rem; background: white; margin: 0.5rem 0; border-radius: 3px; border-left: 3px solid #3498db;">
-                <p><strong>Applicant:</strong> {{ application.applicant.get_full_name|default:application.applicant.username }}</p>
-                <p><strong>Email:</strong> {{ application.applicant.email }}</p>
-                <p><strong>Applied:</strong> {{ application.applied_date|date:"M d, Y g:i A" }}</p>
-                
-                {% if application.get_resume %}
-                <p>
-                    <a href="{% url 'download_resume' application.id %}" class="btn" style="background: #3498db;">
-                        📄 Download Resume
-                    </a>
-                </p>
-                {% else %}
-                <p style="color: #e74c3c;">No resume provided</p>
-                {% endif %}
-                
-                {% if application.cover_letter %}
-                <p><strong>Cover Letter:</strong></p>
-                <div style="padding: 0.5rem; background: #f0f0f0; border-radius: 3px;">
-                    {{ application.cover_letter }}
-                </div>
-                {% endif %}
+        {% endfor %}
+    {% else %}
+        <div class="card text-center py-5">
+            <div class="card-body">
+                <i class="bi bi-briefcase" style="font-size: 4rem; color: var(--secondary-color);"></i>
+                <h3 class="mt-4 mb-3">No Job Postings Yet</h3>
+                <p class="text-muted mb-4">Start attracting top talent by posting your first job opening.</p>
+                <a href="{% url 'post_job' %}" class="btn btn-primary btn-lg">
+                    <i class="bi bi-plus-circle me-2"></i>Post Your First Job
+                </a>
             </div>
-            {% endfor %}
         </div>
-        {% endif %}
-    </div>
-    {% endfor %}
-{% else %}
-    <p>You haven't posted any jobs yet.</p>
-    <a href="{% url 'post_job' %}" class="btn">Post Your First Job</a>
-{% endif %}
-
-<script>
-function toggleApplications(jobId) {
-    var element = document.getElementById(jobId);
-    if (element.style.display === "none") {
-        element.style.display = "block";
-    } else {
-        element.style.display = "none";
-    }
-}
-</script>
+    {% endif %}
+</div>
 {% endblock %}

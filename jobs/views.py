@@ -509,3 +509,35 @@ def saved_jobs_list(request):
         'saved_jobs': saved_jobs
     }
     return render(request, 'jobs/saved_jobs.html', context)
+
+
+@login_required
+def update_application_status(request, application_id):
+    """Update the status of a job application (employer only)"""
+    application = get_object_or_404(JobApplication, id=application_id)
+
+    # Only the employer who posted the job can update status
+    if request.user != application.job.posted_by:
+        messages.error(request, 'You do not have permission to update this application.')
+        return redirect('home')
+
+    if request.method == 'POST':
+        new_status = request.POST.get('status')
+        valid_statuses = ['pending', 'reviewed', 'accepted', 'rejected']
+
+        if new_status in valid_statuses:
+            application.status = new_status
+            application.save()
+
+            status_messages = {
+                'pending': 'Application marked as pending.',
+                'reviewed': 'Application marked as reviewed.',
+                'accepted': 'Application accepted!',
+                'rejected': 'Application rejected.'
+            }
+
+            messages.success(request, status_messages.get(new_status, 'Application status updated.'))
+        else:
+            messages.error(request, 'Invalid status.')
+
+    return redirect('employer_dashboard')
