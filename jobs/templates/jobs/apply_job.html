@@ -3,73 +3,139 @@
 {% block title %}Apply for {{ job.title }} - Real Jobs, Real People{% endblock %}
 
 {% block content %}
-<div style="max-width: 600px; margin: 0 auto;">
-    <h1>Apply for {{ job.title }}</h1>
-    <p class="job-meta">{{ job.company }} | {{ job.location }}</p>
-    
-    <form method="post" enctype="multipart/form-data" style="background: #f9f9f9; padding: 2rem; border-radius: 5px; margin-top: 2rem;">
-        {% csrf_token %}
-        
-        <div style="margin-bottom: 1rem; padding: 1rem; background: #e8f4f8; border-radius: 3px;">
-            <p><strong>Applying as:</strong> {{ user.get_full_name|default:user.username }}</p>
-            <p><strong>Email:</strong> {{ user.email }}</p>
-            
-            {% if user.userprofile.resume %}
-            <p><strong>Default Resume:</strong> 
-                <a href="{{ user.userprofile.resume.url }}" target="_blank" style="color: #3498db;">
-                    📄 {{ user.userprofile.get_resume_filename }}
-                </a>
-            </p>
-            <p style="font-size: 0.9rem; color: #666;">
-                Your profile resume will be used unless you upload a different one below.
-            </p>
-            {% else %}
-            <p style="color: #e74c3c;">
-                ⚠️ No resume on profile - please upload one below or 
-                <a href="{% url 'edit_profile' %}" target="_blank" style="color: #3498db;">update your profile</a>
-            </p>
-            {% endif %}
-        </div>
-        
-        {% for field in form %}
-        <div style="margin-bottom: 1rem;">
-            <label for="{{ field.id_for_label }}" style="display: block; margin-bottom: 0.5rem; font-weight: bold;">
-                {{ field.label }}
-            </label>
-            {{ field }}
-            {% if field.help_text %}
-                <small style="color: #666;">{{ field.help_text }}</small>
-            {% endif %}
-            {% if field.errors %}
-                <div style="color: #e74c3c; font-size: 0.9rem; margin-top: 0.25rem;">
-                    {{ field.errors.0 }}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <!-- Header -->
+            <div class="mb-4">
+                <h1 class="fw-bold mb-3">
+                    <i class="bi bi-send me-2"></i>Apply for Position
+                </h1>
+                <div class="card bg-light">
+                    <div class="card-body">
+                        <h4 class="card-title mb-1">{{ job.title }}</h4>
+                        <p class="card-text text-muted mb-0">
+                            <i class="bi bi-building me-1"></i>{{ job.company }}
+                            <span class="mx-2">|</span>
+                            <i class="bi bi-geo-alt me-1"></i>{{ job.location }}
+                        </p>
+                    </div>
                 </div>
-            {% endif %}
-        </div>
-        {% endfor %}
-        
-        <button type="submit" class="btn" style="width: 100%; padding: 0.75rem;">Submit Application</button>
-    </form>
-    
-    <p style="text-align: center; margin-top: 1rem;">
-        <a href="{% url 'job_detail' job.id %}" style="color: #3498db;">Cancel and go back</a>
-    </p>
-</div>
+            </div>
 
-<style>
-    textarea {
-        width: 100%;
-        padding: 0.5rem;
-        border: 1px solid #ddd;
-        border-radius: 3px;
-        font-size: 1rem;
-    }
-    input[type="file"] {
-        width: 100%;
-        padding: 0.5rem;
-        border: 1px solid #ddd;
-        border-radius: 3px;
-        background: white;
-    }
-</style>
+            <!-- Application Form -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-file-earmark-text me-2"></i>Application Details
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Applicant Info -->
+                    <div class="alert alert-info mb-4">
+                        <h6 class="alert-heading">
+                            <i class="bi bi-person-circle me-2"></i>Applying As:
+                        </h6>
+                        <p class="mb-1"><strong>Name:</strong> {{ user.get_full_name|default:user.username }}</p>
+                        <p class="mb-1"><strong>Email:</strong> {{ user.email }}</p>
+
+                        {% if user.userprofile.resume %}
+                        <hr class="my-2">
+                        <p class="mb-1">
+                            <strong><i class="bi bi-paperclip me-1"></i>Default Resume:</strong>
+                            <a href="{{ user.userprofile.resume.url }}" target="_blank" class="alert-link">
+                                {{ user.userprofile.get_resume_filename }}
+                            </a>
+                        </p>
+                        <small class="text-muted">
+                            Your profile resume will be used unless you upload a different one below.
+                        </small>
+                        {% else %}
+                        <hr class="my-2">
+                        <p class="text-danger mb-1">
+                            <i class="bi bi-exclamation-triangle me-1"></i><strong>No resume on profile</strong>
+                        </p>
+                        <small>
+                            Please upload one below or
+                            <a href="{% url 'edit_profile' %}" target="_blank" class="alert-link">update your profile</a>
+                        </small>
+                        {% endif %}
+                    </div>
+
+                    <!-- Form -->
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+
+                        {% for field in form %}
+                        <div class="mb-4">
+                            <label for="{{ field.id_for_label }}" class="form-label fw-semibold">
+                                {% if 'cover' in field.name %}
+                                    <i class="bi bi-envelope me-1"></i>
+                                {% elif 'resume' in field.name %}
+                                    <i class="bi bi-file-earmark-arrow-up me-1"></i>
+                                {% endif %}
+                                {{ field.label }}
+                                {% if field.field.required %}
+                                    <span class="text-danger">*</span>
+                                {% endif %}
+                            </label>
+
+                            {% if field.field.widget.input_type == 'textarea' %}
+                                <textarea name="{{ field.name }}"
+                                          id="{{ field.id_for_label }}"
+                                          class="form-control {% if field.errors %}is-invalid{% endif %}"
+                                          rows="8"
+                                          placeholder="Tell us why you're a great fit for this position...">{{ field.value|default:'' }}</textarea>
+                            {% elif field.field.widget.input_type == 'file' %}
+                                <input type="file"
+                                       name="{{ field.name }}"
+                                       id="{{ field.id_for_label }}"
+                                       class="form-control {% if field.errors %}is-invalid{% endif %}"
+                                       accept=".pdf,.doc,.docx">
+                            {% else %}
+                                {{ field }}
+                            {% endif %}
+
+                            {% if field.help_text %}
+                                <div class="form-text">{{ field.help_text }}</div>
+                            {% endif %}
+
+                            {% if field.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ field.errors.0 }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+
+                        <!-- Submit Buttons -->
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="bi bi-send-fill me-2"></i>Submit Application
+                            </button>
+                            <a href="{% url 'job_detail' job.id %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-x-circle me-2"></i>Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Tips -->
+            <div class="card mt-4 border-0 bg-light">
+                <div class="card-body">
+                    <h6 class="fw-bold mb-3">
+                        <i class="bi bi-lightbulb text-warning me-2"></i>Application Tips
+                    </h6>
+                    <ul class="mb-0 small text-muted">
+                        <li>Customize your cover letter for this specific position</li>
+                        <li>Highlight relevant skills and experience from the job description</li>
+                        <li>Proofread your application before submitting</li>
+                        <li>Ensure your resume is up-to-date and relevant</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}

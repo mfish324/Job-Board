@@ -304,11 +304,25 @@ def privacy_settings(request):
 @login_required
 def user_profile(request):
     user_applications = None
+    application_stats = {
+        'pending_count': 0,
+        'reviewed_count': 0,
+        'accepted_count': 0,
+        'rejected_count': 0
+    }
+
     if hasattr(request.user, 'userprofile') and request.user.userprofile.user_type == 'job_seeker':
         user_applications = JobApplication.objects.filter(applicant=request.user).order_by('-applied_date')
-    
+
+        # Calculate statistics
+        application_stats['pending_count'] = user_applications.filter(status='pending').count()
+        application_stats['reviewed_count'] = user_applications.filter(status='reviewed').count()
+        application_stats['accepted_count'] = user_applications.filter(status='accepted').count()
+        application_stats['rejected_count'] = user_applications.filter(status='rejected').count()
+
     context = {
-        'user_applications': user_applications
+        'user_applications': user_applications,
+        'application_stats': application_stats
     }
     return render(request, 'jobs/profile.html', context)
 
