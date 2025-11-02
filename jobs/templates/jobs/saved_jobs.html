@@ -1,0 +1,106 @@
+{% extends 'jobs/base.html' %}
+
+{% block title %}Saved Jobs - Real Jobs, Real People{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 class="fw-bold">
+                        <i class="bi bi-bookmark-fill text-warning me-2"></i>Saved Jobs
+                    </h1>
+                    <p class="text-muted">Jobs you've bookmarked for later</p>
+                </div>
+                <a href="{% url 'job_list' %}" class="btn btn-outline-primary">
+                    <i class="bi bi-search me-2"></i>Browse More Jobs
+                </a>
+            </div>
+
+            {% if saved_jobs %}
+                <div class="row">
+                    {% for saved_job in saved_jobs %}
+                    <div class="col-12 mb-3">
+                        <div class="card hover-shadow">
+                            <div class="card-body">
+                                <div class="row align-items-center">
+                                    <div class="col-md-8">
+                                        <h5 class="card-title mb-2">
+                                            <a href="{% url 'job_detail' saved_job.job.id %}" class="text-decoration-none">
+                                                {{ saved_job.job.title }}
+                                            </a>
+                                        </h5>
+                                        <p class="text-primary mb-2">
+                                            <i class="bi bi-building me-1"></i>{{ saved_job.job.company }}
+                                        </p>
+                                        <div class="d-flex flex-wrap gap-2">
+                                            <span class="badge bg-light text-dark">
+                                                <i class="bi bi-geo-alt me-1"></i>{{ saved_job.job.location }}
+                                            </span>
+                                            {% if saved_job.job.salary %}
+                                            <span class="badge bg-light text-dark">
+                                                <i class="bi bi-cash me-1"></i>{{ saved_job.job.salary }}
+                                            </span>
+                                            {% endif %}
+                                            <span class="badge bg-light text-dark">
+                                                <i class="bi bi-calendar me-1"></i>Posted {{ saved_job.job.posted_date|timesince }} ago
+                                            </span>
+                                            <span class="badge bg-light text-dark">
+                                                <i class="bi bi-bookmark-fill me-1"></i>Saved {{ saved_job.saved_date|timesince }} ago
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                                        <div class="d-grid gap-2 d-md-block">
+                                            <a href="{% url 'job_detail' saved_job.job.id %}" class="btn btn-primary">
+                                                <i class="bi bi-eye me-2"></i>View Job
+                                            </a>
+                                            <a href="{% url 'unsave_job' saved_job.job.id %}" class="btn btn-outline-danger">
+                                                <i class="bi bi-trash me-2"></i>Remove
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Summary -->
+                <div class="alert alert-info mt-4">
+                    <i class="bi bi-info-circle me-2"></i>
+                    You have <strong>{{ saved_jobs.count }}</strong> saved job{{ saved_jobs.count|pluralize }}.
+                </div>
+
+            {% else %}
+                <!-- Empty State -->
+                <div class="card text-center py-5">
+                    <div class="card-body">
+                        <i class="bi bi-bookmark" style="font-size: 4rem; color: var(--secondary-color);"></i>
+                        <h3 class="mt-4 mb-3">No Saved Jobs Yet</h3>
+                        <p class="text-muted mb-4">
+                            Start building your collection by saving jobs you're interested in.<br>
+                            Click the bookmark icon on any job listing to save it for later.
+                        </p>
+                        <a href="{% url 'job_list' %}" class="btn btn-primary btn-lg">
+                            <i class="bi bi-search me-2"></i>Browse Available Jobs
+                        </a>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+.hover-shadow {
+    transition: box-shadow 0.3s ease;
+}
+.hover-shadow:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+}
+</style>
+{% endblock %}

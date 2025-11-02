@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Job, UserProfile, JobApplication, PhoneVerification, EmailVerification
+from .models import Job, UserProfile, JobApplication, PhoneVerification, EmailVerification, SavedJob
 
 
 @admin.register(Job)
@@ -73,3 +73,12 @@ class EmailVerificationAdmin(admin.ModelAdmin):
     search_fields = ('user__username', 'user__email')
     readonly_fields = ('created_at', 'verified_at', 'verification_token')
     date_hierarchy = 'created_at'
+
+
+@admin.register(SavedJob)
+class SavedJobAdmin(admin.ModelAdmin):
+    list_display = ('user', 'job', 'saved_date')
+    list_filter = ('saved_date',)
+    search_fields = ('user__username', 'job__title', 'job__company')
+    date_hierarchy = 'saved_date'
+    readonly_fields = ('saved_date',)

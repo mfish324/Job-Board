@@ -37,4 +37,9 @@ urlpatterns = [
     path('verify-phone/', views.verify_phone_code, name='verify_phone'),
     path('verify-email/<str:token>/', views.verify_email, name='verify_email'),
     path('resend-code/', views.resend_verification_code, name='resend_code'),
+
+    # Saved Jobs URLs
+    path('jobs/<int:job_id>/save/', views.save_job, name='save_job'),
+    path('jobs/<int:job_id>/unsave/', views.unsave_job, name='unsave_job'),
+    path('saved-jobs/', views.saved_jobs_list, name='saved_jobs'),
 ]

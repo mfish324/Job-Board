@@ -6,7 +6,7 @@ from django.db.models import Q
 from django.http import HttpResponse
 from django.utils import timezone
 from django.conf import settings
-from .models import Job, UserProfile, JobApplication, PhoneVerification, EmailVerification
+from .models import Job, UserProfile, JobApplication, PhoneVerification, EmailVerification, SavedJob
 from .forms import JobSeekerSignUpForm, EmployerSignUpForm, JobPostForm, JobApplicationForm
 from .forms import (JobSeekerSignUpForm, EmployerSignUpForm, JobPostForm,
                    JobApplicationForm, JobSeekerProfileForm, EmployerProfileForm)
@@ -49,16 +49,22 @@ def job_list(request):
 def job_detail(request, job_id):
     job = get_object_or_404(Job, id=job_id)
     user_has_applied = False
-    
+    job_is_saved = False
+
     if request.user.is_authenticated:
         user_has_applied = JobApplication.objects.filter(
-            job=job, 
+            job=job,
             applicant=request.user
         ).exists()
-    
+        job_is_saved = SavedJob.objects.filter(
+            job=job,
+            user=request.user
+        ).exists()
+
     context = {
         'job': job,
-        'user_has_applied': user_has_applied
+        'user_has_applied': user_has_applied,
+        'job_is_saved': job_is_saved
     }
     return render(request, 'jobs/job_detail.html', context)
 
@@ -460,3 +466,46 @@ def resend_verification_code(request):
         messages.error(request, 'Failed to send verification code. Please try again later.')
 
     return redirect('verify_phone')
+
+
+# Saved Jobs Views
+@login_required
+def save_job(request, job_id):
+    """Save/bookmark a job for later"""
+    job = get_object_or_404(Job, id=job_id)
+
+    # Check if already saved
+    saved, created = SavedJob.objects.get_or_create(user=request.user, job=job)
+
+    if created:
+        messages.success(request, f'"{job.title}" saved to your bookmarks!')
+    else:
+        messages.info(request, 'This job is already in your saved jobs.')
+
+    return redirect('job_detail', job_id=job_id)
+
+
+@login_required
+def unsave_job(request, job_id):
+    """Remove a job from saved/bookmarks"""
+    job = get_object_or_404(Job, id=job_id)
+
+    try:
+        saved_job = SavedJob.objects.get(user=request.user, job=job)
+        saved_job.delete()
+        messages.success(request, f'"{job.title}" removed from your bookmarks.')
+    except SavedJob.DoesNotExist:
+        messages.warning(request, 'This job was not in your saved jobs.')
+
+    return redirect('job_detail', job_id=job_id)
+
+
+@login_required
+def saved_jobs_list(request):
+    """View all saved/bookmarked jobs"""
+    saved_jobs = SavedJob.objects.filter(user=request.user).select_related('job')
+
+    context = {
+        'saved_jobs': saved_jobs
+    }
+    return render(request, 'jobs/saved_jobs.html', context)

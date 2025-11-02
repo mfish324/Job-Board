@@ -106,12 +106,25 @@ class EmailVerification(models.Model):
     is_verified = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     verified_at = models.DateTimeField(null=True, blank=True)
-    
+
     def __str__(self):
         return f"{self.user.username} - {self.user.email} - {'Verified' if self.is_verified else 'Pending'}"
-    
+
     def is_token_expired(self):
         from django.utils import timezone
         from datetime import timedelta
         expiry_time = self.created_at + timedelta(hours=24)  # 24 hour expiry for email
         return timezone.now() > expiry_time
+
+class SavedJob(models.Model):
+    """Job bookmarks - allows users to save jobs for later"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='saved_jobs')
+    job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name='saved_by')
+    saved_date = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['user', 'job']
+        ordering = ['-saved_date']
+
+    def __str__(self):
+        return f"{self.user.username} saved {self.job.title}"
