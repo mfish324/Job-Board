@@ -13,34 +13,88 @@
         </div>
     </div>
 
-    <!-- Search Bar -->
+    <!-- Search and Filters -->
     <div class="row mb-4">
-        <div class="col-lg-8 mx-auto">
+        <div class="col-lg-12">
             <div class="card shadow-sm">
                 <div class="card-body">
-                    <form method="get" action="{% url 'job_list' %}" class="row g-3">
-                        <div class="col-md-9">
-                            <div class="input-group input-group-lg">
-                                <span class="input-group-text bg-white">
-                                    <i class="bi bi-search"></i>
-                                </span>
-                                <input type="text"
-                                       name="search"
-                                       class="form-control form-control-lg border-start-0"
-                                       placeholder="Search jobs, companies, locations..."
-                                       value="{{ search_query }}">
+                    <form method="get" action="{% url 'job_list' %}" id="filterForm">
+                        <!-- Search Bar -->
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-9">
+                                <div class="input-group input-group-lg">
+                                    <span class="input-group-text bg-white">
+                                        <i class="bi bi-search"></i>
+                                    </span>
+                                    <input type="text"
+                                           name="search"
+                                           class="form-control form-control-lg border-start-0"
+                                           placeholder="Search jobs, companies, locations..."
+                                           value="{{ search_query }}">
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <button type="submit" class="btn btn-primary btn-lg w-100">
+                                    <i class="bi bi-search me-2"></i>Search
+                                </button>
                             </div>
                         </div>
-                        <div class="col-md-3">
-                            <button type="submit" class="btn btn-primary btn-lg w-100">
-                                <i class="bi bi-search me-2"></i>Search
-                            </button>
+
+                        <!-- Filters -->
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">
+                                    <i class="bi bi-geo-alt me-1"></i>Location
+                                </label>
+                                <select name="location" class="form-select" onchange="this.form.submit()">
+                                    <option value="">All Locations</option>
+                                    {% for loc in all_locations %}
+                                    <option value="{{ loc }}" {% if location_filter == loc %}selected{% endif %}>
+                                        {{ loc }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">
+                                    <i class="bi bi-cash me-1"></i>Salary
+                                </label>
+                                <select name="salary" class="form-select" onchange="this.form.submit()">
+                                    <option value="">All Jobs</option>
+                                    <option value="with_salary" {% if salary_filter == 'with_salary' %}selected{% endif %}>
+                                        With Salary Info Only
+                                    </option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">
+                                    <i class="bi bi-calendar me-1"></i>Date Posted
+                                </label>
+                                <select name="date_posted" class="form-select" onchange="this.form.submit()">
+                                    <option value="">Any Time</option>
+                                    <option value="24h" {% if date_filter == '24h' %}selected{% endif %}>
+                                        Last 24 Hours
+                                    </option>
+                                    <option value="7d" {% if date_filter == '7d' %}selected{% endif %}>
+                                        Last 7 Days
+                                    </option>
+                                    <option value="30d" {% if date_filter == '30d' %}selected{% endif %}>
+                                        Last 30 Days
+                                    </option>
+                                </select>
+                            </div>
                         </div>
-                        {% if search_query %}
-                        <div class="col-12 text-center">
-                            <a href="{% url 'job_list' %}" class="text-decoration-none">
-                                <i class="bi bi-x-circle me-1"></i>Clear search
-                            </a>
+
+                        <!-- Clear Filters -->
+                        {% if search_query or location_filter or salary_filter or date_filter %}
+                        <div class="row mt-3">
+                            <div class="col text-center">
+                                <a href="{% url 'job_list' %}" class="btn btn-outline-secondary">
+                                    <i class="bi bi-x-circle me-1"></i>Clear All Filters
+                                </a>
+                            </div>
                         </div>
                         {% endif %}
                     </form>
@@ -49,18 +103,47 @@
         </div>
     </div>
 
+    <!-- Active Filters Display -->
+    {% if search_query or location_filter or salary_filter or date_filter %}
+    <div class="row mb-3">
+        <div class="col">
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+                <span class="fw-semibold">Active Filters:</span>
+                {% if search_query %}
+                <span class="badge bg-primary">
+                    Search: "{{ search_query }}"
+                    <a href="?{% if location_filter %}location={{ location_filter }}&{% endif %}{% if salary_filter %}salary={{ salary_filter }}&{% endif %}{% if date_filter %}date_posted={{ date_filter }}{% endif %}" class="text-white ms-1">×</a>
+                </span>
+                {% endif %}
+                {% if location_filter %}
+                <span class="badge bg-primary">
+                    Location: {{ location_filter }}
+                    <a href="?{% if search_query %}search={{ search_query }}&{% endif %}{% if salary_filter %}salary={{ salary_filter }}&{% endif %}{% if date_filter %}date_posted={{ date_filter }}{% endif %}" class="text-white ms-1">×</a>
+                </span>
+                {% endif %}
+                {% if salary_filter %}
+                <span class="badge bg-primary">
+                    With Salary
+                    <a href="?{% if search_query %}search={{ search_query }}&{% endif %}{% if location_filter %}location={{ location_filter }}&{% endif %}{% if date_filter %}date_posted={{ date_filter }}{% endif %}" class="text-white ms-1">×</a>
+                </span>
+                {% endif %}
+                {% if date_filter %}
+                <span class="badge bg-primary">
+                    {% if date_filter == '24h' %}Last 24 Hours{% elif date_filter == '7d' %}Last 7 Days{% elif date_filter == '30d' %}Last 30 Days{% endif %}
+                    <a href="?{% if search_query %}search={{ search_query }}&{% endif %}{% if location_filter %}location={{ location_filter }}&{% endif %}{% if salary_filter %}salary={{ salary_filter }}{% endif %}" class="text-white ms-1">×</a>
+                </span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Results Info -->
     <div class="row mb-3">
         <div class="col">
-            {% if search_query %}
-            <div class="alert alert-info">
-                <i class="bi bi-info-circle me-2"></i>
-                Search results for: <strong>"{{ search_query }}"</strong>
-            </div>
-            {% endif %}
             <h5 class="text-muted">
                 <i class="bi bi-filter-circle me-2"></i>
-                Found <strong>{{ jobs|length }}</strong> active position{{ jobs|length|pluralize }}
+                Found <strong>{{ total_results }}</strong> position{{ total_results|pluralize }}
             </h5>
         </div>
     </div>
@@ -118,8 +201,8 @@
                         <i class="bi bi-search text-muted" style="font-size: 4rem;"></i>
                         <h4 class="mt-3">No jobs found</h4>
                         <p class="text-muted">
-                            {% if search_query %}
-                            Try adjusting your search terms or <a href="{% url 'job_list' %}">browse all jobs</a>
+                            {% if search_query or location_filter or salary_filter or date_filter %}
+                            Try adjusting your filters or <a href="{% url 'job_list' %}">view all jobs</a>
                             {% else %}
                             No jobs are currently available. Check back soon!
                             {% endif %}

@@ -30,7 +30,11 @@ def home(request):
     return render(request, 'jobs/home.html', context)
 
 def job_list(request):
+    from datetime import timedelta
+    
     jobs = Job.objects.filter(is_active=True)
+    
+    # Search query
     search_query = request.GET.get('search', '')
     if search_query:
         jobs = jobs.filter(
@@ -39,10 +43,40 @@ def job_list(request):
             Q(description__icontains=search_query) |
             Q(location__icontains=search_query)
         )
+    
+    # Location filter
+    location_filter = request.GET.get('location', '')
+    if location_filter:
+        jobs = jobs.filter(location__icontains=location_filter)
+    
+    # Salary filter (has salary or not)
+    salary_filter = request.GET.get('salary', '')
+    if salary_filter == 'with_salary':
+        jobs = jobs.exclude(salary='')
+    
+    # Date posted filter
+    date_filter = request.GET.get('date_posted', '')
+    if date_filter:
+        if date_filter == '24h':
+            jobs = jobs.filter(posted_date__gte=timezone.now() - timedelta(hours=24))
+        elif date_filter == '7d':
+            jobs = jobs.filter(posted_date__gte=timezone.now() - timedelta(days=7))
+        elif date_filter == '30d':
+            jobs = jobs.filter(posted_date__gte=timezone.now() - timedelta(days=30))
+    
+    # Get unique locations for filter dropdown
+    all_locations = Job.objects.filter(is_active=True).values_list('location', flat=True).distinct().order_by('location')
+    
     jobs = jobs.order_by('-posted_date')
+    
     context = {
         'jobs': jobs,
-        'search_query': search_query
+        'search_query': search_query,
+        'location_filter': location_filter,
+        'salary_filter': salary_filter,
+        'date_filter': date_filter,
+        'all_locations': all_locations,
+        'total_results': jobs.count()
     }
     return render(request, 'jobs/job_list.html', context)
 
