@@ -17,6 +17,9 @@ urlpatterns = [
     # Employer URLs
     path('employer/dashboard/', views.employer_dashboard, name='employer_dashboard'),
     path('employer/post-job/', views.post_job, name='post_job'),
+    path('employer/job/<int:job_id>/edit/', views.edit_job, name='edit_job'),
+    path('employer/job/<int:job_id>/delete/', views.delete_job, name='delete_job'),
+    path('employer/job/<int:job_id>/toggle-status/', views.toggle_job_status, name='toggle_job_status'),
     
     # Job Application
     path('jobs/<int:job_id>/apply/', views.apply_job, name='apply_job'),

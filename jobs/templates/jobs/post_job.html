@@ -1,39 +1,77 @@
 {% extends 'jobs/base.html' %}
 
-{% block title %}Post a Job - Real Jobs, Real People{% endblock %}
+{% block title %}{% if is_edit %}Edit Job{% else %}Post a Job{% endif %} - Real Jobs, Real People{% endblock %}
 
 {% block content %}
-<div style="max-width: 600px; margin: 0 auto;">
-    <h1>Post a New Job</h1>
-    
-    <form method="post" style="background: #f9f9f9; padding: 2rem; border-radius: 5px;">
-        {% csrf_token %}
-        
-        {% for field in form %}
-        <div style="margin-bottom: 1rem;">
-            <label for="{{ field.id_for_label }}" style="display: block; margin-bottom: 0.5rem; font-weight: bold;">
-                {{ field.label }}
-            </label>
-            {{ field }}
-            {% if field.errors %}
-                <div style="color: #e74c3c; font-size: 0.9rem; margin-top: 0.25rem;">
-                    {{ field.errors.0 }}
-                </div>
-            {% endif %}
-        </div>
-        {% endfor %}
-        
-        <button type="submit" class="btn" style="width: 100%; padding: 0.75rem;">Post Job</button>
-    </form>
-</div>
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="mb-4">
+                <h1 class="fw-bold">
+                    <i class="bi bi-{% if is_edit %}pencil{% else %}plus-circle{% endif %} me-2"></i>
+                    {% if is_edit %}Edit Job Posting{% else %}Post a New Job{% endif %}
+                </h1>
+                {% if is_edit %}
+                <p class="text-muted">Update your job posting details</p>
+                {% else %}
+                <p class="text-muted">Fill out the form below to post a new job opening</p>
+                {% endif %}
+            </div>
 
-<style>
-    input, textarea {
-        width: 100%;
-        padding: 0.5rem;
-        border: 1px solid #ddd;
-        border-radius: 3px;
-        font-size: 1rem;
-    }
-</style>
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+
+                        {% for field in form %}
+                        <div class="mb-4">
+                            <label for="{{ field.id_for_label }}" class="form-label fw-semibold">
+                                {{ field.label }}
+                                {% if field.field.required %}
+                                    <span class="text-danger">*</span>
+                                {% endif %}
+                            </label>
+
+                            {% if field.field.widget.input_type == 'textarea' %}
+                                <textarea name="{{ field.name }}"
+                                          id="{{ field.id_for_label }}"
+                                          class="form-control {% if field.errors %}is-invalid{% endif %}"
+                                          rows="6">{{ field.value|default:'' }}</textarea>
+                            {% elif field.field.widget.input_type == 'text' %}
+                                <input type="text"
+                                       name="{{ field.name }}"
+                                       id="{{ field.id_for_label }}"
+                                       class="form-control {% if field.errors %}is-invalid{% endif %}"
+                                       value="{{ field.value|default:'' }}">
+                            {% else %}
+                                {{ field }}
+                            {% endif %}
+
+                            {% if field.help_text %}
+                                <div class="form-text">{{ field.help_text }}</div>
+                            {% endif %}
+
+                            {% if field.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ field.errors.0 }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="bi bi-{% if is_edit %}save{% else %}send-fill{% endif %} me-2"></i>
+                                {% if is_edit %}Update Job{% else %}Post Job{% endif %}
+                            </button>
+                            <a href="{% url 'employer_dashboard' %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-x-circle me-2"></i>Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}

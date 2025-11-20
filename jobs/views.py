@@ -259,6 +259,67 @@ def post_job(request):
     return render(request, 'jobs/post_job.html', {'form': form})
 
 @login_required
+def edit_job(request, job_id):
+    """Edit an existing job posting"""
+    job = get_object_or_404(Job, id=job_id)
+
+    # Ensure only the job owner can edit
+    if job.posted_by != request.user:
+        messages.error(request, 'You do not have permission to edit this job.')
+        return redirect('employer_dashboard')
+
+    if request.method == 'POST':
+        form = JobPostForm(request.POST, instance=job)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Job updated successfully!')
+            return redirect('employer_dashboard')
+    else:
+        form = JobPostForm(instance=job)
+
+    context = {
+        'form': form,
+        'job': job,
+        'is_edit': True
+    }
+    return render(request, 'jobs/post_job.html', context)
+
+@login_required
+def delete_job(request, job_id):
+    """Delete a job posting"""
+    job = get_object_or_404(Job, id=job_id)
+
+    # Ensure only the job owner can delete
+    if job.posted_by != request.user:
+        messages.error(request, 'You do not have permission to delete this job.')
+        return redirect('employer_dashboard')
+
+    if request.method == 'POST':
+        job_title = job.title
+        job.delete()
+        messages.success(request, f'Job "{job_title}" has been deleted.')
+        return redirect('employer_dashboard')
+
+    return render(request, 'jobs/delete_job_confirm.html', {'job': job})
+
+@login_required
+def toggle_job_status(request, job_id):
+    """Toggle job active/inactive status"""
+    job = get_object_or_404(Job, id=job_id)
+
+    # Ensure only the job owner can toggle status
+    if job.posted_by != request.user:
+        messages.error(request, 'You do not have permission to modify this job.')
+        return redirect('employer_dashboard')
+
+    job.is_active = not job.is_active
+    job.save()
+
+    status = "activated" if job.is_active else "deactivated"
+    messages.success(request, f'Job "{job.title}" has been {status}.')
+    return redirect('employer_dashboard')
+
+@login_required
 def apply_job(request, job_id):
     job = get_object_or_404(Job, id=job_id)
     
