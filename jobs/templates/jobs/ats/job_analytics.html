@@ -1,0 +1,352 @@
+{% extends 'jobs/base.html' %}
+
+{% block title %}{{ job.title }} Analytics - Real Jobs, Real People{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stat-card {
+        border-left: 4px solid var(--primary-color);
+        transition: transform 0.2s;
+    }
+    .stat-card:hover {
+        transform: translateY(-2px);
+    }
+    .stat-card .stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--primary-color);
+    }
+    .stat-card .stat-label {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    .chart-container {
+        position: relative;
+        height: 250px;
+    }
+    .progress-thin {
+        height: 8px;
+        border-radius: 4px;
+    }
+    .status-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 8px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-2">
+                    <li class="breadcrumb-item"><a href="{% url 'employer_dashboard' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'analytics_dashboard' %}">Analytics</a></li>
+                    <li class="breadcrumb-item active">{{ job.title|truncatechars:30 }}</li>
+                </ol>
+            </nav>
+            <h1 class="fw-bold">
+                <i class="bi bi-bar-chart me-2"></i>{{ job.title }}
+            </h1>
+            <p class="text-muted mb-0">
+                {{ job.company }} &bull; {{ job.location }}
+                {% if job.is_active %}
+                <span class="badge bg-success ms-2">Active</span>
+                {% else %}
+                <span class="badge bg-secondary ms-2">Inactive</span>
+                {% endif %}
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'ats_pipeline' job.id %}" class="btn btn-primary">
+                <i class="bi bi-kanban me-1"></i>Pipeline
+            </a>
+            <a href="{% url 'analytics_dashboard' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>Back to Analytics
+            </a>
+        </div>
+    </div>
+
+    <!-- Key Metrics -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card stat-card h-100">
+                <div class="card-body text-center">
+                    <div class="stat-value">{{ total_applications }}</div>
+                    <div class="stat-label">Total Applications</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card stat-card h-100">
+                <div class="card-body text-center">
+                    <div class="stat-value">{{ status_distribution.pending }}</div>
+                    <div class="stat-label">Pending Review</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card stat-card h-100">
+                <div class="card-body text-center">
+                    <div class="stat-value text-success">{{ status_distribution.accepted }}</div>
+                    <div class="stat-label">Accepted</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card stat-card h-100">
+                <div class="card-body text-center">
+                    <div class="stat-value text-danger">{{ status_distribution.rejected }}</div>
+                    <div class="stat-label">Rejected</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Applications Over Time -->
+        <div class="col-lg-8 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-graph-up me-2"></i>Applications Over Time</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="applicationsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status Distribution -->
+        <div class="col-lg-4 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-pie-chart me-2"></i>Status Distribution</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="statusChart"></canvas>
+                    </div>
+                    <div class="mt-3">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span><span class="status-dot" style="background-color: #6c757d;"></span>Pending</span>
+                            <span>{{ status_distribution.pending }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span><span class="status-dot" style="background-color: #17a2b8;"></span>Reviewed</span>
+                            <span>{{ status_distribution.reviewed }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span><span class="status-dot" style="background-color: #28a745;"></span>Accepted</span>
+                            <span>{{ status_distribution.accepted }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span><span class="status-dot" style="background-color: #dc3545;"></span>Rejected</span>
+                            <span>{{ status_distribution.rejected }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Pipeline Stage Distribution -->
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-funnel me-2"></i>Pipeline Stages</h5>
+                </div>
+                <div class="card-body">
+                    {% if stage_distribution %}
+                    {% for stage in stage_distribution %}
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>{{ stage.name }}</span>
+                            <span class="fw-bold">{{ stage.count }}</span>
+                        </div>
+                        <div class="progress progress-thin">
+                            <div class="progress-bar" role="progressbar"
+                                 style="width: {% widthratio stage.count total_applications 100 %}%; background-color: {{ stage.color }};"
+                                 aria-valuenow="{{ stage.count }}" aria-valuemin="0" aria-valuemax="{{ total_applications }}">
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <p class="text-muted text-center">No pipeline data</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Candidates -->
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-star me-2"></i>Top Rated Candidates</h5>
+                </div>
+                <div class="card-body">
+                    {% if top_candidates %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Candidate</th>
+                                    <th>Stage</th>
+                                    <th class="text-center">Rating</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for app in top_candidates %}
+                                <tr>
+                                    <td>{{ app.applicant.get_full_name|default:app.applicant.username }}</td>
+                                    <td>
+                                        {% if app.current_stage %}
+                                        <span class="badge" style="background-color: {{ app.current_stage.color }};">
+                                            {{ app.current_stage.name }}
+                                        </span>
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-warning text-dark">
+                                            <i class="bi bi-star-fill"></i> {{ app.avg_rating|floatformat:1 }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'application_detail_ats' app.id %}" class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center py-4">No rated candidates yet</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>Recent Pipeline Activity</h5>
+        </div>
+        <div class="card-body">
+            {% if recent_stage_changes %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Candidate</th>
+                            <th>Moved To</th>
+                            <th>By</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for change in recent_stage_changes %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'application_detail_ats' change.application.id %}">
+                                    {{ change.application.applicant.get_full_name|default:change.application.applicant.username }}
+                                </a>
+                            </td>
+                            <td>
+                                {% if change.stage %}
+                                <span class="badge" style="background-color: {{ change.stage.color }};">
+                                    {{ change.stage.name }}
+                                </span>
+                                {% else %}
+                                <span class="text-muted">Unknown</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ change.changed_by.get_full_name|default:change.changed_by.username }}</td>
+                            <td>{{ change.changed_at|date:"M d, Y g:i A" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted text-center py-4">No recent activity</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Applications Over Time Chart
+    const applicationData = {{ applications_by_date|safe }};
+    const labels = applicationData.map(d => {
+        const date = new Date(d.date);
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    });
+    const data = applicationData.map(d => d.count);
+
+    new Chart(document.getElementById('applicationsChart').getContext('2d'), {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Applications',
+                data: data,
+                borderColor: '#7e512f',
+                backgroundColor: 'rgba(126, 81, 47, 0.1)',
+                fill: true,
+                tension: 0.3,
+                pointBackgroundColor: '#7e512f',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                pointRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+        }
+    });
+
+    // Status Distribution Chart
+    new Chart(document.getElementById('statusChart').getContext('2d'), {
+        type: 'doughnut',
+        data: {
+            labels: ['Pending', 'Reviewed', 'Accepted', 'Rejected'],
+            datasets: [{
+                data: [
+                    {{ status_distribution.pending }},
+                    {{ status_distribution.reviewed }},
+                    {{ status_distribution.accepted }},
+                    {{ status_distribution.rejected }}
+                ],
+                backgroundColor: ['#6c757d', '#17a2b8', '#28a745', '#dc3545'],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            cutout: '60%'
+        }
+    });
+</script>
+{% endblock %}

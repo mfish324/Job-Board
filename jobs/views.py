@@ -1822,3 +1822,347 @@ def team_activity_log(request):
         'activities': activities
     }
     return render(request, 'jobs/ats/activity_log.html', context)
+
+
+# ============================================
+# PHASE 4: ANALYTICS & REPORTING
+# ============================================
+
+@login_required
+def analytics_dashboard(request):
+    """Main analytics dashboard for employers"""
+    if not hasattr(request.user, 'userprofile') or request.user.userprofile.user_type != 'employer':
+        messages.error(request, 'Access denied. Employer account required.')
+        return redirect('home')
+
+    from django.db.models import Count, Avg, Q
+    from django.db.models.functions import TruncDate, TruncWeek, TruncMonth
+    from datetime import timedelta
+
+    # Date range filter
+    date_range = request.GET.get('range', '30')  # Default 30 days
+    try:
+        days = int(date_range)
+    except ValueError:
+        days = 30
+
+    start_date = timezone.now() - timedelta(days=days)
+
+    # Get employer's jobs
+    jobs = Job.objects.filter(posted_by=request.user)
+    job_ids = jobs.values_list('id', flat=True)
+
+    # Basic stats
+    total_jobs = jobs.count()
+    active_jobs = jobs.filter(is_active=True).count()
+    total_applications = JobApplication.objects.filter(job__in=jobs).count()
+    recent_applications = JobApplication.objects.filter(
+        job__in=jobs,
+        applied_date__gte=start_date
+    ).count()
+
+    # Applications over time (for chart)
+    applications_by_date = JobApplication.objects.filter(
+        job__in=jobs,
+        applied_date__gte=start_date
+    ).annotate(
+        date=TruncDate('applied_date')
+    ).values('date').annotate(
+        count=Count('id')
+    ).order_by('date')
+
+    # Stage distribution
+    stages = HiringStage.objects.filter(employer=request.user)
+    stage_distribution = []
+    for stage in stages:
+        count = JobApplication.objects.filter(
+            job__in=jobs,
+            current_stage=stage
+        ).count()
+        stage_distribution.append({
+            'name': stage.name,
+            'color': stage.color,
+            'count': count
+        })
+
+    # Add applications without a stage
+    no_stage_count = JobApplication.objects.filter(
+        job__in=jobs,
+        current_stage__isnull=True
+    ).count()
+    if no_stage_count > 0:
+        stage_distribution.insert(0, {
+            'name': 'No Stage',
+            'color': '#e9ecef',
+            'count': no_stage_count
+        })
+
+    # Conversion rates (stage to stage)
+    conversion_rates = []
+    ordered_stages = list(stages.order_by('order'))
+    for i, stage in enumerate(ordered_stages[:-1]):
+        current_count = JobApplication.objects.filter(
+            job__in=jobs,
+            stage_history__stage=stage
+        ).distinct().count()
+        next_stage = ordered_stages[i + 1]
+        next_count = JobApplication.objects.filter(
+            job__in=jobs,
+            stage_history__stage=next_stage
+        ).distinct().count()
+
+        rate = (next_count / current_count * 100) if current_count > 0 else 0
+        conversion_rates.append({
+            'from_stage': stage.name,
+            'to_stage': next_stage.name,
+            'from_count': current_count,
+            'to_count': next_count,
+            'rate': round(rate, 1)
+        })
+
+    # Average time in each stage
+    time_in_stage = []
+    for stage in stages:
+        # Calculate average time spent in this stage
+        stage_histories = ApplicationStageHistory.objects.filter(
+            stage=stage,
+            application__job__in=jobs
+        ).order_by('application', 'changed_at')
+
+        total_time = timedelta(0)
+        count = 0
+
+        for history in stage_histories:
+            # Find when they moved to the next stage
+            next_history = ApplicationStageHistory.objects.filter(
+                application=history.application,
+                changed_at__gt=history.changed_at
+            ).order_by('changed_at').first()
+
+            if next_history:
+                time_diff = next_history.changed_at - history.changed_at
+                total_time += time_diff
+                count += 1
+
+        avg_days = (total_time.total_seconds() / 86400 / count) if count > 0 else 0
+        time_in_stage.append({
+            'stage': stage.name,
+            'color': stage.color,
+            'avg_days': round(avg_days, 1)
+        })
+
+    # Per-job performance
+    job_stats = []
+    for job in jobs[:10]:  # Top 10 jobs
+        app_count = job.applications.count()
+        avg_rating = job.applications.aggregate(
+            avg=Avg('ratings__overall_rating')
+        )['avg']
+        job_stats.append({
+            'job': job,
+            'applications': app_count,
+            'avg_rating': round(avg_rating, 1) if avg_rating else None
+        })
+
+    # Top rated candidates
+    top_candidates = JobApplication.objects.filter(
+        job__in=jobs
+    ).annotate(
+        avg_rating=Avg('ratings__overall_rating')
+    ).filter(
+        avg_rating__isnull=False
+    ).select_related('applicant', 'job', 'current_stage').order_by('-avg_rating')[:5]
+
+    # Activity metrics
+    emails_sent = EmailLog.objects.filter(
+        sender=request.user,
+        created_at__gte=start_date
+    ).count()
+
+    notes_added = ApplicationNote.objects.filter(
+        author=request.user,
+        created_at__gte=start_date
+    ).count()
+
+    ratings_given = ApplicationRating.objects.filter(
+        rater=request.user,
+        created_at__gte=start_date
+    ).count()
+
+    context = {
+        'date_range': days,
+        'start_date': start_date,
+        # Basic stats
+        'total_jobs': total_jobs,
+        'active_jobs': active_jobs,
+        'total_applications': total_applications,
+        'recent_applications': recent_applications,
+        # Charts data
+        'applications_by_date': list(applications_by_date),
+        'stage_distribution': stage_distribution,
+        'conversion_rates': conversion_rates,
+        'time_in_stage': time_in_stage,
+        # Tables
+        'job_stats': job_stats,
+        'top_candidates': top_candidates,
+        # Activity
+        'emails_sent': emails_sent,
+        'notes_added': notes_added,
+        'ratings_given': ratings_given,
+    }
+    return render(request, 'jobs/ats/analytics_dashboard.html', context)
+
+
+@login_required
+def analytics_export(request):
+    """Export analytics data as CSV"""
+    if not hasattr(request.user, 'userprofile') or request.user.userprofile.user_type != 'employer':
+        messages.error(request, 'Access denied. Employer account required.')
+        return redirect('home')
+
+    import csv
+    from django.http import HttpResponse
+
+    export_type = request.GET.get('type', 'applications')
+
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="rjrp_{export_type}_{timezone.now().strftime("%Y%m%d")}.csv"'
+
+    writer = csv.writer(response)
+
+    jobs = Job.objects.filter(posted_by=request.user)
+
+    if export_type == 'applications':
+        writer.writerow([
+            'Job Title', 'Applicant Name', 'Applicant Email', 'Applied Date',
+            'Current Stage', 'Status', 'Average Rating', 'Tags'
+        ])
+
+        applications = JobApplication.objects.filter(
+            job__in=jobs
+        ).select_related('job', 'applicant', 'current_stage').prefetch_related('tag_assignments__tag')
+
+        for app in applications:
+            tags = ', '.join([ta.tag.name for ta in app.tag_assignments.all()])
+            writer.writerow([
+                app.job.title,
+                app.applicant.get_full_name() or app.applicant.username,
+                app.applicant.email,
+                app.applied_date.strftime('%Y-%m-%d %H:%M'),
+                app.current_stage.name if app.current_stage else 'No Stage',
+                app.status,
+                app.get_average_rating() or 'Not Rated',
+                tags
+            ])
+
+    elif export_type == 'pipeline':
+        writer.writerow([
+            'Job Title', 'Stage', 'Applications Count', 'Avg Days in Stage'
+        ])
+
+        stages = HiringStage.objects.filter(employer=request.user).order_by('order')
+
+        for job in jobs:
+            for stage in stages:
+                count = job.applications.filter(current_stage=stage).count()
+                # Calculate avg time in stage for this job
+                writer.writerow([
+                    job.title,
+                    stage.name,
+                    count,
+                    'N/A'  # Could calculate avg time here
+                ])
+
+    elif export_type == 'jobs':
+        writer.writerow([
+            'Job Title', 'Company', 'Location', 'Posted Date', 'Status',
+            'Total Applications', 'Pending', 'Reviewed', 'Accepted', 'Rejected'
+        ])
+
+        for job in jobs:
+            apps = job.applications.all()
+            writer.writerow([
+                job.title,
+                job.company,
+                job.location,
+                job.posted_date.strftime('%Y-%m-%d'),
+                'Active' if job.is_active else 'Inactive',
+                apps.count(),
+                apps.filter(status='pending').count(),
+                apps.filter(status='reviewed').count(),
+                apps.filter(status='accepted').count(),
+                apps.filter(status='rejected').count(),
+            ])
+
+    return response
+
+
+@login_required
+def job_analytics(request, job_id):
+    """Detailed analytics for a specific job"""
+    job = get_object_or_404(Job, id=job_id)
+
+    if job.posted_by != request.user:
+        messages.error(request, 'Access denied.')
+        return redirect('home')
+
+    from django.db.models import Count, Avg
+    from django.db.models.functions import TruncDate
+    from datetime import timedelta
+
+    # Applications over time
+    applications_by_date = job.applications.annotate(
+        date=TruncDate('applied_date')
+    ).values('date').annotate(
+        count=Count('id')
+    ).order_by('date')
+
+    # Stage distribution for this job
+    stages = HiringStage.objects.filter(employer=request.user)
+    stage_distribution = []
+    for stage in stages:
+        count = job.applications.filter(current_stage=stage).count()
+        stage_distribution.append({
+            'name': stage.name,
+            'color': stage.color,
+            'count': count
+        })
+
+    # Status distribution
+    status_distribution = {
+        'pending': job.applications.filter(status='pending').count(),
+        'reviewed': job.applications.filter(status='reviewed').count(),
+        'accepted': job.applications.filter(status='accepted').count(),
+        'rejected': job.applications.filter(status='rejected').count(),
+    }
+
+    # Rating distribution
+    rating_distribution = job.applications.filter(
+        ratings__isnull=False
+    ).values('ratings__overall_rating').annotate(
+        count=Count('id')
+    ).order_by('ratings__overall_rating')
+
+    # Top candidates for this job
+    top_candidates = job.applications.annotate(
+        avg_rating=Avg('ratings__overall_rating')
+    ).filter(
+        avg_rating__isnull=False
+    ).select_related('applicant', 'current_stage').order_by('-avg_rating')[:10]
+
+    # Recent activity
+    recent_stage_changes = ApplicationStageHistory.objects.filter(
+        application__job=job
+    ).select_related('application__applicant', 'stage', 'changed_by').order_by('-changed_at')[:10]
+
+    context = {
+        'job': job,
+        'total_applications': job.applications.count(),
+        'applications_by_date': list(applications_by_date),
+        'stage_distribution': stage_distribution,
+        'status_distribution': status_distribution,
+        'rating_distribution': list(rating_distribution),
+        'top_candidates': top_candidates,
+        'recent_stage_changes': recent_stage_changes,
+    }
+    return render(request, 'jobs/ats/job_analytics.html', context)

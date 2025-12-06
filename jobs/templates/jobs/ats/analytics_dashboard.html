@@ -1,0 +1,412 @@
+{% extends 'jobs/base.html' %}
+
+{% block title %}Analytics Dashboard - Real Jobs, Real People{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stat-card {
+        border-left: 4px solid var(--primary-color);
+        transition: transform 0.2s;
+    }
+    .stat-card:hover {
+        transform: translateY(-2px);
+    }
+    .stat-card .stat-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: var(--primary-color);
+    }
+    .stat-card .stat-label {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    .chart-container {
+        position: relative;
+        height: 300px;
+    }
+    .stage-bar {
+        height: 30px;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        padding: 0 10px;
+        color: white;
+        font-weight: 500;
+        min-width: 40px;
+    }
+    .conversion-arrow {
+        font-size: 1.5rem;
+        color: #6c757d;
+    }
+    .progress-thin {
+        height: 8px;
+        border-radius: 4px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="fw-bold">
+                <i class="bi bi-graph-up me-2"></i>Analytics Dashboard
+            </h1>
+            <p class="text-muted mb-0">Track your hiring performance and metrics</p>
+        </div>
+        <div class="d-flex gap-2">
+            <!-- Date Range Filter -->
+            <div class="dropdown">
+                <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    <i class="bi bi-calendar me-1"></i>Last {{ date_range }} days
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item {% if date_range == 7 %}active{% endif %}" href="?range=7">Last 7 days</a></li>
+                    <li><a class="dropdown-item {% if date_range == 30 %}active{% endif %}" href="?range=30">Last 30 days</a></li>
+                    <li><a class="dropdown-item {% if date_range == 90 %}active{% endif %}" href="?range=90">Last 90 days</a></li>
+                    <li><a class="dropdown-item {% if date_range == 365 %}active{% endif %}" href="?range=365">Last year</a></li>
+                </ul>
+            </div>
+            <!-- Export Dropdown -->
+            <div class="dropdown">
+                <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    <i class="bi bi-download me-1"></i>Export
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="{% url 'analytics_export' %}?type=applications">Applications (CSV)</a></li>
+                    <li><a class="dropdown-item" href="{% url 'analytics_export' %}?type=pipeline">Pipeline Data (CSV)</a></li>
+                    <li><a class="dropdown-item" href="{% url 'analytics_export' %}?type=jobs">Jobs Summary (CSV)</a></li>
+                </ul>
+            </div>
+            <a href="{% url 'employer_dashboard' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- Key Metrics Row -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card stat-card h-100">
+                <div class="card-body text-center">
+                    <div class="stat-value">{{ total_jobs }}</div>
+                    <div class="stat-label">Total Jobs</div>
+                    <small class="text-success">{{ active_jobs }} active</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card stat-card h-100">
+                <div class="card-body text-center">
+                    <div class="stat-value">{{ total_applications }}</div>
+                    <div class="stat-label">Total Applications</div>
+                    <small class="text-primary">{{ recent_applications }} in last {{ date_range }} days</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card stat-card h-100">
+                <div class="card-body text-center">
+                    <div class="stat-value">{{ emails_sent }}</div>
+                    <div class="stat-label">Emails Sent</div>
+                    <small class="text-muted">Last {{ date_range }} days</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card stat-card h-100">
+                <div class="card-body text-center">
+                    <div class="stat-value">{{ ratings_given }}</div>
+                    <div class="stat-label">Ratings Given</div>
+                    <small class="text-muted">Last {{ date_range }} days</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Applications Over Time Chart -->
+        <div class="col-lg-8 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-bar-chart me-2"></i>Applications Over Time</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="applicationsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stage Distribution -->
+        <div class="col-lg-4 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-pie-chart me-2"></i>Pipeline Distribution</h5>
+                </div>
+                <div class="card-body">
+                    {% if stage_distribution %}
+                    {% for stage in stage_distribution %}
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>{{ stage.name }}</span>
+                            <span class="fw-bold">{{ stage.count }}</span>
+                        </div>
+                        <div class="progress progress-thin">
+                            <div class="progress-bar" role="progressbar"
+                                 style="width: {% widthratio stage.count total_applications 100 %}%; background-color: {{ stage.color }};"
+                                 aria-valuenow="{{ stage.count }}" aria-valuemin="0" aria-valuemax="{{ total_applications }}">
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <p class="text-muted text-center">No pipeline data available</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Conversion Rates -->
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-funnel me-2"></i>Stage Conversion Rates</h5>
+                </div>
+                <div class="card-body">
+                    {% if conversion_rates %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>From Stage</th>
+                                    <th></th>
+                                    <th>To Stage</th>
+                                    <th class="text-end">Rate</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for conv in conversion_rates %}
+                                <tr>
+                                    <td>
+                                        {{ conv.from_stage }}
+                                        <small class="text-muted">({{ conv.from_count }})</small>
+                                    </td>
+                                    <td class="text-center conversion-arrow"><i class="bi bi-arrow-right"></i></td>
+                                    <td>
+                                        {{ conv.to_stage }}
+                                        <small class="text-muted">({{ conv.to_count }})</small>
+                                    </td>
+                                    <td class="text-end">
+                                        <span class="badge {% if conv.rate >= 50 %}bg-success{% elif conv.rate >= 25 %}bg-warning text-dark{% else %}bg-danger{% endif %}">
+                                            {{ conv.rate }}%
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center">No conversion data available yet</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Time in Stage -->
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-clock me-2"></i>Average Time in Stage</h5>
+                </div>
+                <div class="card-body">
+                    {% if time_in_stage %}
+                    {% for stage in time_in_stage %}
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="d-flex align-items-center">
+                            <span class="stage-bar me-2" style="background-color: {{ stage.color }}; width: 12px; height: 12px; min-width: 12px; padding: 0;"></span>
+                            {{ stage.stage }}
+                        </div>
+                        <span class="badge bg-light text-dark">
+                            {% if stage.avg_days > 0 %}
+                            {{ stage.avg_days }} day{{ stage.avg_days|floatformat:0|pluralize }}
+                            {% else %}
+                            No data
+                            {% endif %}
+                        </span>
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <p class="text-muted text-center">No timing data available yet</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Job Performance -->
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-briefcase me-2"></i>Job Performance</h5>
+                </div>
+                <div class="card-body">
+                    {% if job_stats %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Job</th>
+                                    <th class="text-center">Applications</th>
+                                    <th class="text-center">Avg Rating</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for stat in job_stats %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'job_analytics' stat.job.id %}">{{ stat.job.title|truncatechars:30 }}</a>
+                                        {% if not stat.job.is_active %}
+                                        <span class="badge bg-secondary ms-1">Inactive</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">{{ stat.applications }}</td>
+                                    <td class="text-center">
+                                        {% if stat.avg_rating %}
+                                        <span class="badge bg-warning text-dark">
+                                            <i class="bi bi-star-fill"></i> {{ stat.avg_rating }}
+                                        </span>
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'job_analytics' stat.job.id %}" class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-bar-chart"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center">No jobs found</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Candidates -->
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-star me-2"></i>Top Rated Candidates</h5>
+                </div>
+                <div class="card-body">
+                    {% if top_candidates %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Candidate</th>
+                                    <th>Job</th>
+                                    <th>Stage</th>
+                                    <th class="text-center">Rating</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for app in top_candidates %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'application_detail_ats' app.id %}">
+                                            {{ app.applicant.get_full_name|default:app.applicant.username }}
+                                        </a>
+                                    </td>
+                                    <td>{{ app.job.title|truncatechars:20 }}</td>
+                                    <td>
+                                        {% if app.current_stage %}
+                                        <span class="badge" style="background-color: {{ app.current_stage.color }};">
+                                            {{ app.current_stage.name }}
+                                        </span>
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-warning text-dark">
+                                            <i class="bi bi-star-fill"></i> {{ app.avg_rating|floatformat:1 }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center">No rated candidates yet</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Applications Over Time Chart
+    const ctx = document.getElementById('applicationsChart').getContext('2d');
+    const applicationData = {{ applications_by_date|safe }};
+
+    const labels = applicationData.map(d => {
+        const date = new Date(d.date);
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    });
+    const data = applicationData.map(d => d.count);
+
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Applications',
+                data: data,
+                borderColor: '#7e512f',
+                backgroundColor: 'rgba(126, 81, 47, 0.1)',
+                fill: true,
+                tension: 0.3,
+                pointBackgroundColor: '#7e512f',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                pointRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}

@@ -89,4 +89,9 @@ urlpatterns = [
     path('employer/team/leave/', views.leave_team, name='leave_team'),
     path('employer/team/activity/', views.team_activity_log, name='team_activity_log'),
     path('invitation/<str:token>/', views.accept_invitation, name='accept_invitation'),
+
+    # ATS Phase 4: Analytics & Reporting
+    path('employer/analytics/', views.analytics_dashboard, name='analytics_dashboard'),
+    path('employer/analytics/export/', views.analytics_export, name='analytics_export'),
+    path('employer/job/<int:job_id>/analytics/', views.job_analytics, name='job_analytics'),
 ]
