@@ -1,0 +1,274 @@
+{% extends 'jobs/base.html' %}
+
+{% block title %}Team Management - Real Jobs, Real People{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="fw-bold">
+                <i class="bi bi-people-fill me-2"></i>{{ team.name }}
+            </h1>
+            <p class="text-muted mb-0">Manage your team members and permissions</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'team_activity_log' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-clock-history me-1"></i>Activity Log
+            </a>
+            <a href="{% url 'employer_dashboard' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>Dashboard
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Team Members -->
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-person-badge me-2"></i>Team Members</h5>
+                    <span class="badge bg-primary">{{ members.count }} Member{{ members.count|pluralize }}</span>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Member</th>
+                                    <th>Role</th>
+                                    <th>Jobs Access</th>
+                                    <th>Joined</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Owner -->
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="avatar-circle bg-danger text-white me-2">
+                                                {{ team.owner.username|slice:":1"|upper }}
+                                            </div>
+                                            <div>
+                                                <strong>{{ team.owner.get_full_name|default:team.owner.username }}</strong>
+                                                <br><small class="text-muted">{{ team.owner.email }}</small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td><span class="badge bg-danger">Owner</span></td>
+                                    <td><span class="text-muted">All Jobs</span></td>
+                                    <td>{{ team.created_at|date:"M d, Y" }}</td>
+                                    <td><span class="text-muted">-</span></td>
+                                </tr>
+                                <!-- Team Members -->
+                                {% for member in members %}
+                                <tr{% if not member.is_active %} class="table-secondary"{% endif %}>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="avatar-circle bg-primary text-white me-2">
+                                                {{ member.user.username|slice:":1"|upper }}
+                                            </div>
+                                            <div>
+                                                <strong>{{ member.user.get_full_name|default:member.user.username }}</strong>
+                                                {% if not member.is_active %}<span class="badge bg-secondary ms-1">Inactive</span>{% endif %}
+                                                <br><small class="text-muted">{{ member.user.email }}</small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {% if is_owner or is_admin %}
+                                        <form method="post" action="{% url 'update_member_role' member.id %}" class="role-form">
+                                            {% csrf_token %}
+                                            <select name="role" class="form-select form-select-sm" onchange="this.form.submit()" style="width: auto;">
+                                                <option value="admin" {% if member.role == 'admin' %}selected{% endif %}>Admin</option>
+                                                <option value="recruiter" {% if member.role == 'recruiter' %}selected{% endif %}>Recruiter</option>
+                                                <option value="reviewer" {% if member.role == 'reviewer' %}selected{% endif %}>Reviewer</option>
+                                                <option value="viewer" {% if member.role == 'viewer' %}selected{% endif %}>Viewer</option>
+                                            </select>
+                                        </form>
+                                        {% else %}
+                                        <span class="badge bg-{% if member.role == 'admin' %}primary{% elif member.role == 'recruiter' %}success{% elif member.role == 'reviewer' %}info{% else %}secondary{% endif %}">
+                                            {{ member.get_role_display }}
+                                        </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if member.assigned_jobs.exists %}
+                                            {{ member.assigned_jobs.count }} Job{{ member.assigned_jobs.count|pluralize }}
+                                        {% else %}
+                                            <span class="text-muted">All Jobs</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ member.joined_at|date:"M d, Y" }}</td>
+                                    <td>
+                                        {% if is_owner or is_admin %}
+                                        <form method="post" action="{% url 'remove_team_member' member.id %}" class="d-inline"
+                                              onsubmit="return confirm('Are you sure you want to remove this team member?');">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                <i class="bi bi-person-x"></i>
+                                            </button>
+                                        </form>
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted py-4">
+                                        No team members yet. Invite someone to collaborate!
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pending Invitations -->
+            {% if pending_invitations %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-envelope-paper me-2"></i>Pending Invitations</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Email</th>
+                                    <th>Role</th>
+                                    <th>Sent</th>
+                                    <th>Expires</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for invitation in pending_invitations %}
+                                <tr>
+                                    <td>{{ invitation.email }}</td>
+                                    <td>
+                                        <span class="badge bg-{% if invitation.role == 'admin' %}primary{% elif invitation.role == 'recruiter' %}success{% elif invitation.role == 'reviewer' %}info{% else %}secondary{% endif %}">
+                                            {{ invitation.get_role_display }}
+                                        </span>
+                                    </td>
+                                    <td>{{ invitation.created_at|date:"M d, Y" }}</td>
+                                    <td>{{ invitation.expires_at|date:"M d, Y" }}</td>
+                                    <td>
+                                        <form method="post" action="{% url 'cancel_invitation' invitation.id %}" class="d-inline">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                <i class="bi bi-x-circle me-1"></i>Cancel
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Invite Member Sidebar -->
+        <div class="col-lg-4">
+            {% if is_owner or is_admin %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-person-plus me-2"></i>Invite Team Member</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{% url 'invite_team_member' %}">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email Address</label>
+                            <input type="email" class="form-control" id="email" name="email"
+                                   placeholder="colleague@example.com" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="role" class="form-label">Role</label>
+                            <select class="form-select" id="role" name="role">
+                                <option value="recruiter">Recruiter</option>
+                                <option value="reviewer">Reviewer</option>
+                                <option value="viewer">Viewer</option>
+                                {% if is_owner %}
+                                <option value="admin">Admin</option>
+                                {% endif %}
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="bi bi-send me-2"></i>Send Invitation
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>Role Permissions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <span class="badge bg-danger mb-1">Owner</span>
+                        <ul class="small mb-0 ps-3">
+                            <li>Full control over team</li>
+                            <li>Manage all settings</li>
+                            <li>Delete team</li>
+                        </ul>
+                    </div>
+                    <div class="mb-3">
+                        <span class="badge bg-primary mb-1">Admin</span>
+                        <ul class="small mb-0 ps-3">
+                            <li>Manage team members</li>
+                            <li>Access all jobs</li>
+                            <li>All recruiter permissions</li>
+                        </ul>
+                    </div>
+                    <div class="mb-3">
+                        <span class="badge bg-success mb-1">Recruiter</span>
+                        <ul class="small mb-0 ps-3">
+                            <li>Move candidates through pipeline</li>
+                            <li>Send emails to applicants</li>
+                            <li>Add notes and ratings</li>
+                        </ul>
+                    </div>
+                    <div class="mb-3">
+                        <span class="badge bg-info mb-1">Reviewer</span>
+                        <ul class="small mb-0 ps-3">
+                            <li>View applications</li>
+                            <li>Add notes and ratings</li>
+                            <li>Cannot move candidates</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <span class="badge bg-secondary mb-1">Viewer</span>
+                        <ul class="small mb-0 ps-3">
+                            <li>View-only access</li>
+                            <li>Cannot modify anything</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.avatar-circle {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 0.9rem;
+}
+</style>
+{% endblock %}

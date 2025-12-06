@@ -1,0 +1,72 @@
+{% extends 'jobs/base.html' %}
+
+{% block title %}Setup Your Team - Real Jobs, Real People{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="bi bi-people-fill me-2"></i>Setup Your Team
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-4">
+                        Create a team to collaborate with others on hiring. You'll be the team owner with full administrative control.
+                    </p>
+
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="team_name" class="form-label">Team Name</label>
+                            <input type="text" class="form-control" id="team_name" name="team_name"
+                                   placeholder="e.g., {{ user.userprofile.company_name|default:'My Company' }} Recruiting Team"
+                                   required>
+                            <div class="form-text">This is how your team will be identified.</div>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-circle me-2"></i>Create Team
+                            </button>
+                            <a href="{% url 'employer_dashboard' %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left me-2"></i>Back to Dashboard
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card mt-4">
+                <div class="card-body">
+                    <h6 class="card-title"><i class="bi bi-info-circle me-2"></i>Team Roles</h6>
+                    <ul class="list-unstyled mb-0">
+                        <li class="mb-2">
+                            <span class="badge bg-danger me-2">Owner</span>
+                            Full control over team and all jobs
+                        </li>
+                        <li class="mb-2">
+                            <span class="badge bg-primary me-2">Admin</span>
+                            Manage team members and all jobs
+                        </li>
+                        <li class="mb-2">
+                            <span class="badge bg-success me-2">Recruiter</span>
+                            Manage candidates, send emails, update stages
+                        </li>
+                        <li class="mb-2">
+                            <span class="badge bg-info me-2">Reviewer</span>
+                            View applications, add notes and ratings
+                        </li>
+                        <li>
+                            <span class="badge bg-secondary me-2">Viewer</span>
+                            View-only access to applications
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

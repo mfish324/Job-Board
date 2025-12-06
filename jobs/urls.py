@@ -78,4 +78,15 @@ urlpatterns = [
 
     # Applicant Messages (for job seekers)
     path('application/<int:application_id>/messages/', views.application_messages, name='applicant_messages'),
+
+    # ATS Phase 3: Team Management
+    path('employer/team/', views.team_dashboard, name='team_dashboard'),
+    path('employer/team/setup/', views.team_setup, name='team_setup'),
+    path('employer/team/invite/', views.invite_team_member, name='invite_team_member'),
+    path('employer/team/member/<int:member_id>/remove/', views.remove_team_member, name='remove_team_member'),
+    path('employer/team/member/<int:member_id>/role/', views.update_member_role, name='update_member_role'),
+    path('employer/team/invitation/<int:invitation_id>/cancel/', views.cancel_invitation, name='cancel_invitation'),
+    path('employer/team/leave/', views.leave_team, name='leave_team'),
+    path('employer/team/activity/', views.team_activity_log, name='team_activity_log'),
+    path('invitation/<str:token>/', views.accept_invitation, name='accept_invitation'),
 ]

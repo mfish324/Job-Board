@@ -9,7 +9,7 @@ from django.conf import settings
 from .models import (Job, UserProfile, JobApplication, PhoneVerification, EmailVerification, SavedJob,
                      HiringStage, ApplicationStageHistory, ApplicationNote, ApplicationRating,
                      ApplicationTag, ApplicationTagAssignment, EmailTemplate, Notification,
-                     EmailLog, Message)
+                     EmailLog, Message, EmployerTeam, TeamMember, TeamInvitation, ActivityLog)
 from .forms import JobSeekerSignUpForm, EmployerSignUpForm, JobPostForm, JobApplicationForm
 from .forms import (JobSeekerSignUpForm, EmployerSignUpForm, JobPostForm,
                    JobApplicationForm, JobSeekerProfileForm, EmployerProfileForm)
@@ -1421,3 +1421,404 @@ def get_unread_notification_count(request):
     count = Notification.objects.filter(recipient=request.user, is_read=False).count()
     from django.http import JsonResponse
     return JsonResponse({'count': count})
+
+
+# ============================================
+# PHASE 3: TEAM COLLABORATION & PERMISSIONS
+# ============================================
+
+def get_user_team(user):
+    """Get the team for a user (either as owner or member)"""
+    # Check if user owns a team
+    try:
+        return user.owned_team
+    except EmployerTeam.DoesNotExist:
+        pass
+
+    # Check if user is a member of a team
+    membership = TeamMember.objects.filter(user=user, is_active=True).first()
+    if membership:
+        return membership.team
+
+    return None
+
+
+def get_team_permission(user, team):
+    """Get the permission level of a user in a team"""
+    if team.owner == user:
+        return 'owner'
+    try:
+        member = TeamMember.objects.get(team=team, user=user, is_active=True)
+        return member.role
+    except TeamMember.DoesNotExist:
+        return None
+
+
+def can_access_job(user, job):
+    """Check if user can access a job's applications (owner or team member)"""
+    if job.posted_by == user:
+        return True
+
+    team = get_user_team(user)
+    if team and team.owner == job.posted_by:
+        return True
+
+    return False
+
+
+@login_required
+def team_setup(request):
+    """Setup a new team"""
+    if not hasattr(request.user, 'userprofile') or request.user.userprofile.user_type != 'employer':
+        messages.error(request, 'Access denied. Employer account required.')
+        return redirect('home')
+
+    # Check if user already has a team
+    team = get_user_team(request.user)
+    if team:
+        return redirect('team_dashboard')
+
+    if request.method == 'POST':
+        team_name = request.POST.get('team_name', '').strip()
+        if team_name:
+            team = EmployerTeam.objects.create(
+                name=team_name,
+                owner=request.user
+            )
+            messages.success(request, f'Team "{team_name}" created successfully!')
+            return redirect('team_dashboard')
+        else:
+            messages.error(request, 'Team name is required.')
+
+    return render(request, 'jobs/ats/team_setup.html')
+
+
+@login_required
+def team_dashboard(request):
+    """Team management dashboard"""
+    if not hasattr(request.user, 'userprofile') or request.user.userprofile.user_type != 'employer':
+        messages.error(request, 'Access denied. Employer account required.')
+        return redirect('home')
+
+    team = get_user_team(request.user)
+    is_owner = team and team.owner == request.user if team else False
+
+    # If no team exists, redirect to setup
+    if not team:
+        return redirect('team_setup')
+
+    # Get team data
+    members = team.members.select_related('user').filter(is_active=True)
+    pending_invitations = team.invitations.filter(status='pending')
+    recent_activity = team.activity_logs.select_related('user', 'application', 'job')[:20]
+
+    # Get permission for current user
+    user_role = get_team_permission(request.user, team)
+    can_manage = user_role in ['owner', 'admin']
+
+    is_admin = user_role == 'admin'
+
+    context = {
+        'team': team,
+        'members': members,
+        'pending_invitations': pending_invitations,
+        'recent_activity': recent_activity,
+        'is_owner': is_owner,
+        'is_admin': is_admin,
+        'user_role': user_role,
+        'can_manage': can_manage,
+        'role_choices': TeamMember.ROLE_CHOICES
+    }
+    return render(request, 'jobs/ats/team_dashboard.html', context)
+
+
+@login_required
+def invite_team_member(request):
+    """Send invitation to join team"""
+    if not hasattr(request.user, 'userprofile') or request.user.userprofile.user_type != 'employer':
+        messages.error(request, 'Access denied. Employer account required.')
+        return redirect('home')
+
+    team = get_user_team(request.user)
+    if not team:
+        messages.error(request, 'You need to create a team first.')
+        return redirect('team_dashboard')
+
+    # Check if user can manage team
+    user_role = get_team_permission(request.user, team)
+    if user_role not in ['owner', 'admin']:
+        messages.error(request, 'You do not have permission to invite team members.')
+        return redirect('team_dashboard')
+
+    if request.method == 'POST':
+        email = request.POST.get('email', '').strip().lower()
+        role = request.POST.get('role', 'reviewer')
+
+        if not email:
+            messages.error(request, 'Email is required.')
+            return redirect('team_dashboard')
+
+        # Check if already a member
+        from django.contrib.auth.models import User
+        existing_user = User.objects.filter(email=email).first()
+        if existing_user and team.is_member(existing_user):
+            messages.warning(request, f'{email} is already a team member.')
+            return redirect('team_dashboard')
+
+        # Check if there's already a pending invitation
+        if TeamInvitation.objects.filter(team=team, email=email, status='pending').exists():
+            messages.warning(request, f'An invitation has already been sent to {email}.')
+            return redirect('team_dashboard')
+
+        # Create invitation
+        invitation = TeamInvitation.create_invitation(
+            team=team,
+            email=email,
+            role=role,
+            invited_by=request.user
+        )
+
+        # Send invitation email
+        from django.core.mail import send_mail
+        try:
+            invite_url = request.build_absolute_uri(f'/team/join/{invitation.token}/')
+            send_mail(
+                subject=f'Invitation to join {team.name} on Real Jobs, Real People',
+                message=f'''You have been invited to join {team.name} as a {dict(TeamMember.ROLE_CHOICES).get(role, role)}.
+
+Click the link below to accept the invitation:
+{invite_url}
+
+This invitation expires in 7 days.
+
+If you don't have an account, you'll need to create one first.
+
+Best regards,
+Real Jobs, Real People Team''',
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[email],
+                fail_silently=True,
+            )
+            messages.success(request, f'Invitation sent to {email}.')
+        except Exception:
+            messages.success(request, f'Invitation created for {email}. (Email delivery may be delayed)')
+
+        # Log activity
+        ActivityLog.log_activity(
+            team=team,
+            user=request.user,
+            action_type='member_invited',
+            description=f'Invited {email} as {role}'
+        )
+
+    return redirect('team_dashboard')
+
+
+@login_required
+def accept_invitation(request, token):
+    """Accept a team invitation"""
+    try:
+        invitation = TeamInvitation.objects.get(token=token)
+    except TeamInvitation.DoesNotExist:
+        messages.error(request, 'Invalid invitation link.')
+        return redirect('home')
+
+    if not invitation.is_valid():
+        if invitation.is_expired():
+            messages.error(request, 'This invitation has expired.')
+        else:
+            messages.error(request, 'This invitation is no longer valid.')
+        return redirect('home')
+
+    # Check if user's email matches invitation
+    if request.user.email.lower() != invitation.email.lower():
+        messages.error(request, f'This invitation was sent to {invitation.email}. Please log in with that email address.')
+        return redirect('home')
+
+    # Check if already a member
+    if invitation.team.is_member(request.user):
+        messages.info(request, 'You are already a member of this team.')
+        invitation.status = 'accepted'
+        invitation.accepted_by = request.user
+        invitation.save()
+        return redirect('team_dashboard')
+
+    if request.method == 'POST':
+        # Accept the invitation
+        TeamMember.objects.create(
+            team=invitation.team,
+            user=request.user,
+            role=invitation.role,
+            invited_by=invitation.invited_by
+        )
+
+        invitation.status = 'accepted'
+        invitation.accepted_by = request.user
+        invitation.save()
+
+        # Update user profile to employer if not already
+        if hasattr(request.user, 'userprofile'):
+            if request.user.userprofile.user_type != 'employer':
+                request.user.userprofile.user_type = 'employer'
+                request.user.userprofile.save()
+
+        messages.success(request, f'Welcome to {invitation.team.name}!')
+        return redirect('team_dashboard')
+
+    context = {
+        'invitation': invitation
+    }
+    return render(request, 'jobs/ats/accept_invitation.html', context)
+
+
+@login_required
+def remove_team_member(request, member_id):
+    """Remove a member from the team"""
+    team = get_user_team(request.user)
+    if not team:
+        messages.error(request, 'Team not found.')
+        return redirect('home')
+
+    user_role = get_team_permission(request.user, team)
+    if user_role not in ['owner', 'admin']:
+        messages.error(request, 'You do not have permission to remove team members.')
+        return redirect('team_dashboard')
+
+    try:
+        member = TeamMember.objects.get(id=member_id, team=team)
+    except TeamMember.DoesNotExist:
+        messages.error(request, 'Member not found.')
+        return redirect('team_dashboard')
+
+    # Can't remove yourself this way
+    if member.user == request.user:
+        messages.error(request, 'You cannot remove yourself. Leave the team instead.')
+        return redirect('team_dashboard')
+
+    # Only owner can remove admins
+    if member.role == 'admin' and user_role != 'owner':
+        messages.error(request, 'Only the team owner can remove admins.')
+        return redirect('team_dashboard')
+
+    if request.method == 'POST':
+        member_name = member.user.get_full_name() or member.user.username
+        member.is_active = False
+        member.save()
+
+        ActivityLog.log_activity(
+            team=team,
+            user=request.user,
+            action_type='member_removed',
+            description=f'Removed {member_name} from the team'
+        )
+
+        messages.success(request, f'{member_name} has been removed from the team.')
+
+    return redirect('team_dashboard')
+
+
+@login_required
+def update_member_role(request, member_id):
+    """Update a team member's role"""
+    team = get_user_team(request.user)
+    if not team:
+        messages.error(request, 'Team not found.')
+        return redirect('home')
+
+    user_role = get_team_permission(request.user, team)
+    if user_role not in ['owner', 'admin']:
+        messages.error(request, 'You do not have permission to update roles.')
+        return redirect('team_dashboard')
+
+    try:
+        member = TeamMember.objects.get(id=member_id, team=team)
+    except TeamMember.DoesNotExist:
+        messages.error(request, 'Member not found.')
+        return redirect('team_dashboard')
+
+    if request.method == 'POST':
+        new_role = request.POST.get('role')
+        if new_role not in dict(TeamMember.ROLE_CHOICES):
+            messages.error(request, 'Invalid role.')
+            return redirect('team_dashboard')
+
+        # Only owner can promote to admin
+        if new_role == 'admin' and user_role != 'owner':
+            messages.error(request, 'Only the team owner can promote members to admin.')
+            return redirect('team_dashboard')
+
+        old_role = member.get_role_display()
+        member.role = new_role
+        member.save()
+
+        messages.success(request, f'Updated {member.user.username}\'s role to {member.get_role_display()}.')
+
+    return redirect('team_dashboard')
+
+
+@login_required
+def cancel_invitation(request, invitation_id):
+    """Cancel a pending invitation"""
+    team = get_user_team(request.user)
+    if not team:
+        messages.error(request, 'Team not found.')
+        return redirect('home')
+
+    user_role = get_team_permission(request.user, team)
+    if user_role not in ['owner', 'admin']:
+        messages.error(request, 'You do not have permission to cancel invitations.')
+        return redirect('team_dashboard')
+
+    try:
+        invitation = TeamInvitation.objects.get(id=invitation_id, team=team, status='pending')
+    except TeamInvitation.DoesNotExist:
+        messages.error(request, 'Invitation not found.')
+        return redirect('team_dashboard')
+
+    if request.method == 'POST':
+        invitation.status = 'expired'
+        invitation.save()
+        messages.success(request, f'Invitation to {invitation.email} has been cancelled.')
+
+    return redirect('team_dashboard')
+
+
+@login_required
+def leave_team(request):
+    """Leave the current team"""
+    team = get_user_team(request.user)
+    if not team:
+        messages.error(request, 'You are not part of a team.')
+        return redirect('home')
+
+    if team.owner == request.user:
+        messages.error(request, 'As the team owner, you cannot leave. Transfer ownership or delete the team instead.')
+        return redirect('team_dashboard')
+
+    if request.method == 'POST':
+        try:
+            member = TeamMember.objects.get(team=team, user=request.user)
+            member.is_active = False
+            member.save()
+            messages.success(request, f'You have left {team.name}.')
+        except TeamMember.DoesNotExist:
+            messages.error(request, 'Membership not found.')
+
+    return redirect('employer_dashboard')
+
+
+@login_required
+def team_activity_log(request):
+    """View full activity log for the team"""
+    team = get_user_team(request.user)
+    if not team:
+        messages.error(request, 'Team not found.')
+        return redirect('home')
+
+    activities = team.activity_logs.select_related('user', 'application', 'job').all()
+
+    context = {
+        'team': team,
+        'activities': activities
+    }
+    return render(request, 'jobs/ats/activity_log.html', context)

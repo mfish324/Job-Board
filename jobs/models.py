@@ -532,3 +532,179 @@ class Message(models.Model):
         if not self.is_read:
             self.is_read = True
             self.save()
+
+
+# ============================================
+# PHASE 3: TEAM COLLABORATION & PERMISSIONS
+# ============================================
+
+class EmployerTeam(models.Model):
+    """Team/organization for employer accounts"""
+    name = models.CharField(max_length=200)
+    owner = models.OneToOneField(User, on_delete=models.CASCADE, related_name='owned_team')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.name
+
+    def get_members(self):
+        """Get all team members including owner"""
+        return TeamMember.objects.filter(team=self).select_related('user')
+
+    def get_member_count(self):
+        """Get total number of team members including owner"""
+        return self.members.count() + 1  # +1 for owner
+
+    def is_member(self, user):
+        """Check if user is a member of this team (including owner)"""
+        if user == self.owner:
+            return True
+        return self.members.filter(user=user, is_active=True).exists()
+
+    def get_user_role(self, user):
+        """Get the role of a user in this team"""
+        if user == self.owner:
+            return 'owner'
+        try:
+            member = self.members.get(user=user)
+            return member.role
+        except TeamMember.DoesNotExist:
+            return None
+
+
+class TeamMember(models.Model):
+    """Team member with role-based permissions"""
+    ROLE_CHOICES = [
+        ('admin', 'Admin'),           # Full access, can manage team
+        ('recruiter', 'Recruiter'),   # Can manage applications, send emails
+        ('reviewer', 'Reviewer'),      # Can view applications, add notes/ratings
+        ('viewer', 'Viewer'),          # Read-only access
+    ]
+
+    team = models.ForeignKey(EmployerTeam, on_delete=models.CASCADE, related_name='members')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='team_memberships')
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='reviewer')
+    is_active = models.BooleanField(default=True)
+    invited_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='sent_invitations')
+    joined_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['team', 'user']
+        ordering = ['role', 'joined_at']
+
+    def __str__(self):
+        return f"{self.user.username} - {self.get_role_display()} at {self.team.name}"
+
+    def can_manage_team(self):
+        """Check if member can add/remove team members"""
+        return self.role == 'admin'
+
+    def can_manage_applications(self):
+        """Check if member can move stages, send emails"""
+        return self.role in ['admin', 'recruiter']
+
+    def can_review_applications(self):
+        """Check if member can add notes and ratings"""
+        return self.role in ['admin', 'recruiter', 'reviewer']
+
+    def can_view_applications(self):
+        """Check if member can view application details"""
+        return self.role in ['admin', 'recruiter', 'reviewer', 'viewer']
+
+
+class TeamInvitation(models.Model):
+    """Pending team invitations"""
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('accepted', 'Accepted'),
+        ('declined', 'Declined'),
+        ('expired', 'Expired'),
+    ]
+
+    team = models.ForeignKey(EmployerTeam, on_delete=models.CASCADE, related_name='invitations')
+    email = models.EmailField()
+    role = models.CharField(max_length=20, choices=TeamMember.ROLE_CHOICES, default='reviewer')
+    invited_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='team_invitations_sent')
+    token = models.CharField(max_length=64, unique=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    accepted_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='accepted_invitations')
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Invitation to {self.email} for {self.team.name}"
+
+    def is_expired(self):
+        from django.utils import timezone
+        return timezone.now() > self.expires_at
+
+    def is_valid(self):
+        return self.status == 'pending' and not self.is_expired()
+
+    @classmethod
+    def create_invitation(cls, team, email, role, invited_by, days_valid=7):
+        """Create a new invitation with auto-generated token"""
+        import secrets
+        from django.utils import timezone
+        from datetime import timedelta
+
+        token = secrets.token_urlsafe(32)
+        expires_at = timezone.now() + timedelta(days=days_valid)
+
+        return cls.objects.create(
+            team=team,
+            email=email,
+            role=role,
+            invited_by=invited_by,
+            token=token,
+            expires_at=expires_at
+        )
+
+
+class ActivityLog(models.Model):
+    """Audit log for team activities"""
+    ACTION_TYPES = [
+        ('application_viewed', 'Viewed Application'),
+        ('stage_changed', 'Changed Stage'),
+        ('note_added', 'Added Note'),
+        ('rating_added', 'Added Rating'),
+        ('email_sent', 'Sent Email'),
+        ('message_sent', 'Sent Message'),
+        ('tag_added', 'Added Tag'),
+        ('tag_removed', 'Removed Tag'),
+        ('member_invited', 'Invited Team Member'),
+        ('member_removed', 'Removed Team Member'),
+        ('job_posted', 'Posted Job'),
+        ('job_edited', 'Edited Job'),
+    ]
+
+    team = models.ForeignKey(EmployerTeam, on_delete=models.CASCADE, related_name='activity_logs')
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='activity_logs')
+    action_type = models.CharField(max_length=30, choices=ACTION_TYPES)
+    description = models.TextField()
+    application = models.ForeignKey(JobApplication, on_delete=models.SET_NULL, null=True, blank=True)
+    job = models.ForeignKey(Job, on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name_plural = 'Activity logs'
+
+    def __str__(self):
+        return f"{self.user.username if self.user else 'System'}: {self.get_action_type_display()}"
+
+    @classmethod
+    def log_activity(cls, team, user, action_type, description, application=None, job=None):
+        """Helper to create activity log entry"""
+        return cls.objects.create(
+            team=team,
+            user=user,
+            action_type=action_type,
+            description=description,
+            application=application,
+            job=job
+        )

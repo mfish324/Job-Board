@@ -2,7 +2,7 @@ from django.contrib import admin
 from .models import (Job, UserProfile, JobApplication, PhoneVerification, EmailVerification, SavedJob,
                      HiringStage, ApplicationStageHistory, ApplicationNote, ApplicationRating,
                      ApplicationTag, ApplicationTagAssignment, EmailTemplate, Notification,
-                     EmailLog, Message)
+                     EmailLog, Message, EmployerTeam, TeamMember, TeamInvitation, ActivityLog)
 
 
 @admin.register(Job)
@@ -233,3 +233,53 @@ class MessageAdmin(admin.ModelAdmin):
     def content_preview(self, obj):
         return obj.content[:50] + '...' if len(obj.content) > 50 else obj.content
     content_preview.short_description = 'Content'
+
+
+# ============================================
+# PHASE 3: TEAM COLLABORATION ADMIN
+# ============================================
+
+@admin.register(EmployerTeam)
+class EmployerTeamAdmin(admin.ModelAdmin):
+    list_display = ('name', 'owner', 'member_count', 'created_at')
+    search_fields = ('name', 'owner__username', 'owner__email')
+    date_hierarchy = 'created_at'
+    readonly_fields = ('created_at', 'updated_at')
+
+    def member_count(self, obj):
+        return obj.members.filter(is_active=True).count()
+    member_count.short_description = 'Active Members'
+
+
+@admin.register(TeamMember)
+class TeamMemberAdmin(admin.ModelAdmin):
+    list_display = ('user', 'team', 'role', 'is_active', 'joined_at')
+    list_filter = ('role', 'is_active', 'joined_at')
+    search_fields = ('user__username', 'user__email', 'team__name')
+    date_hierarchy = 'joined_at'
+    list_editable = ('role', 'is_active')
+    raw_id_fields = ('user', 'team', 'invited_by')
+
+
+@admin.register(TeamInvitation)
+class TeamInvitationAdmin(admin.ModelAdmin):
+    list_display = ('email', 'team', 'role', 'status', 'invited_by', 'created_at', 'expires_at')
+    list_filter = ('status', 'role', 'created_at')
+    search_fields = ('email', 'team__name', 'invited_by__username')
+    date_hierarchy = 'created_at'
+    readonly_fields = ('token', 'created_at')
+    raw_id_fields = ('team', 'invited_by', 'accepted_by')
+
+
+@admin.register(ActivityLog)
+class ActivityLogAdmin(admin.ModelAdmin):
+    list_display = ('action_type', 'user', 'team', 'description_preview', 'created_at')
+    list_filter = ('action_type', 'created_at', 'team')
+    search_fields = ('description', 'user__username', 'team__name')
+    date_hierarchy = 'created_at'
+    readonly_fields = ('created_at',)
+    raw_id_fields = ('user', 'team', 'application', 'job')
+
+    def description_preview(self, obj):
+        return obj.description[:50] + '...' if len(obj.description) > 50 else obj.description
+    description_preview.short_description = 'Description'
