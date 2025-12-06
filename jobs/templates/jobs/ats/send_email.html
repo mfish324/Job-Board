@@ -1,0 +1,176 @@
+{% extends 'jobs/base.html' %}
+
+{% block title %}Send Email - Real Jobs, Real People{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb mb-2">
+                            <li class="breadcrumb-item"><a href="{% url 'employer_dashboard' %}">Dashboard</a></li>
+                            <li class="breadcrumb-item"><a href="{% url 'application_detail_ats' application.id %}">Application</a></li>
+                            <li class="breadcrumb-item active">Send Email</li>
+                        </ol>
+                    </nav>
+                    <h1 class="fw-bold mb-0">
+                        <i class="bi bi-envelope me-2"></i>Send Email
+                    </h1>
+                </div>
+                <a href="{% url 'application_detail_ats' application.id %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i>Back
+                </a>
+            </div>
+
+            <!-- Recipient Info -->
+            <div class="alert alert-light mb-4">
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-person-circle fs-3 me-3 text-primary"></i>
+                    <div>
+                        <strong>To:</strong> {{ application.applicant.get_full_name|default:application.applicant.username }}<br>
+                        <small class="text-muted">{{ application.applicant.email }}</small>
+                    </div>
+                </div>
+                <hr>
+                <small>
+                    <strong>Position:</strong> {{ application.job.title }} |
+                    <strong>Current Stage:</strong> {{ application.current_stage.name|default:"Applied" }}
+                </small>
+            </div>
+
+            <!-- Email Form -->
+            <div class="card">
+                <div class="card-header bg-white">
+                    <ul class="nav nav-tabs card-header-tabs" role="tablist">
+                        <li class="nav-item">
+                            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#template-tab" type="button">
+                                <i class="bi bi-file-earmark-text me-1"></i>Use Template
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#custom-tab" type="button">
+                                <i class="bi bi-pencil me-1"></i>Custom Email
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+                <div class="card-body">
+                    <div class="tab-content">
+                        <!-- Template Tab -->
+                        <div class="tab-pane fade show active" id="template-tab">
+                            <form method="post">
+                                {% csrf_token %}
+                                <div class="mb-3">
+                                    <label class="form-label">Select Template</label>
+                                    <select name="template_id" class="form-select" id="templateSelect">
+                                        <option value="">Choose a template...</option>
+                                        {% for template in templates %}
+                                        <option value="{{ template.id }}"
+                                                data-subject="{{ template.subject }}"
+                                                data-body="{{ template.body }}">
+                                            {{ template.name }} ({{ template.get_template_type_display }})
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <!-- Preview -->
+                                <div id="templatePreview" class="mb-3" style="display: none;">
+                                    <label class="form-label">Preview</label>
+                                    <div class="border rounded p-3 bg-light">
+                                        <p class="mb-1"><strong>Subject:</strong> <span id="previewSubject"></span></p>
+                                        <hr>
+                                        <pre id="previewBody" style="white-space: pre-wrap; font-family: inherit; margin: 0;"></pre>
+                                    </div>
+                                    <small class="text-muted">
+                                        Placeholders will be replaced:
+                                        {{applicant_name}} = {{ preview_context.applicant_name }},
+                                        {{job_title}} = {{ preview_context.job_title }}
+                                    </small>
+                                </div>
+
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-send me-1"></i>Send Email
+                                </button>
+                            </form>
+                        </div>
+
+                        <!-- Custom Tab -->
+                        <div class="tab-pane fade" id="custom-tab">
+                            <form method="post">
+                                {% csrf_token %}
+                                <input type="hidden" name="template_id" value="custom">
+
+                                <div class="mb-3">
+                                    <label class="form-label">Subject <span class="text-danger">*</span></label>
+                                    <input type="text" name="custom_subject" class="form-control" placeholder="Email subject...">
+                                    <small class="text-muted">You can use placeholders like <code>{{applicant_name}}</code></small>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Message <span class="text-danger">*</span></label>
+                                    <textarea name="custom_body" class="form-control" rows="10" placeholder="Write your message..."></textarea>
+                                </div>
+
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-send me-1"></i>Send Email
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="card mt-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-muted">
+                            <i class="bi bi-info-circle me-1"></i>Need more templates?
+                        </span>
+                        <a href="{% url 'manage_email_templates' %}" class="btn btn-outline-primary btn-sm">
+                            Manage Templates
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('templateSelect').addEventListener('change', function() {
+    const preview = document.getElementById('templatePreview');
+    const subjectEl = document.getElementById('previewSubject');
+    const bodyEl = document.getElementById('previewBody');
+
+    if (this.value) {
+        const option = this.options[this.selectedIndex];
+        let subject = option.dataset.subject;
+        let body = option.dataset.body;
+
+        // Replace placeholders with preview values
+        const replacements = {
+            '{{applicant_name}}': '{{ preview_context.applicant_name }}',
+            '{{job_title}}': '{{ preview_context.job_title }}',
+            '{{company_name}}': '{{ preview_context.company_name }}',
+            '{{stage_name}}': '{{ preview_context.stage_name }}'
+        };
+
+        for (const [placeholder, value] of Object.entries(replacements)) {
+            subject = subject.split(placeholder).join(value);
+            body = body.split(placeholder).join(value);
+        }
+
+        subjectEl.textContent = subject;
+        bodyEl.textContent = body;
+        preview.style.display = 'block';
+    } else {
+        preview.style.display = 'none';
+    }
+});
+</script>
+{% endblock %}

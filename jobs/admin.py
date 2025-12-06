@@ -1,5 +1,8 @@
 from django.contrib import admin
-from .models import Job, UserProfile, JobApplication, PhoneVerification, EmailVerification, SavedJob
+from .models import (Job, UserProfile, JobApplication, PhoneVerification, EmailVerification, SavedJob,
+                     HiringStage, ApplicationStageHistory, ApplicationNote, ApplicationRating,
+                     ApplicationTag, ApplicationTagAssignment, EmailTemplate, Notification,
+                     EmailLog, Message)
 
 
 @admin.register(Job)
@@ -82,3 +85,151 @@ class SavedJobAdmin(admin.ModelAdmin):
     search_fields = ('user__username', 'job__title', 'job__company')
     date_hierarchy = 'saved_date'
     readonly_fields = ('saved_date',)
+
+
+# ============================================
+# ATS ADMIN CONFIGURATIONS
+# ============================================
+
+@admin.register(HiringStage)
+class HiringStageAdmin(admin.ModelAdmin):
+    list_display = ('name', 'employer', 'order', 'color', 'is_default', 'application_count')
+    list_filter = ('is_default', 'employer')
+    search_fields = ('name', 'employer__username')
+    ordering = ('employer', 'order')
+
+    def application_count(self, obj):
+        return obj.applications.count()
+    application_count.short_description = 'Applications'
+
+
+@admin.register(ApplicationStageHistory)
+class ApplicationStageHistoryAdmin(admin.ModelAdmin):
+    list_display = ('application', 'stage', 'changed_by', 'changed_at')
+    list_filter = ('changed_at', 'stage')
+    search_fields = ('application__applicant__username', 'application__job__title')
+    date_hierarchy = 'changed_at'
+    readonly_fields = ('changed_at',)
+
+
+@admin.register(ApplicationNote)
+class ApplicationNoteAdmin(admin.ModelAdmin):
+    list_display = ('application', 'author', 'is_private', 'created_at', 'content_preview')
+    list_filter = ('is_private', 'created_at')
+    search_fields = ('application__applicant__username', 'author__username', 'content')
+    date_hierarchy = 'created_at'
+    readonly_fields = ('created_at', 'updated_at')
+
+    def content_preview(self, obj):
+        return obj.content[:50] + '...' if len(obj.content) > 50 else obj.content
+    content_preview.short_description = 'Content'
+
+
+@admin.register(ApplicationRating)
+class ApplicationRatingAdmin(admin.ModelAdmin):
+    list_display = ('application', 'rater', 'overall_rating', 'skills_rating', 'experience_rating', 'culture_fit_rating', 'created_at')
+    list_filter = ('overall_rating', 'created_at')
+    search_fields = ('application__applicant__username', 'rater__username')
+    date_hierarchy = 'created_at'
+    readonly_fields = ('created_at', 'updated_at')
+
+
+@admin.register(ApplicationTag)
+class ApplicationTagAdmin(admin.ModelAdmin):
+    list_display = ('name', 'employer', 'color', 'usage_count')
+    list_filter = ('employer',)
+    search_fields = ('name', 'employer__username')
+
+    def usage_count(self, obj):
+        return obj.assignments.count()
+    usage_count.short_description = 'Used On'
+
+
+@admin.register(ApplicationTagAssignment)
+class ApplicationTagAssignmentAdmin(admin.ModelAdmin):
+    list_display = ('tag', 'application', 'assigned_by', 'assigned_at')
+    list_filter = ('assigned_at', 'tag')
+    search_fields = ('tag__name', 'application__applicant__username')
+    date_hierarchy = 'assigned_at'
+    readonly_fields = ('assigned_at',)
+
+
+# ============================================
+# PHASE 2: EMAIL & NOTIFICATION ADMIN
+# ============================================
+
+@admin.register(EmailTemplate)
+class EmailTemplateAdmin(admin.ModelAdmin):
+    list_display = ('name', 'employer', 'template_type', 'is_active', 'updated_at')
+    list_filter = ('template_type', 'is_active', 'employer')
+    search_fields = ('name', 'subject', 'employer__username')
+    list_editable = ('is_active',)
+    date_hierarchy = 'created_at'
+    readonly_fields = ('created_at', 'updated_at')
+    fieldsets = (
+        ('Template Info', {
+            'fields': ('employer', 'name', 'template_type', 'is_active')
+        }),
+        ('Content', {
+            'fields': ('subject', 'body')
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+
+@admin.register(Notification)
+class NotificationAdmin(admin.ModelAdmin):
+    list_display = ('title', 'recipient', 'notification_type', 'is_read', 'created_at')
+    list_filter = ('notification_type', 'is_read', 'created_at')
+    search_fields = ('title', 'message', 'recipient__username')
+    date_hierarchy = 'created_at'
+    list_editable = ('is_read',)
+    readonly_fields = ('created_at',)
+    raw_id_fields = ('recipient', 'application', 'job')
+
+
+@admin.register(EmailLog)
+class EmailLogAdmin(admin.ModelAdmin):
+    list_display = ('recipient_email', 'subject', 'sender', 'status', 'sent_at', 'created_at')
+    list_filter = ('status', 'created_at', 'sender')
+    search_fields = ('recipient_email', 'subject', 'sender__username')
+    date_hierarchy = 'created_at'
+    readonly_fields = ('created_at', 'sent_at')
+    raw_id_fields = ('sender', 'recipient_user', 'template', 'application')
+    fieldsets = (
+        ('Email Details', {
+            'fields': ('sender', 'recipient_email', 'recipient_user', 'subject')
+        }),
+        ('Content', {
+            'fields': ('body', 'template')
+        }),
+        ('Status', {
+            'fields': ('status', 'error_message', 'sent_at')
+        }),
+        ('Related', {
+            'fields': ('application',),
+            'classes': ('collapse',)
+        }),
+        ('Timestamps', {
+            'fields': ('created_at',),
+            'classes': ('collapse',)
+        }),
+    )
+
+
+@admin.register(Message)
+class MessageAdmin(admin.ModelAdmin):
+    list_display = ('sender', 'application', 'is_read', 'content_preview', 'created_at')
+    list_filter = ('is_read', 'created_at')
+    search_fields = ('sender__username', 'content', 'application__job__title')
+    date_hierarchy = 'created_at'
+    list_editable = ('is_read',)
+    readonly_fields = ('created_at',)
+    raw_id_fields = ('application', 'sender')
+
+    def content_preview(self, obj):
+        return obj.content[:50] + '...' if len(obj.content) > 50 else obj.content
+    content_preview.short_description = 'Content'

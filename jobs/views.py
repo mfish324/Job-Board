@@ -6,7 +6,10 @@ from django.db.models import Q
 from django.http import HttpResponse
 from django.utils import timezone
 from django.conf import settings
-from .models import Job, UserProfile, JobApplication, PhoneVerification, EmailVerification, SavedJob
+from .models import (Job, UserProfile, JobApplication, PhoneVerification, EmailVerification, SavedJob,
+                     HiringStage, ApplicationStageHistory, ApplicationNote, ApplicationRating,
+                     ApplicationTag, ApplicationTagAssignment, EmailTemplate, Notification,
+                     EmailLog, Message)
 from .forms import JobSeekerSignUpForm, EmployerSignUpForm, JobPostForm, JobApplicationForm
 from .forms import (JobSeekerSignUpForm, EmployerSignUpForm, JobPostForm,
                    JobApplicationForm, JobSeekerProfileForm, EmployerProfileForm)
@@ -338,6 +341,19 @@ def apply_job(request, job_id):
             application.job = job
             application.applicant = request.user
             application.save()
+
+            # Notify employer of new application
+            if job.posted_by:
+                Notification.create_notification(
+                    recipient=job.posted_by,
+                    notification_type='application_received',
+                    title=f'New Application - {job.title}',
+                    message=f'{request.user.get_full_name() or request.user.username} has applied for {job.title}.',
+                    link=f'/employer/application/{application.id}/',
+                    application=application,
+                    job=job
+                )
+
             messages.success(request, 'Application submitted successfully!')
             return redirect('job_detail', job_id=job_id)
     else:
@@ -650,3 +666,758 @@ def update_application_status(request, application_id):
             messages.error(request, 'Invalid status.')
 
     return redirect('employer_dashboard')
+
+
+# ============================================
+# APPLICANT TRACKING SYSTEM (ATS) VIEWS
+# ============================================
+
+@login_required
+def ats_pipeline(request, job_id):
+    """Kanban-style pipeline view for a specific job's applications"""
+    job = get_object_or_404(Job, id=job_id)
+
+    # Ensure only the job owner can view the pipeline
+    if job.posted_by != request.user:
+        messages.error(request, 'You do not have permission to view this pipeline.')
+        return redirect('employer_dashboard')
+
+    # Ensure employer has hiring stages, create defaults if not
+    if not HiringStage.objects.filter(employer=request.user).exists():
+        HiringStage.create_default_stages_for_employer(request.user)
+
+    stages = HiringStage.objects.filter(employer=request.user)
+    applications = job.applications.select_related('applicant', 'current_stage').prefetch_related('ratings', 'tag_assignments__tag')
+
+    # Assign applications without a stage to the first stage (Applied)
+    first_stage = stages.first()
+    for app in applications:
+        if app.current_stage is None and first_stage:
+            app.current_stage = first_stage
+            app.save()
+
+    # Group applications by stage
+    pipeline_data = []
+    for stage in stages:
+        stage_apps = [app for app in applications if app.current_stage_id == stage.id]
+        pipeline_data.append({
+            'stage': stage,
+            'applications': stage_apps,
+            'count': len(stage_apps)
+        })
+
+    # Get tags for the filter dropdown
+    tags = ApplicationTag.objects.filter(employer=request.user)
+
+    context = {
+        'job': job,
+        'pipeline_data': pipeline_data,
+        'stages': stages,
+        'tags': tags,
+        'total_applications': applications.count()
+    }
+    return render(request, 'jobs/ats/pipeline.html', context)
+
+
+@login_required
+def move_application_stage(request, application_id):
+    """Move an application to a different stage (AJAX endpoint)"""
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    application = get_object_or_404(JobApplication, id=application_id)
+
+    # Ensure only the job owner can move applications
+    if application.job.posted_by != request.user:
+        return HttpResponse(status=403)
+
+    stage_id = request.POST.get('stage_id')
+    notes = request.POST.get('notes', '')
+
+    try:
+        new_stage = HiringStage.objects.get(id=stage_id, employer=request.user)
+    except HiringStage.DoesNotExist:
+        return HttpResponse(status=400)
+
+    old_stage = application.current_stage
+    application.current_stage = new_stage
+    application.save()
+
+    # Record the stage change in history
+    ApplicationStageHistory.objects.create(
+        application=application,
+        stage=new_stage,
+        changed_by=request.user,
+        notes=notes
+    )
+
+    # Update legacy status field based on stage name
+    stage_to_status = {
+        'Applied': 'pending',
+        'Screening': 'reviewed',
+        'Interview': 'reviewed',
+        'Offer': 'accepted',
+        'Hired': 'accepted',
+        'Rejected': 'rejected'
+    }
+    if new_stage.name in stage_to_status:
+        application.status = stage_to_status[new_stage.name]
+        application.save()
+
+    # Create notification for applicant about stage change
+    notification_type = 'stage_change'
+    if new_stage.name == 'Rejected':
+        notification_type = 'application_rejected'
+    elif new_stage.name == 'Offer':
+        notification_type = 'offer_received'
+    elif new_stage.name == 'Interview':
+        notification_type = 'interview_scheduled'
+
+    Notification.create_notification(
+        recipient=application.applicant,
+        notification_type=notification_type,
+        title=f'Application Update - {application.job.title}',
+        message=f'Your application for {application.job.title} at {application.job.company} has moved to the {new_stage.name} stage.',
+        link=f'/application/{application.id}/',
+        application=application,
+        job=application.job
+    )
+
+    messages.success(request, f'Moved {application.applicant.get_full_name() or application.applicant.username} to {new_stage.name}')
+
+    # If AJAX request, return JSON
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        from django.http import JsonResponse
+        return JsonResponse({'success': True, 'new_stage': new_stage.name})
+
+    return redirect('ats_pipeline', job_id=application.job.id)
+
+
+@login_required
+def application_detail_ats(request, application_id):
+    """Enhanced application detail view with ATS features"""
+    application = get_object_or_404(JobApplication, id=application_id)
+
+    # Only the employer who posted the job or the applicant can view
+    if request.user != application.job.posted_by and request.user != application.applicant:
+        messages.error(request, 'You do not have permission to view this application.')
+        return redirect('home')
+
+    is_employer = request.user == application.job.posted_by
+
+    # Get related ATS data for employers
+    notes = []
+    ratings = []
+    tags = []
+    stages = []
+    stage_history = []
+    user_rating = None
+    all_tags = []
+
+    if is_employer:
+        notes = application.notes.select_related('author').all()
+        ratings = application.ratings.select_related('rater').all()
+        tags = application.get_tags()
+        stages = HiringStage.objects.filter(employer=request.user)
+        stage_history = application.stage_history.select_related('stage', 'changed_by').all()
+        all_tags = ApplicationTag.objects.filter(employer=request.user)
+
+        # Get current user's rating if exists
+        try:
+            user_rating = application.ratings.get(rater=request.user)
+        except ApplicationRating.DoesNotExist:
+            pass
+
+    context = {
+        'application': application,
+        'is_employer': is_employer,
+        'notes': notes,
+        'ratings': ratings,
+        'tags': tags,
+        'stages': stages,
+        'stage_history': stage_history,
+        'user_rating': user_rating,
+        'all_tags': all_tags,
+        'average_rating': application.get_average_rating()
+    }
+    return render(request, 'jobs/ats/application_detail.html', context)
+
+
+@login_required
+def add_application_note(request, application_id):
+    """Add a note to an application"""
+    if request.method != 'POST':
+        return redirect('application_detail_ats', application_id=application_id)
+
+    application = get_object_or_404(JobApplication, id=application_id)
+
+    # Ensure only the job owner can add notes
+    if application.job.posted_by != request.user:
+        messages.error(request, 'You do not have permission to add notes.')
+        return redirect('home')
+
+    content = request.POST.get('content', '').strip()
+    is_private = request.POST.get('is_private') == 'on'
+
+    if content:
+        ApplicationNote.objects.create(
+            application=application,
+            author=request.user,
+            content=content,
+            is_private=is_private
+        )
+        messages.success(request, 'Note added successfully.')
+    else:
+        messages.error(request, 'Note content cannot be empty.')
+
+    return redirect('application_detail_ats', application_id=application_id)
+
+
+@login_required
+def delete_application_note(request, note_id):
+    """Delete a note from an application"""
+    note = get_object_or_404(ApplicationNote, id=note_id)
+
+    # Only the note author can delete their own notes
+    if note.author != request.user:
+        messages.error(request, 'You can only delete your own notes.')
+        return redirect('application_detail_ats', application_id=note.application.id)
+
+    application_id = note.application.id
+    note.delete()
+    messages.success(request, 'Note deleted successfully.')
+
+    return redirect('application_detail_ats', application_id=application_id)
+
+
+@login_required
+def rate_application(request, application_id):
+    """Add or update a rating for an application"""
+    if request.method != 'POST':
+        return redirect('application_detail_ats', application_id=application_id)
+
+    application = get_object_or_404(JobApplication, id=application_id)
+
+    # Ensure only the job owner can rate applications
+    if application.job.posted_by != request.user:
+        messages.error(request, 'You do not have permission to rate this application.')
+        return redirect('home')
+
+    overall_rating = request.POST.get('overall_rating')
+    skills_rating = request.POST.get('skills_rating') or None
+    experience_rating = request.POST.get('experience_rating') or None
+    culture_fit_rating = request.POST.get('culture_fit_rating') or None
+    comments = request.POST.get('comments', '').strip()
+
+    if not overall_rating:
+        messages.error(request, 'Overall rating is required.')
+        return redirect('application_detail_ats', application_id=application_id)
+
+    # Update or create rating
+    rating, created = ApplicationRating.objects.update_or_create(
+        application=application,
+        rater=request.user,
+        defaults={
+            'overall_rating': int(overall_rating),
+            'skills_rating': int(skills_rating) if skills_rating else None,
+            'experience_rating': int(experience_rating) if experience_rating else None,
+            'culture_fit_rating': int(culture_fit_rating) if culture_fit_rating else None,
+            'comments': comments
+        }
+    )
+
+    if created:
+        messages.success(request, 'Rating added successfully.')
+    else:
+        messages.success(request, 'Rating updated successfully.')
+
+    return redirect('application_detail_ats', application_id=application_id)
+
+
+@login_required
+def manage_application_tags(request, application_id):
+    """Add or remove tags from an application"""
+    if request.method != 'POST':
+        return redirect('application_detail_ats', application_id=application_id)
+
+    application = get_object_or_404(JobApplication, id=application_id)
+
+    # Ensure only the job owner can manage tags
+    if application.job.posted_by != request.user:
+        messages.error(request, 'You do not have permission to manage tags.')
+        return redirect('home')
+
+    action = request.POST.get('action')
+    tag_id = request.POST.get('tag_id')
+
+    if action == 'add' and tag_id:
+        try:
+            tag = ApplicationTag.objects.get(id=tag_id, employer=request.user)
+            ApplicationTagAssignment.objects.get_or_create(
+                application=application,
+                tag=tag,
+                defaults={'assigned_by': request.user}
+            )
+            messages.success(request, f'Tag "{tag.name}" added.')
+        except ApplicationTag.DoesNotExist:
+            messages.error(request, 'Invalid tag.')
+
+    elif action == 'remove' and tag_id:
+        try:
+            tag = ApplicationTag.objects.get(id=tag_id, employer=request.user)
+            ApplicationTagAssignment.objects.filter(application=application, tag=tag).delete()
+            messages.success(request, f'Tag "{tag.name}" removed.')
+        except ApplicationTag.DoesNotExist:
+            messages.error(request, 'Invalid tag.')
+
+    return redirect('application_detail_ats', application_id=application_id)
+
+
+@login_required
+def manage_tags(request):
+    """Manage employer's tag library"""
+    if not hasattr(request.user, 'userprofile') or request.user.userprofile.user_type != 'employer':
+        messages.error(request, 'Access denied. Employer account required.')
+        return redirect('home')
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        if action == 'create':
+            name = request.POST.get('name', '').strip()
+            color = request.POST.get('color', '#007bff')
+
+            if name:
+                tag, created = ApplicationTag.objects.get_or_create(
+                    name=name,
+                    employer=request.user,
+                    defaults={'color': color}
+                )
+                if created:
+                    messages.success(request, f'Tag "{name}" created.')
+                else:
+                    messages.warning(request, f'Tag "{name}" already exists.')
+            else:
+                messages.error(request, 'Tag name is required.')
+
+        elif action == 'delete':
+            tag_id = request.POST.get('tag_id')
+            try:
+                tag = ApplicationTag.objects.get(id=tag_id, employer=request.user)
+                tag_name = tag.name
+                tag.delete()
+                messages.success(request, f'Tag "{tag_name}" deleted.')
+            except ApplicationTag.DoesNotExist:
+                messages.error(request, 'Invalid tag.')
+
+        return redirect('manage_tags')
+
+    tags = ApplicationTag.objects.filter(employer=request.user)
+    context = {'tags': tags}
+    return render(request, 'jobs/ats/manage_tags.html', context)
+
+
+@login_required
+def manage_stages(request):
+    """Manage employer's hiring stages"""
+    if not hasattr(request.user, 'userprofile') or request.user.userprofile.user_type != 'employer':
+        messages.error(request, 'Access denied. Employer account required.')
+        return redirect('home')
+
+    # Create default stages if none exist
+    if not HiringStage.objects.filter(employer=request.user).exists():
+        HiringStage.create_default_stages_for_employer(request.user)
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        if action == 'create':
+            name = request.POST.get('name', '').strip()
+            color = request.POST.get('color', '#6c757d')
+
+            if name:
+                max_order = HiringStage.objects.filter(employer=request.user).count()
+                stage, created = HiringStage.objects.get_or_create(
+                    name=name,
+                    employer=request.user,
+                    defaults={'color': color, 'order': max_order}
+                )
+                if created:
+                    messages.success(request, f'Stage "{name}" created.')
+                else:
+                    messages.warning(request, f'Stage "{name}" already exists.')
+            else:
+                messages.error(request, 'Stage name is required.')
+
+        elif action == 'delete':
+            stage_id = request.POST.get('stage_id')
+            try:
+                stage = HiringStage.objects.get(id=stage_id, employer=request.user)
+                stage_name = stage.name
+                # Move applications from deleted stage to the first available stage
+                first_stage = HiringStage.objects.filter(employer=request.user).exclude(id=stage_id).first()
+                JobApplication.objects.filter(current_stage=stage).update(current_stage=first_stage)
+                stage.delete()
+                messages.success(request, f'Stage "{stage_name}" deleted.')
+            except HiringStage.DoesNotExist:
+                messages.error(request, 'Invalid stage.')
+
+        elif action == 'reorder':
+            stage_ids = request.POST.getlist('stage_order')
+            for index, stage_id in enumerate(stage_ids):
+                HiringStage.objects.filter(id=stage_id, employer=request.user).update(order=index)
+            messages.success(request, 'Stages reordered successfully.')
+
+        return redirect('manage_stages')
+
+    stages = HiringStage.objects.filter(employer=request.user)
+    context = {'stages': stages}
+    return render(request, 'jobs/ats/manage_stages.html', context)
+
+
+# ============================================
+# PHASE 2: EMAIL TEMPLATES & NOTIFICATIONS
+# ============================================
+
+def send_application_email(sender, application, template, custom_subject=None, custom_body=None):
+    """Helper function to send email to applicant and log it"""
+    from django.core.mail import send_mail
+
+    # Build context for template rendering
+    context = {
+        'applicant_name': application.applicant.get_full_name() or application.applicant.username,
+        'job_title': application.job.title,
+        'company_name': application.job.company,
+        'stage_name': application.current_stage.name if application.current_stage else 'Under Review',
+    }
+
+    if custom_subject and custom_body:
+        subject = custom_subject
+        body = custom_body
+        # Replace placeholders in custom content too
+        for key, value in context.items():
+            placeholder = '{{' + key + '}}'
+            subject = subject.replace(placeholder, str(value))
+            body = body.replace(placeholder, str(value))
+    else:
+        subject, body = template.render(context)
+
+    # Create email log
+    email_log = EmailLog.objects.create(
+        sender=sender,
+        recipient_email=application.applicant.email,
+        recipient_user=application.applicant,
+        subject=subject,
+        body=body,
+        template=template if not custom_subject else None,
+        application=application,
+        status='pending'
+    )
+
+    # Try to send email
+    try:
+        send_mail(
+            subject=subject,
+            message=body,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[application.applicant.email],
+            fail_silently=False,
+        )
+        email_log.status = 'sent'
+        email_log.sent_at = timezone.now()
+        email_log.save()
+        return True
+    except Exception as e:
+        email_log.status = 'failed'
+        email_log.error_message = str(e)
+        email_log.save()
+        return False
+
+
+@login_required
+def manage_email_templates(request):
+    """Manage employer's email templates"""
+    if not hasattr(request.user, 'userprofile') or request.user.userprofile.user_type != 'employer':
+        messages.error(request, 'Access denied. Employer account required.')
+        return redirect('home')
+
+    # Create default templates if none exist
+    if not EmailTemplate.objects.filter(employer=request.user).exists():
+        EmailTemplate.create_default_templates_for_employer(request.user)
+
+    templates = EmailTemplate.objects.filter(employer=request.user)
+
+    context = {
+        'templates': templates,
+        'template_types': EmailTemplate.TEMPLATE_TYPES
+    }
+    return render(request, 'jobs/ats/manage_email_templates.html', context)
+
+
+@login_required
+def create_email_template(request):
+    """Create a new email template"""
+    if not hasattr(request.user, 'userprofile') or request.user.userprofile.user_type != 'employer':
+        messages.error(request, 'Access denied. Employer account required.')
+        return redirect('home')
+
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        template_type = request.POST.get('template_type', 'custom')
+        subject = request.POST.get('subject', '').strip()
+        body = request.POST.get('body', '').strip()
+
+        if name and subject and body:
+            template, created = EmailTemplate.objects.get_or_create(
+                name=name,
+                employer=request.user,
+                defaults={
+                    'template_type': template_type,
+                    'subject': subject,
+                    'body': body
+                }
+            )
+            if created:
+                messages.success(request, f'Template "{name}" created successfully.')
+            else:
+                messages.warning(request, f'Template "{name}" already exists.')
+        else:
+            messages.error(request, 'All fields are required.')
+
+        return redirect('manage_email_templates')
+
+    context = {
+        'template_types': EmailTemplate.TEMPLATE_TYPES
+    }
+    return render(request, 'jobs/ats/create_email_template.html', context)
+
+
+@login_required
+def edit_email_template(request, template_id):
+    """Edit an existing email template"""
+    template = get_object_or_404(EmailTemplate, id=template_id, employer=request.user)
+
+    if request.method == 'POST':
+        template.name = request.POST.get('name', '').strip()
+        template.template_type = request.POST.get('template_type', 'custom')
+        template.subject = request.POST.get('subject', '').strip()
+        template.body = request.POST.get('body', '').strip()
+        template.is_active = request.POST.get('is_active') == 'on'
+        template.save()
+        messages.success(request, f'Template "{template.name}" updated successfully.')
+        return redirect('manage_email_templates')
+
+    context = {
+        'template': template,
+        'template_types': EmailTemplate.TEMPLATE_TYPES
+    }
+    return render(request, 'jobs/ats/edit_email_template.html', context)
+
+
+@login_required
+def delete_email_template(request, template_id):
+    """Delete an email template"""
+    template = get_object_or_404(EmailTemplate, id=template_id, employer=request.user)
+
+    if request.method == 'POST':
+        template_name = template.name
+        template.delete()
+        messages.success(request, f'Template "{template_name}" deleted.')
+
+    return redirect('manage_email_templates')
+
+
+@login_required
+def send_email_to_applicant(request, application_id):
+    """Send an email to an applicant using a template or custom content"""
+    application = get_object_or_404(JobApplication, id=application_id)
+
+    if application.job.posted_by != request.user:
+        messages.error(request, 'You do not have permission to contact this applicant.')
+        return redirect('home')
+
+    # Ensure employer has email templates
+    if not EmailTemplate.objects.filter(employer=request.user).exists():
+        EmailTemplate.create_default_templates_for_employer(request.user)
+
+    templates = EmailTemplate.objects.filter(employer=request.user, is_active=True)
+
+    if request.method == 'POST':
+        template_id = request.POST.get('template_id')
+        custom_subject = request.POST.get('custom_subject', '').strip()
+        custom_body = request.POST.get('custom_body', '').strip()
+
+        if template_id and template_id != 'custom':
+            try:
+                template = EmailTemplate.objects.get(id=template_id, employer=request.user)
+                success = send_application_email(request.user, application, template)
+            except EmailTemplate.DoesNotExist:
+                messages.error(request, 'Invalid template selected.')
+                return redirect('send_email_to_applicant', application_id=application_id)
+        elif custom_subject and custom_body:
+            success = send_application_email(request.user, application, None, custom_subject, custom_body)
+        else:
+            messages.error(request, 'Please select a template or provide custom content.')
+            return redirect('send_email_to_applicant', application_id=application_id)
+
+        if success:
+            messages.success(request, f'Email sent to {application.applicant.email}')
+            # Create notification for applicant
+            Notification.create_notification(
+                recipient=application.applicant,
+                notification_type='message_received',
+                title=f'New message from {application.job.company}',
+                message=f'You have received a message regarding your application for {application.job.title}.',
+                link=f'/application/{application.id}/',
+                application=application,
+                job=application.job
+            )
+        else:
+            messages.error(request, 'Failed to send email. Please try again later.')
+
+        return redirect('application_detail_ats', application_id=application_id)
+
+    # Preview context for template rendering
+    preview_context = {
+        'applicant_name': application.applicant.get_full_name() or application.applicant.username,
+        'job_title': application.job.title,
+        'company_name': application.job.company,
+        'stage_name': application.current_stage.name if application.current_stage else 'Under Review',
+    }
+
+    context = {
+        'application': application,
+        'templates': templates,
+        'preview_context': preview_context
+    }
+    return render(request, 'jobs/ats/send_email.html', context)
+
+
+@login_required
+def email_history(request, application_id=None):
+    """View email history for an application or all emails"""
+    if not hasattr(request.user, 'userprofile') or request.user.userprofile.user_type != 'employer':
+        messages.error(request, 'Access denied. Employer account required.')
+        return redirect('home')
+
+    if application_id:
+        application = get_object_or_404(JobApplication, id=application_id)
+        if application.job.posted_by != request.user:
+            messages.error(request, 'Access denied.')
+            return redirect('home')
+        emails = EmailLog.objects.filter(application=application)
+        context = {
+            'emails': emails,
+            'application': application
+        }
+    else:
+        emails = EmailLog.objects.filter(sender=request.user)
+        context = {
+            'emails': emails,
+            'application': None
+        }
+
+    return render(request, 'jobs/ats/email_history.html', context)
+
+
+@login_required
+def notifications_list(request):
+    """View all notifications for the current user"""
+    notifications = Notification.objects.filter(recipient=request.user)
+    unread_count = notifications.filter(is_read=False).count()
+
+    context = {
+        'notifications': notifications,
+        'unread_count': unread_count
+    }
+    return render(request, 'jobs/ats/notifications.html', context)
+
+
+@login_required
+def mark_notification_read(request, notification_id):
+    """Mark a notification as read"""
+    notification = get_object_or_404(Notification, id=notification_id, recipient=request.user)
+    notification.is_read = True
+    notification.save()
+
+    if notification.link:
+        return redirect(notification.link)
+
+    return redirect('notifications_list')
+
+
+@login_required
+def mark_all_notifications_read(request):
+    """Mark all notifications as read"""
+    Notification.objects.filter(recipient=request.user, is_read=False).update(is_read=True)
+    messages.success(request, 'All notifications marked as read.')
+    return redirect('notifications_list')
+
+
+@login_required
+def application_messages(request, application_id):
+    """View and send messages for an application"""
+    application = get_object_or_404(JobApplication, id=application_id)
+
+    # Only employer or applicant can access
+    if request.user != application.job.posted_by and request.user != application.applicant:
+        messages.error(request, 'Access denied.')
+        return redirect('home')
+
+    is_employer = request.user == application.job.posted_by
+
+    # Mark unread messages as read
+    unread_messages = application.messages.exclude(sender=request.user).filter(is_read=False)
+    for msg in unread_messages:
+        msg.mark_as_read()
+
+    if request.method == 'POST':
+        content = request.POST.get('content', '').strip()
+        if content:
+            message = Message.objects.create(
+                application=application,
+                sender=request.user,
+                content=content
+            )
+
+            # Create notification for recipient
+            if is_employer:
+                recipient = application.applicant
+                title = f'New message from {application.job.company}'
+            else:
+                recipient = application.job.posted_by
+                title = f'New message from {application.applicant.get_full_name() or application.applicant.username}'
+
+            Notification.create_notification(
+                recipient=recipient,
+                notification_type='message_received',
+                title=title,
+                message=f'You have a new message regarding the {application.job.title} position.',
+                link=f'/employer/application/{application.id}/messages/' if not is_employer else f'/application/{application.id}/messages/',
+                application=application,
+                job=application.job
+            )
+
+            messages.success(request, 'Message sent.')
+        else:
+            messages.error(request, 'Message cannot be empty.')
+
+        return redirect('application_messages', application_id=application_id)
+
+    all_messages = application.messages.select_related('sender').all()
+
+    context = {
+        'application': application,
+        'messages_list': all_messages,
+        'is_employer': is_employer
+    }
+    return render(request, 'jobs/ats/messages.html', context)
+
+
+def get_unread_notification_count(request):
+    """API endpoint to get unread notification count"""
+    if not request.user.is_authenticated:
+        return HttpResponse('0')
+    count = Notification.objects.filter(recipient=request.user, is_read=False).count()
+    from django.http import JsonResponse
+    return JsonResponse({'count': count})

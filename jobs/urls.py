@@ -48,4 +48,34 @@ urlpatterns = [
 
     # Application Status Update
     path('application/<int:application_id>/update-status/', views.update_application_status, name='update_application_status'),
+
+    # ATS (Applicant Tracking System) URLs
+    path('employer/job/<int:job_id>/pipeline/', views.ats_pipeline, name='ats_pipeline'),
+    path('employer/application/<int:application_id>/', views.application_detail_ats, name='application_detail_ats'),
+    path('employer/application/<int:application_id>/move-stage/', views.move_application_stage, name='move_application_stage'),
+    path('employer/application/<int:application_id>/note/', views.add_application_note, name='add_application_note'),
+    path('employer/note/<int:note_id>/delete/', views.delete_application_note, name='delete_application_note'),
+    path('employer/application/<int:application_id>/rate/', views.rate_application, name='rate_application'),
+    path('employer/application/<int:application_id>/tags/', views.manage_application_tags, name='manage_application_tags'),
+    path('employer/tags/', views.manage_tags, name='manage_tags'),
+    path('employer/stages/', views.manage_stages, name='manage_stages'),
+
+    # ATS Phase 2: Email Templates & Communication
+    path('employer/email-templates/', views.manage_email_templates, name='manage_email_templates'),
+    path('employer/email-templates/create/', views.create_email_template, name='create_email_template'),
+    path('employer/email-templates/<int:template_id>/edit/', views.edit_email_template, name='edit_email_template'),
+    path('employer/email-templates/<int:template_id>/delete/', views.delete_email_template, name='delete_email_template'),
+    path('employer/application/<int:application_id>/send-email/', views.send_email_to_applicant, name='send_email_to_applicant'),
+    path('employer/email-history/', views.email_history, name='email_history'),
+    path('employer/application/<int:application_id>/email-history/', views.email_history, name='application_email_history'),
+    path('employer/application/<int:application_id>/messages/', views.application_messages, name='application_messages'),
+
+    # Notifications
+    path('notifications/', views.notifications_list, name='notifications_list'),
+    path('notifications/<int:notification_id>/read/', views.mark_notification_read, name='mark_notification_read'),
+    path('notifications/mark-all-read/', views.mark_all_notifications_read, name='mark_all_notifications_read'),
+    path('api/notifications/count/', views.get_unread_notification_count, name='notification_count'),
+
+    # Applicant Messages (for job seekers)
+    path('application/<int:application_id>/messages/', views.application_messages, name='applicant_messages'),
 ]

@@ -1,0 +1,112 @@
+{% extends 'jobs/base.html' %}
+
+{% block title %}Create Email Template - Real Jobs, Real People{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb mb-2">
+                            <li class="breadcrumb-item"><a href="{% url 'employer_dashboard' %}">Dashboard</a></li>
+                            <li class="breadcrumb-item"><a href="{% url 'manage_email_templates' %}">Email Templates</a></li>
+                            <li class="breadcrumb-item active">Create</li>
+                        </ol>
+                    </nav>
+                    <h1 class="fw-bold mb-0">
+                        <i class="bi bi-plus-circle me-2"></i>Create Email Template
+                    </h1>
+                </div>
+                <a href="{% url 'manage_email_templates' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i>Back
+                </a>
+            </div>
+
+            <!-- Form -->
+            <div class="card">
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+
+                        <div class="row mb-3">
+                            <div class="col-md-8">
+                                <label class="form-label">Template Name <span class="text-danger">*</span></label>
+                                <input type="text" name="name" class="form-control" placeholder="e.g., Interview Invitation" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Type</label>
+                                <select name="template_type" class="form-select">
+                                    {% for value, label in template_types %}
+                                    <option value="{{ value }}">{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Subject Line <span class="text-danger">*</span></label>
+                            <input type="text" name="subject" class="form-control" placeholder="e.g., Interview Invitation - {{job_title}} at {{company_name}}" required>
+                            <small class="text-muted">You can use placeholders like <code>{{job_title}}</code></small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Email Body <span class="text-danger">*</span></label>
+                            <textarea name="body" class="form-control" rows="12" placeholder="Write your email content here..." required></textarea>
+                            <small class="text-muted">
+                                Available placeholders: <code>{{applicant_name}}</code>, <code>{{job_title}}</code>, <code>{{company_name}}</code>, <code>{{stage_name}}</code>
+                            </small>
+                        </div>
+
+                        <div class="d-flex justify-content-end gap-2">
+                            <a href="{% url 'manage_email_templates' %}" class="btn btn-outline-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-lg me-1"></i>Create Template
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Sample Templates -->
+            <div class="card mt-4">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="bi bi-lightbulb me-2 text-warning"></i>Sample Content</h6>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-3">Click to copy sample content:</p>
+
+                    <div class="mb-3">
+                        <strong>Interview Invitation:</strong>
+                        <pre class="bg-light p-3 rounded mt-2" style="font-size: 0.85rem; cursor: pointer;" onclick="navigator.clipboard.writeText(this.textContent); alert('Copied!');">Dear {{applicant_name}},
+
+We were impressed with your application for the {{job_title}} position at {{company_name}}.
+
+We would like to invite you for an interview. Please reply with your availability for the coming week.
+
+Best regards,
+{{company_name}} Hiring Team</pre>
+                    </div>
+
+                    <div class="mb-3">
+                        <strong>Request for Information:</strong>
+                        <pre class="bg-light p-3 rounded mt-2" style="font-size: 0.85rem; cursor: pointer;" onclick="navigator.clipboard.writeText(this.textContent); alert('Copied!');">Dear {{applicant_name}},
+
+Thank you for your interest in the {{job_title}} position at {{company_name}}.
+
+To continue with your application, we need some additional information. Could you please provide:
+- [List items here]
+
+Please reply to this email at your earliest convenience.
+
+Best regards,
+{{company_name}} Hiring Team</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

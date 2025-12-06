@@ -1,0 +1,103 @@
+{% extends 'jobs/base.html' %}
+
+{% block title %}Edit Email Template - Real Jobs, Real People{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb mb-2">
+                            <li class="breadcrumb-item"><a href="{% url 'employer_dashboard' %}">Dashboard</a></li>
+                            <li class="breadcrumb-item"><a href="{% url 'manage_email_templates' %}">Email Templates</a></li>
+                            <li class="breadcrumb-item active">Edit</li>
+                        </ol>
+                    </nav>
+                    <h1 class="fw-bold mb-0">
+                        <i class="bi bi-pencil me-2"></i>Edit Template
+                    </h1>
+                </div>
+                <a href="{% url 'manage_email_templates' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i>Back
+                </a>
+            </div>
+
+            <!-- Form -->
+            <div class="card">
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+
+                        <div class="row mb-3">
+                            <div class="col-md-8">
+                                <label class="form-label">Template Name <span class="text-danger">*</span></label>
+                                <input type="text" name="name" class="form-control" value="{{ template.name }}" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Type</label>
+                                <select name="template_type" class="form-select">
+                                    {% for value, label in template_types %}
+                                    <option value="{{ value }}" {% if template.template_type == value %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Subject Line <span class="text-danger">*</span></label>
+                            <input type="text" name="subject" class="form-control" value="{{ template.subject }}" required>
+                            <small class="text-muted">You can use placeholders like <code>{{job_title}}</code></small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Email Body <span class="text-danger">*</span></label>
+                            <textarea name="body" class="form-control" rows="12" required>{{ template.body }}</textarea>
+                            <small class="text-muted">
+                                Available placeholders: <code>{{applicant_name}}</code>, <code>{{job_title}}</code>, <code>{{company_name}}</code>, <code>{{stage_name}}</code>
+                            </small>
+                        </div>
+
+                        <div class="mb-4">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" name="is_active" id="is_active" {% if template.is_active %}checked{% endif %}>
+                                <label class="form-check-label" for="is_active">
+                                    Template is active and available for use
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <form method="post" action="{% url 'delete_email_template' template.id %}" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-outline-danger" onclick="return confirm('Delete this template?');">
+                                    <i class="bi bi-trash me-1"></i>Delete Template
+                                </button>
+                            </form>
+                            <div class="d-flex gap-2">
+                                <a href="{% url 'manage_email_templates' %}" class="btn btn-outline-secondary">Cancel</a>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-check-lg me-1"></i>Save Changes
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Template Info -->
+            <div class="card mt-4 border-light">
+                <div class="card-body">
+                    <small class="text-muted">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Created: {{ template.created_at|date:"M d, Y" }} |
+                        Last updated: {{ template.updated_at|date:"M d, Y g:i A" }}
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

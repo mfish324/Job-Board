@@ -1,0 +1,146 @@
+{% extends 'jobs/base.html' %}
+
+{% block title %}Manage Hiring Stages - Real Jobs, Real People{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb mb-2">
+                            <li class="breadcrumb-item"><a href="{% url 'employer_dashboard' %}">Dashboard</a></li>
+                            <li class="breadcrumb-item active">Manage Stages</li>
+                        </ol>
+                    </nav>
+                    <h1 class="fw-bold mb-0">
+                        <i class="bi bi-sliders me-2"></i>Hiring Pipeline Stages
+                    </h1>
+                    <p class="text-muted">Customize your hiring workflow stages</p>
+                </div>
+                <a href="{% url 'employer_dashboard' %}" class="btn btn-outline-primary">
+                    <i class="bi bi-arrow-left me-1"></i>Back
+                </a>
+            </div>
+
+            <!-- Create Stage Card -->
+            <div class="card mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="bi bi-plus-circle me-2 text-primary"></i>Add New Stage</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="create">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Stage Name</label>
+                                <input type="text" name="name" class="form-control" placeholder="e.g., Technical Interview, Background Check" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Color</label>
+                                <input type="color" name="color" class="form-control form-control-color w-100" value="#6c757d">
+                            </div>
+                            <div class="col-md-2 d-flex align-items-end">
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="bi bi-plus"></i> Add
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Current Stages -->
+            <div class="card">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-list-ol me-2 text-primary"></i>Your Pipeline Stages</h5>
+                    <span class="badge bg-secondary">{{ stages|length }} stages</span>
+                </div>
+                <div class="card-body p-0">
+                    {% if stages %}
+                    <div class="list-group list-group-flush" id="stages-list">
+                        {% for stage in stages %}
+                        <div class="list-group-item d-flex justify-content-between align-items-center" data-stage-id="{{ stage.id }}">
+                            <div class="d-flex align-items-center">
+                                <span class="me-3 text-muted">
+                                    <i class="bi bi-grip-vertical" style="cursor: grab;"></i>
+                                </span>
+                                <span class="stage-indicator me-3" style="display: inline-block; width: 16px; height: 16px; border-radius: 50%; background-color: {{ stage.color }};"></span>
+                                <div>
+                                    <strong>{{ stage.name }}</strong>
+                                    {% if stage.is_default %}
+                                    <span class="badge bg-light text-dark ms-2">Default</span>
+                                    {% endif %}
+                                    <br>
+                                    <small class="text-muted">
+                                        {{ stage.applications.count }} applicant{{ stage.applications.count|pluralize }}
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge bg-light text-dark">Order: {{ stage.order }}</span>
+                                <form method="post" class="d-inline">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="delete">
+                                    <input type="hidden" name="stage_id" value="{{ stage.id }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger"
+                                            onclick="return confirm('Delete this stage? Applicants in this stage will be moved to the first available stage.');"
+                                            {% if stages|length <= 1 %}disabled title="Cannot delete the last stage"{% endif %}>
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="bi bi-signpost" style="font-size: 3rem; color: #ccc;"></i>
+                        <p class="text-muted mt-3 mb-0">No stages configured. Default stages will be created automatically.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Tips -->
+            <div class="card mt-4 border-info">
+                <div class="card-header bg-info bg-opacity-10">
+                    <h6 class="mb-0"><i class="bi bi-info-circle me-2 text-info"></i>Tips for Effective Hiring Pipelines</h6>
+                </div>
+                <div class="card-body">
+                    <ul class="mb-0">
+                        <li><strong>Keep it simple:</strong> 4-6 stages work best for most hiring processes</li>
+                        <li><strong>Use clear names:</strong> Each stage should represent a distinct step in your process</li>
+                        <li><strong>Color code:</strong> Use colors to quickly identify stages at a glance</li>
+                        <li><strong>Common stages:</strong> Applied, Screening, Interview, Offer, Hired, Rejected</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Stage Preview -->
+            <div class="card mt-4">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="bi bi-eye me-2 text-primary"></i>Pipeline Preview</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex flex-wrap gap-2">
+                        {% for stage in stages %}
+                        <div class="d-flex align-items-center">
+                            <span class="badge py-2 px-3" style="background-color: {{ stage.color }};">
+                                {{ stage.name }}
+                            </span>
+                            {% if not forloop.last %}
+                            <i class="bi bi-arrow-right mx-2 text-muted"></i>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
