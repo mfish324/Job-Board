@@ -81,14 +81,21 @@ class JobSeekerProfileForm(forms.ModelForm):
     first_name = forms.CharField(max_length=100, required=False)
     last_name = forms.CharField(max_length=100, required=False)
     email = forms.EmailField(required=True)
-    
+
     class Meta:
         model = UserProfile
-        fields = ['phone', 'resume', 'skills', 'experience_years']
+        fields = ['phone', 'resume', 'skills', 'experience_years', 'linkedin_url']
         widgets = {
             'skills': forms.Textarea(attrs={'rows': 4, 'placeholder': 'List your skills separated by commas'}),
             'phone': forms.TextInput(attrs={'placeholder': '+1 234 567 8900'}),
             'experience_years': forms.NumberInput(attrs={'min': 0, 'max': 50}),
+            'linkedin_url': forms.URLInput(attrs={'placeholder': 'https://linkedin.com/in/yourname'}),
+        }
+        labels = {
+            'linkedin_url': 'LinkedIn Profile URL (Bonus Verification)',
+        }
+        help_texts = {
+            'linkedin_url': 'Add your LinkedIn profile to enhance your verification status and stand out to employers.',
         }
     
     def __init__(self, *args, **kwargs):
@@ -111,12 +118,19 @@ class JobSeekerProfileForm(forms.ModelForm):
 
 class EmployerProfileForm(forms.ModelForm):
     email = forms.EmailField(required=True)
-    
+
     class Meta:
         model = UserProfile
-        fields = ['company_name', 'company_logo', 'company_website', 'company_description', 'phone']
+        fields = ['company_name', 'company_logo', 'company_website', 'company_linkedin', 'company_description', 'phone']
         widgets = {
             'company_description': forms.Textarea(attrs={'rows': 4}),
+            'company_linkedin': forms.URLInput(attrs={'placeholder': 'https://linkedin.com/company/yourcompany'}),
+        }
+        labels = {
+            'company_linkedin': 'Company LinkedIn Page',
+        }
+        help_texts = {
+            'company_linkedin': 'Add your company LinkedIn page to build trust with job seekers.',
         }
     
     def __init__(self, *args, **kwargs):

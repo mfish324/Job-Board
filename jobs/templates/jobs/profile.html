@@ -59,6 +59,109 @@
                 </div>
             </div>
 
+            <!-- Verification Status -->
+            {% if user.userprofile %}
+            <div class="card mb-4">
+                <div class="card-header bg-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-shield-check me-2 text-primary"></i>Verification Status
+                    </h4>
+                </div>
+                <div class="card-body">
+                    {% with verification_level=user.userprofile.get_verification_level %}
+                    <div class="row align-items-center mb-3">
+                        <div class="col-md-6">
+                            <strong>Verification Level:</strong>
+                            {% if verification_level == 'complete' %}
+                            <span class="badge bg-success fs-6 ms-2"><i class="bi bi-patch-check-fill me-1"></i>Complete</span>
+                            {% elif verification_level == 'enhanced' %}
+                            <span class="badge bg-info fs-6 ms-2"><i class="bi bi-shield-fill-check me-1"></i>Enhanced</span>
+                            {% elif verification_level == 'basic' %}
+                            <span class="badge bg-warning text-dark fs-6 ms-2"><i class="bi bi-shield-check me-1"></i>Basic</span>
+                            {% else %}
+                            <span class="badge bg-secondary fs-6 ms-2"><i class="bi bi-shield me-1"></i>Not Verified</span>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6 text-md-end">
+                            {% if not user.userprofile.is_verified %}
+                            <span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>Verification required to apply for jobs</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endwith %}
+
+                    <div class="row">
+                        <!-- Email Verification -->
+                        <div class="col-md-4 mb-3">
+                            <div class="card h-100 {% if user.userprofile.is_email_verified %}border-success{% else %}border-warning{% endif %}">
+                                <div class="card-body text-center">
+                                    {% if user.userprofile.is_email_verified %}
+                                    <i class="bi bi-envelope-check text-success" style="font-size: 2.5rem;"></i>
+                                    <h6 class="mt-2 text-success">Email Verified</h6>
+                                    <small class="text-muted">{{ user.email }}</small>
+                                    {% else %}
+                                    <i class="bi bi-envelope text-warning" style="font-size: 2.5rem;"></i>
+                                    <h6 class="mt-2 text-warning">Email Not Verified</h6>
+                                    <small class="text-muted d-block mb-2">Check your inbox for verification link</small>
+                                    <a href="{% url 'resend_code' %}" class="btn btn-sm btn-warning mt-1">
+                                        <i class="bi bi-envelope me-1"></i>Resend Email
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Phone Verification -->
+                        <div class="col-md-4 mb-3">
+                            <div class="card h-100 {% if user.userprofile.is_phone_verified %}border-success{% else %}border-warning{% endif %}">
+                                <div class="card-body text-center">
+                                    {% if user.userprofile.is_phone_verified %}
+                                    <i class="bi bi-phone-fill text-success" style="font-size: 2.5rem;"></i>
+                                    <h6 class="mt-2 text-success">Phone Verified</h6>
+                                    <small class="text-muted">{{ user.userprofile.phone }}</small>
+                                    {% else %}
+                                    <i class="bi bi-phone text-warning" style="font-size: 2.5rem;"></i>
+                                    <h6 class="mt-2 text-warning">Phone Not Verified</h6>
+                                    <a href="{% url 'verify_phone' %}" class="btn btn-sm btn-warning mt-2">
+                                        <i class="bi bi-phone me-1"></i>Verify Now
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- LinkedIn (Bonus) -->
+                        <div class="col-md-4 mb-3">
+                            <div class="card h-100 {% if user.userprofile.has_linkedin %}border-primary{% else %}border-secondary{% endif %}">
+                                <div class="card-body text-center">
+                                    {% if user.userprofile.has_linkedin %}
+                                    <i class="bi bi-linkedin text-primary" style="font-size: 2.5rem;"></i>
+                                    <h6 class="mt-2 text-primary">LinkedIn Added</h6>
+                                    <a href="{{ user.userprofile.linkedin_url }}" target="_blank" class="btn btn-sm btn-outline-primary mt-2">
+                                        <i class="bi bi-box-arrow-up-right me-1"></i>View Profile
+                                    </a>
+                                    {% else %}
+                                    <i class="bi bi-linkedin text-secondary" style="font-size: 2.5rem;"></i>
+                                    <h6 class="mt-2 text-secondary">LinkedIn Not Added</h6>
+                                    <small class="text-muted d-block mb-2">Bonus verification</small>
+                                    <a href="{% url 'edit_profile' %}" class="btn btn-sm btn-outline-primary mt-1">
+                                        <i class="bi bi-plus-circle me-1"></i>Add LinkedIn
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info mt-3 mb-0">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Why verify?</strong> Verified applicants stand out to employers and demonstrate authenticity.
+                        You must verify at least your email or phone to apply for jobs.
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
             {% if user.userprofile and user.userprofile.user_type == 'job_seeker' %}
             <!-- Professional Information -->
             <div class="card mb-4">

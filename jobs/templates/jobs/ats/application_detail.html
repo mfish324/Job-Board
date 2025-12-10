@@ -53,19 +53,88 @@
             <!-- Applicant Info Card -->
             <div class="card mb-4">
                 <div class="card-header bg-white">
-                    <h5 class="mb-0"><i class="bi bi-person me-2 text-primary"></i>Applicant Information</h5>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-person me-2 text-primary"></i>Applicant Information</h5>
+                        <!-- Verification Badges -->
+                        <div class="d-flex gap-1">
+                            {% if application.applicant.userprofile.is_email_verified %}
+                            <span class="badge bg-success" title="Email Verified">
+                                <i class="bi bi-envelope-check"></i>
+                            </span>
+                            {% endif %}
+                            {% if application.applicant.userprofile.is_phone_verified %}
+                            <span class="badge bg-success" title="Phone Verified">
+                                <i class="bi bi-phone-fill"></i>
+                            </span>
+                            {% endif %}
+                            {% if application.applicant.userprofile.has_linkedin %}
+                            <span class="badge bg-primary" title="LinkedIn Added">
+                                <i class="bi bi-linkedin"></i>
+                            </span>
+                            {% endif %}
+                            {% if not application.applicant.userprofile.is_verified %}
+                            <span class="badge bg-warning text-dark" title="Not Verified">
+                                <i class="bi bi-exclamation-triangle"></i> Unverified
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
                 </div>
                 <div class="card-body">
+                    <!-- Verification Status Row -->
+                    {% if is_employer %}
+                    <div class="alert {% if application.applicant.userprofile.get_verification_level == 'complete' %}alert-success{% elif application.applicant.userprofile.get_verification_level == 'enhanced' %}alert-info{% elif application.applicant.userprofile.get_verification_level == 'basic' %}alert-warning{% else %}alert-secondary{% endif %} py-2 mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>
+                                <strong>Verification Level:</strong>
+                                {% if application.applicant.userprofile.get_verification_level == 'complete' %}
+                                <span class="ms-1"><i class="bi bi-patch-check-fill"></i> Complete</span>
+                                {% elif application.applicant.userprofile.get_verification_level == 'enhanced' %}
+                                <span class="ms-1"><i class="bi bi-shield-fill-check"></i> Enhanced</span>
+                                {% elif application.applicant.userprofile.get_verification_level == 'basic' %}
+                                <span class="ms-1"><i class="bi bi-shield-check"></i> Basic</span>
+                                {% else %}
+                                <span class="ms-1"><i class="bi bi-shield"></i> Not Verified</span>
+                                {% endif %}
+                            </span>
+                            <span class="small">
+                                {% if application.applicant.userprofile.is_email_verified %}<i class="bi bi-envelope-check text-success me-2" title="Email Verified"></i>{% endif %}
+                                {% if application.applicant.userprofile.is_phone_verified %}<i class="bi bi-phone-fill text-success me-2" title="Phone Verified"></i>{% endif %}
+                                {% if application.applicant.userprofile.has_linkedin %}<i class="bi bi-linkedin text-primary" title="LinkedIn Added"></i>{% endif %}
+                            </span>
+                        </div>
+                    </div>
+                    {% endif %}
+
                     <div class="row mb-3">
                         <div class="col-md-6 mb-3">
                             <strong><i class="bi bi-envelope me-2"></i>Email:</strong>
-                            <p class="mb-0">{{ application.applicant.email }}</p>
+                            <p class="mb-0">
+                                {{ application.applicant.email }}
+                                {% if application.applicant.userprofile.is_email_verified %}
+                                <i class="bi bi-check-circle-fill text-success ms-1" title="Verified"></i>
+                                {% endif %}
+                            </p>
                         </div>
                         <div class="col-md-6 mb-3">
                             <strong><i class="bi bi-telephone me-2"></i>Phone:</strong>
-                            <p class="mb-0">{{ application.applicant.userprofile.phone|default:"Not provided" }}</p>
+                            <p class="mb-0">
+                                {{ application.applicant.userprofile.phone|default:"Not provided" }}
+                                {% if application.applicant.userprofile.is_phone_verified %}
+                                <i class="bi bi-check-circle-fill text-success ms-1" title="Verified"></i>
+                                {% endif %}
+                            </p>
                         </div>
                     </div>
+
+                    {% if application.applicant.userprofile.linkedin_url %}
+                    <div class="mb-3">
+                        <strong><i class="bi bi-linkedin me-2"></i>LinkedIn:</strong>
+                        <a href="{{ application.applicant.userprofile.linkedin_url }}" target="_blank" class="ms-2">
+                            <i class="bi bi-box-arrow-up-right me-1"></i>View Profile
+                        </a>
+                    </div>
+                    {% endif %}
 
                     {% if application.applicant.userprofile.skills %}
                     <div class="mb-3">

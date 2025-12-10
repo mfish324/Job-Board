@@ -21,35 +21,93 @@ class UserProfile(models.Model):
         ('job_seeker', 'Job Seeker'),
         ('employer', 'Employer'),
     )
-    
+
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     user_type = models.CharField(max_length=20, choices=USER_TYPE_CHOICES)
     phone = models.CharField(max_length=20, blank=True)
-    
+
     # Job Seeker fields with file validation
     resume = models.FileField(
-        upload_to='resumes/', 
-        blank=True, 
+        upload_to='resumes/',
+        blank=True,
         null=True,
         validators=[FileExtensionValidator(allowed_extensions=['pdf', 'doc', 'docx'])],
         help_text='Upload PDF or Word document only'
     )
     skills = models.TextField(blank=True)
     experience_years = models.IntegerField(default=0)
-    
+    linkedin_url = models.URLField(
+        blank=True,
+        help_text='Your LinkedIn profile URL (e.g., https://linkedin.com/in/yourname)'
+    )
+
     # Employer fields
     company_name = models.CharField(max_length=200, blank=True)
     company_logo = models.ImageField(upload_to='company_logos/', blank=True, null=True)
     company_website = models.URLField(blank=True)
     company_description = models.TextField(blank=True)
-    
+    company_linkedin = models.URLField(blank=True, help_text='Company LinkedIn page URL')
+
     def __str__(self):
         return f"{self.user.username} - {self.user_type}"
-    
+
     def get_resume_filename(self):
         if self.resume:
             return os.path.basename(self.resume.name)
         return None
+
+    def is_phone_verified(self):
+        """Check if user has verified their phone"""
+        try:
+            return self.user.phone_verification.is_verified
+        except:
+            return False
+
+    def is_email_verified(self):
+        """Check if user has verified their email"""
+        try:
+            return self.user.email_verification.is_verified
+        except:
+            return False
+
+    def is_verified(self):
+        """Check if user has verified at least phone OR email"""
+        return self.is_phone_verified() or self.is_email_verified()
+
+    def has_linkedin(self):
+        """Check if user has added their LinkedIn profile"""
+        return bool(self.linkedin_url)
+
+    def get_verification_level(self):
+        """
+        Returns verification level:
+        - 'none': No verification
+        - 'basic': Email OR Phone verified
+        - 'enhanced': Email AND Phone verified
+        - 'complete': Email AND Phone AND LinkedIn
+        """
+        phone = self.is_phone_verified()
+        email = self.is_email_verified()
+        linkedin = self.has_linkedin()
+
+        if phone and email and linkedin:
+            return 'complete'
+        elif phone and email:
+            return 'enhanced'
+        elif phone or email:
+            return 'basic'
+        return 'none'
+
+    def get_verification_badges(self):
+        """Returns list of verification badges for display"""
+        badges = []
+        if self.is_email_verified():
+            badges.append({'type': 'email', 'label': 'Email Verified', 'icon': 'bi-envelope-check', 'color': 'success'})
+        if self.is_phone_verified():
+            badges.append({'type': 'phone', 'label': 'Phone Verified', 'icon': 'bi-phone-fill', 'color': 'success'})
+        if self.has_linkedin():
+            badges.append({'type': 'linkedin', 'label': 'LinkedIn Added', 'icon': 'bi-linkedin', 'color': 'primary'})
+        return badges
 
 class JobApplication(models.Model):
     job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name='applications')

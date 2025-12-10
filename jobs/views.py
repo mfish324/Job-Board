@@ -325,15 +325,29 @@ def toggle_job_status(request, job_id):
 @login_required
 def apply_job(request, job_id):
     job = get_object_or_404(Job, id=job_id)
-    
+
     if hasattr(request.user, 'userprofile') and request.user.userprofile.user_type == 'employer':
         messages.error(request, 'Employers cannot apply for jobs.')
         return redirect('job_detail', job_id=job_id)
-    
+
+    # Enforce verification before applying
+    if hasattr(request.user, 'userprofile'):
+        profile = request.user.userprofile
+        if not profile.is_verified():
+            messages.warning(
+                request,
+                'You must verify your phone number or email address before applying for jobs. '
+                '<a href="/profile/" class="alert-link">Complete verification in your profile</a>.'
+            )
+            return redirect('job_detail', job_id=job_id)
+    else:
+        messages.error(request, 'Please complete your profile before applying.')
+        return redirect('profile')
+
     if JobApplication.objects.filter(job=job, applicant=request.user).exists():
         messages.warning(request, 'You have already applied for this job.')
         return redirect('job_detail', job_id=job_id)
-    
+
     if request.method == 'POST':
         form = JobApplicationForm(request.POST)
         if form.is_valid():
