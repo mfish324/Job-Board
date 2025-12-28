@@ -207,4 +207,9 @@ EMAIL_VERIFICATION_REQUIRED = config('EMAIL_VERIFICATION_REQUIRED', default=True
 VERIFICATION_CODE_EXPIRY_MINUTES = 10
 
 # Site URL for email verification links
-SITE_URL = config('SITE_URL', default='http://localhost:8000')
+# Auto-detect Render environment, fallback to env var or localhost
+RENDER_EXTERNAL_HOSTNAME = config('RENDER_EXTERNAL_HOSTNAME', default='')
+if RENDER_EXTERNAL_HOSTNAME:
+    SITE_URL = f'https://{RENDER_EXTERNAL_HOSTNAME}'
+else:
+    SITE_URL = config('SITE_URL', default='http://localhost:8000')
