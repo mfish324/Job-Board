@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real Jobs, Real People - Partner Recruitment</title>
+    <style>
+        @page {
+            size: letter;
+            margin: 0.75in;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+            line-height: 1.7;
+            color: #1f2937;
+            max-width: 8.5in;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background: #ffffff;
+            font-size: 11pt;
+        }
+
+        h1 {
+            color: #1e40af;
+            font-size: 32pt;
+            font-weight: 700;
+            margin-top: 0;
+            margin-bottom: 0.4em;
+            border-bottom: 4px solid #3b82f6;
+            padding-bottom: 0.3em;
+            page-break-after: avoid;
+        }
+
+        h2 {
+            color: #1e40af;
+            font-size: 22pt;
+            font-weight: 600;
+            margin-top: 1.5em;
+            margin-bottom: 0.6em;
+            border-bottom: 2px solid #93c5fd;
+            padding-bottom: 0.25em;
+            page-break-after: avoid;
+        }
+
+        h3 {
+            color: #2563eb;
+            font-size: 16pt;
+            font-weight: 600;
+            margin-top: 1.2em;
+            margin-bottom: 0.5em;
+            page-break-after: avoid;
+        }
+
+        h4 {
+            color: #3b82f6;
+            font-size: 13pt;
+            font-weight: 600;
+            margin-top: 1em;
+            margin-bottom: 0.4em;
+            page-break-after: avoid;
+        }
+
+        p {
+            margin: 0.7em 0;
+            text-align: justify;
+        }
+
+        ul, ol {
+            margin: 0.6em 0;
+            padding-left: 1.8em;
+        }
+
+        li {
+            margin: 0.4em 0;
+        }
+
+        strong {
+            color: #1e40af;
+            font-weight: 600;
+        }
+
+        em {
+            color: #4b5563;
+            font-style: italic;
+        }
+
+        a {
+            color: #2563eb;
+            text-decoration: none;
+            border-bottom: 1px dotted #3b82f6;
+        }
+
+        a:hover {
+            color: #1e40af;
+            border-bottom: 1px solid #1e40af;
+        }
+
+        hr {
+            border: none;
+            border-top: 1px solid #e5e7eb;
+            margin: 2em 0;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 1.2em 0;
+            font-size: 10pt;
+        }
+
+        th, td {
+            border: 1px solid #d1d5db;
+            padding: 0.6em;
+            text-align: left;
+        }
+
+        th {
+            background-color: #3b82f6;
+            color: white;
+            font-weight: 600;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f9fafb;
+        }
+
+        code {
+            background-color: #f3f4f6;
+            padding: 0.2em 0.5em;
+            border-radius: 3px;
+            font-family: 'Courier New', 'Consolas', monospace;
+            font-size: 10pt;
+            color: #c73535;
+        }
+
+        pre {
+            background-color: #f3f4f6;
+            padding: 1.2em;
+            border-radius: 5px;
+            overflow-x: auto;
+            border-left: 4px solid #3b82f6;
+        }
+
+        pre code {
+            background: none;
+            padding: 0;
+        }
+
+        blockquote {
+            background: #eff6ff;
+            border-left: 5px solid #3b82f6;
+            padding: 1em 1.5em;
+            margin: 1.2em 0;
+            font-style: italic;
+        }
+
+        /* Cover page styling */
+        .document-header {
+            text-align: center;
+            padding: 2em 0 3em 0;
+            margin-bottom: 2em;
+            border-bottom: 3px solid #3b82f6;
+        }
+
+        .document-header h1 {
+            font-size: 42pt;
+            border: none;
+            margin-bottom: 0.3em;
+        }
+
+        .document-header .subtitle {
+            font-size: 18pt;
+            color: #6b7280;
+            margin: 0.5em 0 1em 0;
+        }
+
+        .document-header .metadata {
+            font-size: 12pt;
+            color: #9ca3af;
+            margin-top: 1.5em;
+        }
+
+        .document-header .platform {
+            font-size: 14pt;
+            color: #3b82f6;
+            font-weight: 600;
+            margin: 0.8em 0;
+        }
+
+        /* Print styles */
+        @media print {
+            body {
+                max-width: 100%;
+                padding: 0;
+                font-size: 10.5pt;
+            }
+
+            h1 {
+                page-break-after: avoid;
+            }
+
+            h2, h3, h4 {
+                page-break-after: avoid;
+            }
+
+            ul, ol, table, pre, blockquote {
+                page-break-inside: avoid;
+            }
+
+            a {
+                color: #2563eb;
+                text-decoration: underline;
+                border-bottom: none;
+            }
+
+            .no-print {
+                display: none;
+            }
+        }
+
+        /* Callout boxes */
+        .callout {
+            background: #fef3c7;
+            border-left: 5px solid #f59e0b;
+            padding: 1em 1.5em;
+            margin: 1.2em 0;
+        }
+
+        .callout-success {
+            background: #dcfce7;
+            border-left-color: #10b981;
+        }
+
+        .callout-info {
+            background: #dbeafe;
+            border-left-color: #3b82f6;
+        }
+
+        /* Badge styles for checkmarks and emojis */
+        .badge {
+            display: inline-block;
+            padding: 0.2em 0.6em;
+            font-size: 0.9em;
+            font-weight: 600;
+            border-radius: 3px;
+            background-color: #10b981;
+            color: white;
+            margin-right: 0.3em;
+        }
+
+        /* Print button */
+        .print-button {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 14pt;
+            border-radius: 6px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+        }
+
+        .print-button:hover {
+            background: #2563eb;
+        }
+
+        @media print {
+            .print-button {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <button class="print-button no-print" onclick="window.print()">Save as PDF (Ctrl+P)</button>
+
+    <h1>Real Jobs, Real People (RJRP)</h1>
+<h2>Partner Recruitment Document</h2>
+<p><strong>Platform:</strong> https://rjrp.onrender.com<br />
+<strong>Date:</strong> November 2025<br />
+<strong>Status:</strong> Proof of Concept → Market Launch</p>
+<hr />
+<h2>Executive Summary</h2>
+<p><strong>The Opportunity:</strong> The $30B job board market is broken. Major platforms like Indeed and LinkedIn have prioritized scale over quality, creating a marketplace flooded with spam, fake jobs, and frustrated users on both sides. Meanwhile, premium vetting platforms like Toptal and Hired charge $15,000-$20,000 per hire, making them inaccessible to small businesses.</p>
+<p><strong>The Gap:</strong> There is no free job board that vets both employers and candidates.</p>
+<p><strong>Our Solution:</strong> RJRP is building the first dual-vetting job marketplace that's completely free. We combine the quality of premium platforms like Toptal with the accessibility of Indeed, creating a unique value proposition in a $40B+ growing market.</p>
+<p><strong>What We're Looking For:</strong> Strategic partners who can help us scale from proof of concept to market leader. We need expertise in recruitment, marketing, technology, and go-to-market strategy.</p>
+<hr />
+<h2>The Problem We're Solving</h2>
+<h3>For Job Seekers:</h3>
+<p><strong>Application Black Hole</strong><br />
+98% of applications on Indeed/LinkedIn receive no response. Job seekers apply to hundreds of positions with zero feedback or transparency.</p>
+<p><strong>Spam and Fake Jobs</strong><br />
+30-40% of job listings aren't real positions. Companies "post and park" jobs to build pipelines. Scammers post fake remote positions. Old jobs stay live for months.</p>
+<p><strong>Information Overload</strong><br />
+A search for "Marketing Manager" on Indeed returns 10,000+ results. The sheer volume makes it impossible to identify quality opportunities.</p>
+<p><strong>Impersonal Experience</strong><br />
+Automated rejection systems, no direct employer contact, and ATS keyword filters create a dehumanizing experience.</p>
+<h3>For Employers:</h3>
+<p><strong>Application Overload</strong><br />
+100-500 applications per job on Indeed/LinkedIn, with 90% unqualified due to "Easy Apply" spam. Finding quality candidates is like finding a needle in a haystack.</p>
+<p><strong>High Costs</strong><br />
+LinkedIn charges $499-$999/month. ZipRecruiter charges $249-$449/month. Toptal charges $60-$200/hour. Small businesses can't afford quality hiring tools.</p>
+<p><strong>Low-Quality Applicants</strong><br />
+Spray-and-pray applicants, resume collectors, and bots flood the system. Employers waste hours screening unqualified candidates.</p>
+<p><strong>Lack of Control</strong><br />
+Once posted, jobs are hard to edit, deactivate, or manage. Poor candidate communication tools hurt employer brands.</p>
+<hr />
+<h2>Our Solution: Dual-Vetting + Transparency</h2>
+<h3>What Makes RJRP Different</h3>
+<p><strong>1. Dual-Vetting (Both Sides)</strong> 🔒<br />
+- <strong>Employer Verification:</strong> Phone + email verification, company legitimacy checks, manual review<br />
+- <strong>Candidate Verification:</strong> Email/phone verification, resume required, profile completeness standards<br />
+- <strong>Result:</strong> 95%+ spam-free marketplace</p>
+<p><strong>2. Real-Time Transparency</strong> 📊<br />
+- Candidates see application status in real-time (Pending → Reviewed → Accepted/Rejected)<br />
+- No more black hole applications<br />
+- One-click status updates for employers</p>
+<p><strong>3. Completely Free</strong> 💰<br />
+- $0 for job seekers<br />
+- $0 for employers<br />
+- No credit card required, no trials, no upsells</p>
+<p><strong>4. Modern User Experience</strong> ✨<br />
+- Clean Bootstrap 5 interface<br />
+- Mobile-responsive design<br />
+- Fast, ad-free experience<br />
+- Full control (edit/delete/deactivate anytime)</p>
+<p><strong>5. Quality Over Quantity</strong> ✅<br />
+- Thoughtful applications (cover letter required)<br />
+- Curated listings (manual review)<br />
+- Community moderation (report buttons, ratings)</p>
+<hr />
+<h2>Market Validation</h2>
+<h3>The Job Board Market is Massive</h3>
+<ul>
+<li><strong>Market Size:</strong> $29.7B (2024) → $40B+ (2030)</li>
+<li><strong>Growth Rate:</strong> 6.8% CAGR</li>
+<li><strong>Total US Job Seekers:</strong> 140M+</li>
+<li><strong>Active Job Seekers:</strong> 25M+ monthly</li>
+</ul>
+<h3>Premium Vetting Works (But It's Expensive)</h3>
+<p><strong>Toptal</strong> (Elite Freelance Marketplace)<br />
+- Vets top 3% of freelancers through rigorous 4-stage process<br />
+- Charges $60-$200/hour (10x market rate)<br />
+- Valued at $1B+<br />
+- <strong>Proof:</strong> Employers pay premium for vetted talent</p>
+<p><strong>Hired/Vettery</strong> (Tech Hiring Marketplace)<br />
+- Vets top 5-10% of tech candidates<br />
+- Charges $15,000-$20,000 per hire<br />
+- Sold for $100M+<br />
+- <strong>Proof:</strong> Quality vetting is defensible and valuable</p>
+<p><strong>FlexJobs</strong> (Remote Job Board)<br />
+- Manually reviews 100% of job postings<br />
+- Charges candidates $50/year + employers $249-$399/job<br />
+- Profitable for 18+ years<br />
+- <strong>Proof:</strong> Users pay for spam-free experience</p>
+<h3>The Free Market is Broken</h3>
+<p><strong>Indeed</strong> (#1 Job Board)<br />
+- 350M monthly visitors, $3B revenue<br />
+- <strong>Problem:</strong> Spam epidemic, ghost jobs, application overload<br />
+- <strong>Result:</strong> Job seekers hate it but use it due to lack of alternatives</p>
+<p><strong>LinkedIn</strong> (#1 Professional Network)<br />
+- 930M members, $15.7B revenue<br />
+- <strong>Problem:</strong> $499-$999/month pricing, "Easy Apply" spam, pay-to-play<br />
+- <strong>Result:</strong> Small businesses can't afford it</p>
+<p><strong>Craigslist</strong> (Local Job Board)<br />
+- Still popular for local/hourly jobs<br />
+- <strong>Problem:</strong> 1990s interface, minimal moderation, scam paradise<br />
+- <strong>Result:</strong> Users want modern alternative</p>
+<hr />
+<h2>Competitive Advantages</h2>
+<h3>Where RJRP Wins Today</h3>
+<p><strong>1. Cost Structure</strong> ✅<br />
+Completely free vs. $250-$1,000/month for competitors. Accessible to every business.</p>
+<p><strong>2. Transparency</strong> ✅<br />
+Real-time application status tracking. No competitor offers this. Candidates see exactly where they stand.</p>
+<p><strong>3. User Experience</strong> ✅<br />
+Modern Bootstrap 5 interface. Clean, fast, mobile-responsive. Better than Craigslist, simpler than LinkedIn.</p>
+<p><strong>4. Quality Focus</strong> ✅<br />
+Verification requirements reduce spam. Thoughtful applications (cover letter required). Manual curation.</p>
+<p><strong>5. Dual-Vetting</strong> ✅<br />
+ONLY platform vetting both employers AND candidates at zero cost. This is our secret weapon.</p>
+<p><strong>6. Defensibility</strong> ✅<br />
+Indeed/LinkedIn can't copy dual-vetting without hurting their volume-based revenue model. This creates a sustainable moat.</p>
+<hr />
+<h2>Platform Features (Built)</h2>
+<p><strong>Core Features:</strong><br />
+- ✅ Job posting system (create/edit/delete/deactivate)<br />
+- ✅ Application management dashboard<br />
+- ✅ Real-time status tracking<br />
+- ✅ User profiles (job seekers + employers)<br />
+- ✅ Advanced search filters (location, salary, date, type)<br />
+- ✅ Save/bookmark jobs<br />
+- ✅ Application tracking for job seekers<br />
+- ✅ Phone/email verification<br />
+- ✅ Modern responsive UI (Bootstrap 5)</p>
+<p><strong>Technology Stack:</strong><br />
+- Backend: Django/Python (scalable, secure)<br />
+- Frontend: Bootstrap 5 (modern, responsive)<br />
+- Database: PostgreSQL (reliable, performant)<br />
+- Hosting: Render (production-ready)</p>
+<hr />
+<h2>Roadmap</h2>
+<h3>Phase 1: Market Validation (Months 1-3) 📍 We Are Here</h3>
+<ul>
+<li>Partner with 5-10 recruiters</li>
+<li>Seed platform with 100-200 jobs</li>
+<li>Recruit 500-1,000 beta users</li>
+<li>Track 20+ successful hires</li>
+</ul>
+<h3>Phase 2: Essential Features (Months 4-12)</h3>
+<ul>
+<li>Email notifications &amp; job alerts</li>
+<li>Messaging system (employer ↔ candidate)</li>
+<li>Resume database search</li>
+<li>"Verified" badges</li>
+<li>Analytics dashboard</li>
+<li>Target: 1,000+ jobs, 5,000+ users</li>
+</ul>
+<h3>Phase 3: Growth &amp; Scale (Year 2)</h3>
+<ul>
+<li>Mobile apps (iOS + Android)</li>
+<li>AI-powered job matching</li>
+<li>Monetization (freemium model)</li>
+<li>Market expansion</li>
+<li>Target: 10,000+ jobs, 50,000+ users, $10-50k MRR</li>
+</ul>
+<hr />
+<h2>Business Model</h2>
+<h3>Year 1: Free (Both Sides)</h3>
+<p><strong>Why Free?</strong><br />
+- Solve chicken-and-egg problem<br />
+- Build trust and community<br />
+- Compete with Indeed/Craigslist<br />
+- Demonstrate value before monetizing</p>
+<h3>Year 2+: Freemium</h3>
+<p><strong>Premium Tier - Employers ($99-199/mo):</strong><br />
+- "Verified Employer" badge<br />
+- Featured job postings<br />
+- Advanced analytics<br />
+- Resume database search<br />
+- Priority support</p>
+<p><strong>Premium Tier - Candidates ($9.99/mo - optional):</strong><br />
+- "Verified Candidate" badge<br />
+- Skills assessments<br />
+- Application insights<br />
+- Priority processing</p>
+<p><strong>Target:</strong> $50-100k MRR by end of Year 2</p>
+<hr />
+<h2>What We're Looking For in Partners</h2>
+<h3>1. Recruiter Partners 🎯 <strong>TOP PRIORITY</strong></h3>
+<p><strong>What We Need:</strong><br />
+- 5-10 recruiting agencies or independent recruiters<br />
+- Willing to post 10-20 active jobs each<br />
+- Provide feedback on platform features<br />
+- Beta test employer dashboard</p>
+<p><strong>What Partners Get:</strong><br />
+- Free unlimited job postings (forever)<br />
+- Early access to premium features<br />
+- Co-marketing opportunities<br />
+- Revenue share (future recruiter tools)</p>
+<hr />
+<h3>2. Marketing Partners</h3>
+<p><strong>What We Need:</strong><br />
+- Social media marketing expertise<br />
+- Content creation (blogs, videos, testimonials)<br />
+- SEO and growth hacking<br />
+- Community building experience</p>
+<p><strong>What Partners Get:</strong><br />
+- Equity or revenue share<br />
+- Leadership role in marketing strategy<br />
+- Portfolio-building opportunity</p>
+<hr />
+<h3>3. Technical Partners</h3>
+<p><strong>What We Need:</strong><br />
+- Full-stack development (Django + Bootstrap)<br />
+- Mobile app development (React Native or Flutter)<br />
+- AI/ML for job matching algorithms<br />
+- Scalability and performance optimization</p>
+<p><strong>What Partners Get:</strong><br />
+- Equity stake<br />
+- CTO or technical leadership role<br />
+- Flexible remote work</p>
+<hr />
+<h3>4. Strategic/Business Partners</h3>
+<p><strong>What We Need:</strong><br />
+- Go-to-market strategy<br />
+- Fundraising expertise<br />
+- Business development (partnerships, sales)<br />
+- Financial planning and operations</p>
+<p><strong>What Partners Get:</strong><br />
+- Equity or advisory shares<br />
+- Leadership/advisory role<br />
+- High-impact strategic work</p>
+<hr />
+<h3>5. Investor Partners (Future - Year 1+)</h3>
+<p><strong>What We Need:</strong><br />
+- Seed funding: $250k-$500k<br />
+- Series A: $2-5M (once product-market fit proven)<br />
+- Strategic investors with HR tech expertise</p>
+<p><strong>What Investors Get:</strong><br />
+- Equity stake<br />
+- Board seat or advisory role<br />
+- Potential 10-50x returns (if successful)</p>
+<hr />
+<h2>Why Now?</h2>
+<p><strong>1. Post-Pandemic Shift</strong> 🌍<br />
+- Remote work normalized (expanded addressable market)<br />
+- Job seekers demand transparency and quality<br />
+- Employers need better remote hiring tools</p>
+<p><strong>2. Incumbent Vulnerabilities</strong> ⚠️<br />
+- Indeed/LinkedIn spam at all-time high<br />
+- Trust in traditional job boards declining<br />
+- Small businesses priced out of quality tools</p>
+<p><strong>3. Technology Maturity</strong> 💻<br />
+- Modern frameworks enable rapid development<br />
+- Cloud infrastructure makes scaling affordable<br />
+- AI/ML tools accessible for smart matching</p>
+<p><strong>4. Regulatory Tailwinds</strong> 📜<br />
+- Salary transparency laws (CA, NY, CO, WA)<br />
+- Anti-discrimination enforcement<br />
+- Data privacy favors transparent platforms</p>
+<p><strong>5. Proven Models</strong> ✅<br />
+- Toptal: $1B+ valuation (vetting works)<br />
+- Hired/Vettery: $100M+ exit (marketplace works)<br />
+- FlexJobs: 18 years profitable (curation works)</p>
+<hr />
+<h2>Success Metrics</h2>
+<h3>Phase 1: Proof of Concept (Months 1-3)</h3>
+<ul>
+<li>10-20 active jobs</li>
+<li>100-500 registered users</li>
+<li>5+ successful hires</li>
+<li>10+ testimonials</li>
+<li>&lt;5% spam rate</li>
+</ul>
+<h3>Phase 2: Market Validation (Months 4-12)</h3>
+<ul>
+<li>500+ active jobs</li>
+<li>2,000+ registered users</li>
+<li>50+ successful hires</li>
+<li>90%+ verified user rate</li>
+<li>500+ monthly active users</li>
+</ul>
+<h3>Phase 3: Growth &amp; Scale (Year 2)</h3>
+<ul>
+<li>5,000+ active jobs</li>
+<li>25,000+ registered users</li>
+<li>500+ successful hires</li>
+<li>$10-50k MRR</li>
+<li>5,000+ monthly active users</li>
+</ul>
+<hr />
+<h2>The Opportunity Size</h2>
+<p><strong>Target (Conservative):</strong><br />
+- <strong>0.1% of job seekers</strong> = 25,000 users<br />
+- If 10% pay premium ($99/mo) = $50k MRR<br />
+- Annual revenue = $600k<br />
+- <strong>Result: Profitable lifestyle business</strong></p>
+<p><strong>Target (Growth):</strong><br />
+- <strong>1% of job seekers</strong> = 250,000 users<br />
+- If 10% pay premium = $500k MRR<br />
+- Annual revenue = $6M<br />
+- <strong>Result: Venture-scale business ($10-50M valuation)</strong></p>
+<hr />
+<h2>Call to Action</h2>
+<h3>Ready to Join Us?</h3>
+<p><strong>Next Steps:</strong></p>
+<p><strong>1. Express Interest</strong><br />
+- Email: [Your Email]<br />
+- Subject: "RJRP Partnership - [Your Role]"<br />
+- Include: Brief background, what you bring, why you're interested</p>
+<p><strong>2. Discovery Call</strong><br />
+- 30-minute conversation to explore fit<br />
+- Discuss vision, timeline, expectations</p>
+<p><strong>3. Trial Period (For Strategic Partners)</strong><br />
+- 30-60 day collaboration on defined project<br />
+- Mutual evaluation of partnership fit</p>
+<p><strong>4. Formalize Partnership</strong><br />
+- Sign partnership agreement<br />
+- Define roles, responsibilities, equity split<br />
+- Start building together</p>
+<hr />
+<h2>Why RJRP Will Win</h2>
+<p><strong>The job board market is broken. Everyone knows it.</strong></p>
+<p>Employers waste thousands on low-quality applicants. Job seekers waste hundreds of hours in black holes. The incumbents have no incentive to fix it because their revenue depends on volume, not quality.</p>
+<p><strong>Premium vetting platforms prove that quality matters.</strong> Toptal charges 10x market rate. Hired charges $20k per hire. FlexJobs has been profitable for 18 years. But these platforms are inaccessible to 99% of employers and many job seekers.</p>
+<p><strong>RJRP is building the platform the market needs:</strong><br />
+- Quality of Toptal, accessibility of Indeed<br />
+- Transparency no one else offers<br />
+- Free for everyone, premium when you need it<br />
+- Both sides vetted, both sides valued</p>
+<p><strong>We don't need to beat Indeed on scale.</strong> We just need to capture 0.1% of their market (25,000 users) to build a thriving business.</p>
+<p><strong>The market is ready. The technology exists. The opportunity is now.</strong></p>
+<p><strong>The question is: Will you join us?</strong></p>
+<hr />
+<h2>Contact Information</h2>
+<p><strong>Platform:</strong> https://rjrp.onrender.com<br />
+<strong>Email:</strong> [Your Email]<br />
+<strong>LinkedIn:</strong> [Your LinkedIn]</p>
+<p><strong>Let's build Real Jobs, Real People together.</strong></p>
+<hr />
+<p><em>"The best job board isn't the one with the most jobs. It's the one with the right jobs, the real jobs, posted by real people, for real people."</em></p>
+<p><strong>- RJRP Mission Statement</strong></p>
+
+    <script>
+        // Add print shortcut hint
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('To save as PDF: Press Ctrl+P (or Cmd+P on Mac) and select "Save as PDF"');
+        });
+    </script>
+</body>
+</html>

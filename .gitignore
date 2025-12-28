@@ -44,3 +44,17 @@ staticfiles/
 secrets.py
 *.key
 *.pem
+
+# Temp files
+nul
+~$*
+*.tmp
+
+# Claude settings (local only)
+.claude/settings.local.json
+
+# Helper scripts (not part of app)
+*_converter.py
+build_*.py
+convert_*.py
+create_*.py
