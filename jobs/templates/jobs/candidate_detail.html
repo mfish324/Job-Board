@@ -104,7 +104,7 @@
                                     <td>{{ app.job.title }}</td>
                                     <td>{{ app.applied_date|date:"M d, Y" }}</td>
                                     <td>
-                                        <span class="badge {% if app.status == 'accepted' %}bg-success{% elif app.status == 'rejected' %}bg-danger{% elif app.status == 'reviewed' %}bg-info{% else %}bg-secondary{% endif %}">
+                                        <span class="badge {% if app.status == 'accepted' %}bg-success{% elif app.status == 'rejected' %}bg-danger{% elif app.status == 'reviewed' %}{% else %}bg-secondary{% endif %}" {% if app.status == 'reviewed' %}style="background-color: #dda56c;"{% endif %}>
                                             {{ app.get_status_display }}
                                         </span>
                                     </td>

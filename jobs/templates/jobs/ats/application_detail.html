@@ -433,8 +433,8 @@
                     <span class="badge fs-5
                         {% if application.status == 'accepted' %}bg-success
                         {% elif application.status == 'rejected' %}bg-danger
-                        {% elif application.status == 'reviewed' %}bg-info
-                        {% else %}bg-secondary{% endif %}">
+                        {% elif application.status == 'reviewed' %}{% else %}bg-secondary{% endif %}"
+                        {% if application.status == 'reviewed' %}style="background-color: #dda56c;"{% endif %}>
                         {{ application.get_status_display }}
                     </span>
                     {% if application.current_stage %}

@@ -88,7 +88,7 @@
                                             </select>
                                         </form>
                                         {% else %}
-                                        <span class="badge bg-{% if member.role == 'admin' %}primary{% elif member.role == 'recruiter' %}success{% elif member.role == 'reviewer' %}info{% else %}secondary{% endif %}">
+                                        <span class="badge {% if member.role == 'admin' %}bg-primary{% elif member.role == 'recruiter' %}bg-success{% elif member.role == 'reviewer' %}{% else %}bg-secondary{% endif %}" {% if member.role == 'reviewer' %}style="background-color: #dda56c;"{% endif %}>
                                             {{ member.get_role_display }}
                                         </span>
                                         {% endif %}
@@ -151,7 +151,7 @@
                                 <tr>
                                     <td>{{ invitation.email }}</td>
                                     <td>
-                                        <span class="badge bg-{% if invitation.role == 'admin' %}primary{% elif invitation.role == 'recruiter' %}success{% elif invitation.role == 'reviewer' %}info{% else %}secondary{% endif %}">
+                                        <span class="badge {% if invitation.role == 'admin' %}bg-primary{% elif invitation.role == 'recruiter' %}bg-success{% elif invitation.role == 'reviewer' %}{% else %}bg-secondary{% endif %}" {% if invitation.role == 'reviewer' %}style="background-color: #dda56c;"{% endif %}>
                                             {{ invitation.get_role_display }}
                                         </span>
                                     </td>
@@ -239,7 +239,7 @@
                         </ul>
                     </div>
                     <div class="mb-3">
-                        <span class="badge bg-info mb-1">Reviewer</span>
+                        <span class="badge mb-1" style="background-color: #dda56c;">Reviewer</span>
                         <ul class="small mb-0 ps-3">
                             <li>View applications</li>
                             <li>Add notes and ratings</li>

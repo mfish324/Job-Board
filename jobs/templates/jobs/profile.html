@@ -75,7 +75,7 @@
                             {% if verification_level == 'complete' %}
                             <span class="badge bg-success fs-6 ms-2"><i class="bi bi-patch-check-fill me-1"></i>Complete</span>
                             {% elif verification_level == 'enhanced' %}
-                            <span class="badge bg-info fs-6 ms-2"><i class="bi bi-shield-fill-check me-1"></i>Enhanced</span>
+                            <span class="badge fs-6 ms-2" style="background-color: #dda56c;"><i class="bi bi-shield-fill-check me-1"></i>Enhanced</span>
                             {% elif verification_level == 'basic' %}
                             <span class="badge bg-warning text-dark fs-6 ms-2"><i class="bi bi-shield-check me-1"></i>Basic</span>
                             {% else %}
@@ -153,8 +153,8 @@
                         </div>
                     </div>
 
-                    <div class="alert alert-info mt-3 mb-0">
-                        <i class="bi bi-info-circle me-2"></i>
+                    <div class="alert mt-3 mb-0" style="background-color: #f5f0e5; border-color: #dda56c;">
+                        <i class="bi bi-info-circle me-2" style="color: #7e512f;"></i>
                         <strong>Why verify?</strong> Verified applicants stand out to employers and demonstrate authenticity.
                         You must verify at least your email or phone to apply for jobs.
                     </div>
@@ -225,7 +225,7 @@
                 <div class="col-md-3 col-6 mb-3">
                     <div class="card text-center">
                         <div class="card-body">
-                            <i class="bi bi-eye" style="font-size: 2rem; color: #17a2b8;"></i>
+                            <i class="bi bi-eye" style="font-size: 2rem; color: #dda56c;"></i>
                             <h3 class="mt-2 mb-0">{{ application_stats.reviewed_count }}</h3>
                             <small class="text-muted">Reviewed</small>
                         </div>
@@ -255,7 +255,7 @@
                         <div class="row">
                             {% for application in user_applications %}
                             <div class="col-lg-12 mb-3">
-                                <div class="card border-start border-3 {% if application.status == 'accepted' %}border-success{% elif application.status == 'rejected' %}border-danger{% elif application.status == 'reviewed' %}border-info{% else %}border-secondary{% endif %} h-100">
+                                <div class="card border-start border-3 {% if application.status == 'accepted' %}border-success{% elif application.status == 'rejected' %}border-danger{% elif application.status == 'reviewed' %}border-warning{% else %}border-secondary{% endif %} h-100">
                                     <div class="card-body">
                                         <div class="row align-items-start">
                                             <div class="col-md-8">
@@ -290,7 +290,7 @@
                                                     <i class="bi bi-hourglass-split me-1"></i>Pending Review
                                                 </span>
                                                 {% elif application.status == 'reviewed' %}
-                                                <span class="badge bg-info fs-6 mb-2">
+                                                <span class="badge fs-6 mb-2" style="background-color: #dda56c;">
                                                     <i class="bi bi-eye-fill me-1"></i>Reviewed
                                                 </span>
                                                 {% elif application.status == 'accepted' %}
