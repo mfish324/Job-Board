@@ -1,7 +1,17 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(python manage.py runserver:*)",
+      "Bash(pip install:*)",
+      "Bash(timeout:*)",
+      "Bash(nul)",
+      "Bash(exit 0)",
+      "Bash(python manage.py makemigrations:*)",
+      "Bash(python manage.py migrate:*)",
+      "Bash(python manage.py:*)"
     ],
     "deny": [],
     "ask": []
