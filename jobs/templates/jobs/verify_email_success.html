@@ -7,7 +7,7 @@
     <div class="row justify-content-center mt-5">
         <div class="col-md-6 col-lg-5">
             <div class="card shadow-sm border-0">
-                <div class="card-header text-center py-5" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white;">
+                <div class="card-header text-center py-5" style="background: linear-gradient(135deg, #7e512f 0%, #9d6a3d 100%); color: white;">
                     <i class="bi bi-check-circle" style="font-size: 5rem;"></i>
                     <h3 class="mt-3 mb-0">Email Verified!</h3>
                 </div>
@@ -17,7 +17,7 @@
                         Your email address has been successfully verified.
                     </p>
 
-                    <div class="alert alert-success" role="alert">
+                    <div class="alert" role="alert" style="background-color: #f5f0e5; border-color: #dda56c; color: #7e512f;">
                         <i class="bi bi-envelope-check me-2"></i>
                         <strong>{{ user.email }}</strong> is now confirmed
                     </div>
@@ -52,30 +52,30 @@
                     {% if user.userprofile.user_type == 'job_seeker' %}
                     <ul class="list-unstyled mb-0">
                         <li class="mb-2">
-                            <i class="bi bi-check2 text-success me-2"></i>
+                            <i class="bi bi-check2 me-2" style="color: #dda56c;"></i>
                             Complete your profile with resume and skills
                         </li>
                         <li class="mb-2">
-                            <i class="bi bi-check2 text-success me-2"></i>
+                            <i class="bi bi-check2 me-2" style="color: #dda56c;"></i>
                             Browse available job opportunities
                         </li>
                         <li class="mb-2">
-                            <i class="bi bi-check2 text-success me-2"></i>
+                            <i class="bi bi-check2 me-2" style="color: #dda56c;"></i>
                             Start applying to positions that match your skills
                         </li>
                     </ul>
                     {% else %}
                     <ul class="list-unstyled mb-0">
                         <li class="mb-2">
-                            <i class="bi bi-check2 text-success me-2"></i>
+                            <i class="bi bi-check2 me-2" style="color: #dda56c;"></i>
                             Add your company information and logo
                         </li>
                         <li class="mb-2">
-                            <i class="bi bi-check2 text-success me-2"></i>
+                            <i class="bi bi-check2 me-2" style="color: #dda56c;"></i>
                             Post your first job listing
                         </li>
                         <li class="mb-2">
-                            <i class="bi bi-check2 text-success me-2"></i>
+                            <i class="bi bi-check2 me-2" style="color: #dda56c;"></i>
                             Review applications from qualified candidates
                         </li>
                     </ul>
