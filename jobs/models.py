@@ -41,6 +41,15 @@ class UserProfile(models.Model):
         help_text='Your LinkedIn profile URL (e.g., https://linkedin.com/in/yourname)'
     )
 
+    # Candidate search fields
+    desired_title = models.CharField(max_length=200, blank=True, help_text='Job title you are looking for')
+    location = models.CharField(max_length=100, blank=True, help_text='Your location (city, state)')
+    profile_searchable = models.BooleanField(
+        default=True,
+        help_text='Allow employers to find your profile in candidate search'
+    )
+    bio = models.TextField(blank=True, help_text='Brief summary about yourself')
+
     # Employer fields
     company_name = models.CharField(max_length=200, blank=True)
     company_logo = models.ImageField(upload_to='company_logos/', blank=True, null=True)

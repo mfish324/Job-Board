@@ -1,0 +1,193 @@
+{% extends 'jobs/base.html' %}
+
+{% block title %}{{ candidate.user.get_full_name|default:candidate.user.username }} - Candidate Profile{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'employer_dashboard' %}">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'candidate_search' %}">Candidate Search</a></li>
+            <li class="breadcrumb-item active">{{ candidate.user.get_full_name|default:candidate.user.username }}</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <!-- Main Profile Info -->
+        <div class="col-lg-8">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header py-3" style="background: linear-gradient(135deg, #7e512f 0%, #9d6a3d 100%);">
+                    <div class="d-flex align-items-center">
+                        <div class="avatar-circle me-3" style="background-color: white; width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #7e512f; font-weight: bold; font-size: 1.5rem;">
+                            {{ candidate.user.first_name|slice:":1"|upper }}{{ candidate.user.last_name|slice:":1"|upper }}
+                        </div>
+                        <div class="text-white">
+                            <h3 class="mb-0">{{ candidate.user.get_full_name|default:candidate.user.username }}</h3>
+                            {% if candidate.desired_title %}
+                            <p class="mb-0 opacity-75">{{ candidate.desired_title }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Quick Info -->
+                    <div class="row mb-4">
+                        {% if candidate.location %}
+                        <div class="col-md-4 mb-2">
+                            <i class="bi bi-geo-alt me-2" style="color: #7e512f;"></i>
+                            <strong>Location:</strong> {{ candidate.location }}
+                        </div>
+                        {% endif %}
+                        {% if candidate.experience_years > 0 %}
+                        <div class="col-md-4 mb-2">
+                            <i class="bi bi-briefcase me-2" style="color: #7e512f;"></i>
+                            <strong>Experience:</strong> {{ candidate.experience_years }} year{% if candidate.experience_years != 1 %}s{% endif %}
+                        </div>
+                        {% endif %}
+                        <div class="col-md-4 mb-2">
+                            <i class="bi bi-calendar me-2" style="color: #7e512f;"></i>
+                            <strong>Joined:</strong> {{ candidate.user.date_joined|date:"M Y" }}
+                        </div>
+                    </div>
+
+                    <!-- Verification Badges -->
+                    <div class="mb-4">
+                        <h6 class="fw-bold mb-2"><i class="bi bi-shield-check me-2"></i>Verification Status</h6>
+                        {% for badge in candidate.get_verification_badges %}
+                        <span class="badge me-2 mb-1" style="background-color: #dda56c; color: #7e512f;">
+                            <i class="bi {{ badge.icon }} me-1"></i>{{ badge.label }}
+                        </span>
+                        {% empty %}
+                        <span class="text-muted">No verifications</span>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Bio -->
+                    {% if candidate.bio %}
+                    <div class="mb-4">
+                        <h6 class="fw-bold mb-2"><i class="bi bi-person-lines-fill me-2"></i>About</h6>
+                        <p class="mb-0">{{ candidate.bio|linebreaks }}</p>
+                    </div>
+                    {% endif %}
+
+                    <!-- Skills -->
+                    {% if candidate.skills %}
+                    <div class="mb-4">
+                        <h6 class="fw-bold mb-2"><i class="bi bi-tools me-2"></i>Skills</h6>
+                        <p class="mb-0">{{ candidate.skills|linebreaks }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Previous Applications to Your Jobs -->
+            {% if applied_jobs %}
+            <div class="card shadow-sm mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-file-earmark-check me-2" style="color: #7e512f;"></i>Applied to Your Jobs</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Job Title</th>
+                                    <th>Applied Date</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for app in applied_jobs %}
+                                <tr>
+                                    <td>{{ app.job.title }}</td>
+                                    <td>{{ app.applied_date|date:"M d, Y" }}</td>
+                                    <td>
+                                        <span class="badge {% if app.status == 'accepted' %}bg-success{% elif app.status == 'rejected' %}bg-danger{% elif app.status == 'reviewed' %}bg-info{% else %}bg-secondary{% endif %}">
+                                            {{ app.get_status_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'application_detail_ats' app.id %}" class="btn btn-sm btn-outline-primary">
+                                            View Application
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Contact & Links -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-link-45deg me-2" style="color: #7e512f;"></i>Links & Documents</h5>
+                </div>
+                <div class="card-body">
+                    {% if candidate.linkedin_url %}
+                    <a href="{{ candidate.linkedin_url }}" target="_blank" class="btn btn-outline-primary w-100 mb-2">
+                        <i class="bi bi-linkedin me-2"></i>View LinkedIn Profile
+                    </a>
+                    {% endif %}
+
+                    {% if candidate.resume %}
+                    <a href="{{ candidate.resume.url }}" target="_blank" class="btn btn-outline-success w-100 mb-2">
+                        <i class="bi bi-file-earmark-pdf me-2"></i>Download Resume
+                    </a>
+                    {% else %}
+                    <p class="text-muted small mb-2">
+                        <i class="bi bi-info-circle me-1"></i>No resume uploaded
+                    </p>
+                    {% endif %}
+
+                    {% if not candidate.linkedin_url and not candidate.resume %}
+                    <p class="text-muted text-center mb-0">No additional links or documents available.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Invite to Apply (Future Feature) -->
+            {% if employer_jobs %}
+            <div class="card shadow-sm mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-envelope-plus me-2" style="color: #7e512f;"></i>Your Open Jobs</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">
+                        Jobs this candidate could apply to:
+                    </p>
+                    <ul class="list-unstyled mb-0">
+                        {% for job in employer_jobs|slice:":5" %}
+                        <li class="mb-2">
+                            <a href="{% url 'job_detail' job.id %}" class="text-decoration-none">
+                                <i class="bi bi-briefcase me-1" style="color: #dda56c;"></i>{{ job.title }}
+                            </a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% if employer_jobs.count > 5 %}
+                    <p class="text-muted small mt-2 mb-0">
+                        + {{ employer_jobs.count|add:"-5" }} more jobs
+                    </p>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Back Button -->
+            <div class="d-grid">
+                <a href="{% url 'candidate_search' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i>Back to Search
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

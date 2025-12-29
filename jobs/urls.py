@@ -120,4 +120,8 @@ urlpatterns = [
     path('employer/analytics/', views.analytics_dashboard, name='analytics_dashboard'),
     path('employer/analytics/export/', views.analytics_export, name='analytics_export'),
     path('employer/job/<int:job_id>/analytics/', views.job_analytics, name='job_analytics'),
+
+    # Candidate Search (for employers)
+    path('employer/candidates/', views.candidate_search, name='candidate_search'),
+    path('employer/candidates/<int:profile_id>/', views.candidate_detail, name='candidate_detail'),
 ]

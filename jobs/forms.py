@@ -84,18 +84,27 @@ class JobSeekerProfileForm(forms.ModelForm):
 
     class Meta:
         model = UserProfile
-        fields = ['phone', 'resume', 'skills', 'experience_years', 'linkedin_url']
+        fields = ['phone', 'resume', 'skills', 'experience_years', 'linkedin_url',
+                  'desired_title', 'location', 'bio', 'profile_searchable']
         widgets = {
             'skills': forms.Textarea(attrs={'rows': 4, 'placeholder': 'List your skills separated by commas'}),
             'phone': forms.TextInput(attrs={'placeholder': '+1 234 567 8900'}),
             'experience_years': forms.NumberInput(attrs={'min': 0, 'max': 50}),
             'linkedin_url': forms.URLInput(attrs={'placeholder': 'https://linkedin.com/in/yourname'}),
+            'desired_title': forms.TextInput(attrs={'placeholder': 'e.g., Software Engineer, Marketing Manager'}),
+            'location': forms.TextInput(attrs={'placeholder': 'e.g., Chicago, IL'}),
+            'bio': forms.Textarea(attrs={'rows': 3, 'placeholder': 'Brief summary about yourself and your career goals...'}),
         }
         labels = {
             'linkedin_url': 'LinkedIn Profile URL (Bonus Verification)',
+            'desired_title': 'Desired Job Title',
+            'location': 'Your Location',
+            'bio': 'About Me',
+            'profile_searchable': 'Allow employers to find my profile',
         }
         help_texts = {
             'linkedin_url': 'Add your LinkedIn profile to enhance your verification status and stand out to employers.',
+            'profile_searchable': 'When enabled, employers can discover your profile when searching for candidates.',
         }
     
     def __init__(self, *args, **kwargs):

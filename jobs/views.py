@@ -2180,3 +2180,135 @@ def job_analytics(request, job_id):
         'recent_stage_changes': recent_stage_changes,
     }
     return render(request, 'jobs/ats/job_analytics.html', context)
+
+
+# ============================================
+# CANDIDATE SEARCH (FOR EMPLOYERS)
+# ============================================
+
+@login_required
+def candidate_search(request):
+    """Search for candidates/job seekers (employer only)"""
+    # Verify user is an employer
+    if not hasattr(request.user, 'userprofile') or request.user.userprofile.user_type != 'employer':
+        messages.error(request, 'Access denied. Employer account required.')
+        return redirect('home')
+
+    # Base queryset: only verified job seekers with searchable profiles
+    candidates = UserProfile.objects.filter(
+        user_type='job_seeker',
+        profile_searchable=True
+    ).select_related('user')
+
+    # Only show candidates who have verified (at least email or phone)
+    verified_candidates = []
+    for profile in candidates:
+        if profile.is_verified():
+            verified_candidates.append(profile.id)
+    candidates = candidates.filter(id__in=verified_candidates)
+
+    # Search query (name, skills, title, bio)
+    search_query = request.GET.get('search', '')
+    if search_query:
+        candidates = candidates.filter(
+            Q(user__first_name__icontains=search_query) |
+            Q(user__last_name__icontains=search_query) |
+            Q(skills__icontains=search_query) |
+            Q(desired_title__icontains=search_query) |
+            Q(bio__icontains=search_query)
+        )
+
+    # Location filter
+    location_filter = request.GET.get('location', '')
+    if location_filter:
+        candidates = candidates.filter(location__icontains=location_filter)
+
+    # Skills filter
+    skills_filter = request.GET.get('skills', '')
+    if skills_filter:
+        candidates = candidates.filter(skills__icontains=skills_filter)
+
+    # Experience filter
+    min_experience = request.GET.get('min_experience', '')
+    if min_experience:
+        try:
+            candidates = candidates.filter(experience_years__gte=int(min_experience))
+        except ValueError:
+            pass
+
+    max_experience = request.GET.get('max_experience', '')
+    if max_experience:
+        try:
+            candidates = candidates.filter(experience_years__lte=int(max_experience))
+        except ValueError:
+            pass
+
+    # Has resume filter
+    has_resume = request.GET.get('has_resume', '')
+    if has_resume == 'yes':
+        candidates = candidates.exclude(resume='')
+
+    # Has LinkedIn filter
+    has_linkedin = request.GET.get('has_linkedin', '')
+    if has_linkedin == 'yes':
+        candidates = candidates.exclude(linkedin_url='')
+
+    # Get unique locations for filter dropdown
+    all_locations = UserProfile.objects.filter(
+        user_type='job_seeker',
+        profile_searchable=True
+    ).exclude(location='').values_list('location', flat=True).distinct().order_by('location')
+
+    # Order by most recently updated (using user's date_joined as proxy)
+    candidates = candidates.order_by('-user__date_joined')
+
+    context = {
+        'candidates': candidates,
+        'search_query': search_query,
+        'location_filter': location_filter,
+        'skills_filter': skills_filter,
+        'min_experience': min_experience,
+        'max_experience': max_experience,
+        'has_resume': has_resume,
+        'has_linkedin': has_linkedin,
+        'all_locations': all_locations,
+        'total_results': candidates.count()
+    }
+    return render(request, 'jobs/candidate_search.html', context)
+
+
+@login_required
+def candidate_detail(request, profile_id):
+    """View candidate profile details (employer only)"""
+    # Verify user is an employer
+    if not hasattr(request.user, 'userprofile') or request.user.userprofile.user_type != 'employer':
+        messages.error(request, 'Access denied. Employer account required.')
+        return redirect('home')
+
+    profile = get_object_or_404(UserProfile, id=profile_id, user_type='job_seeker')
+
+    # Check if profile is searchable
+    if not profile.profile_searchable:
+        messages.error(request, 'This candidate profile is not available.')
+        return redirect('candidate_search')
+
+    # Check if candidate is verified
+    if not profile.is_verified():
+        messages.error(request, 'This candidate has not completed verification.')
+        return redirect('candidate_search')
+
+    # Get employer's jobs for potential "invite to apply" feature
+    employer_jobs = Job.objects.filter(posted_by=request.user, is_active=True)
+
+    # Check if this candidate has applied to any of the employer's jobs
+    applied_jobs = JobApplication.objects.filter(
+        applicant=profile.user,
+        job__posted_by=request.user
+    ).select_related('job')
+
+    context = {
+        'candidate': profile,
+        'employer_jobs': employer_jobs,
+        'applied_jobs': applied_jobs,
+    }
+    return render(request, 'jobs/candidate_detail.html', context)
