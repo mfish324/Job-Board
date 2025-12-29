@@ -38,7 +38,5 @@ services:
       - key: SITE_URL
         sync: false
 
-databases:
-  - name: realjobsrealpeople-db
-    databaseName: realjobsrealpeople
-    user: realjobsrealpeople
+# Database is configured manually in Render dashboard
+# Do not auto-create database from render.yaml to prevent data loss
