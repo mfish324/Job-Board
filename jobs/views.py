@@ -337,12 +337,12 @@ def apply_job(request, job_id):
             messages.warning(
                 request,
                 'You must verify your phone number or email address before applying for jobs. '
-                '<a href="/profile/" class="alert-link">Complete verification in your profile</a>.'
+                '<a href="/account/profile/" class="alert-link">Complete verification in your profile</a>.'
             )
             return redirect('job_detail', job_id=job_id)
     else:
         messages.error(request, 'Please complete your profile before applying.')
-        return redirect('profile')
+        return redirect('user_profile')
 
     if JobApplication.objects.filter(job=job, applicant=request.user).exists():
         messages.warning(request, 'You have already applied for this job.')
