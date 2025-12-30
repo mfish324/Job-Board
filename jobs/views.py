@@ -6,6 +6,8 @@ from django.db.models import Q
 from django.http import HttpResponse
 from django.utils import timezone
 from django.conf import settings
+from django_ratelimit.decorators import ratelimit
+from django_ratelimit.exceptions import Ratelimited
 from .models import (Job, UserProfile, JobApplication, PhoneVerification, EmailVerification, SavedJob,
                      HiringStage, ApplicationStageHistory, ApplicationNote, ApplicationRating,
                      ApplicationTag, ApplicationTagAssignment, EmailTemplate, Notification,
@@ -16,6 +18,12 @@ from .forms import (JobSeekerSignUpForm, EmployerSignUpForm, JobPostForm,
 from .utils import (generate_verification_code, generate_verification_token,
                    send_phone_verification_code, send_email_verification,
                    format_phone_number, is_valid_phone_number)
+
+
+# Rate limit exception handler
+def ratelimited_error(request, exception):
+    """Custom handler for rate-limited requests"""
+    return render(request, '429.html', status=429)
 
 
 # Your existing views stay the same
@@ -109,6 +117,7 @@ def job_detail(request, job_id):
 def signup_choice(request):
     return render(request, 'jobs/signup_choice.html')
 
+@ratelimit(key='ip', rate='5/m', method='POST', block=True)
 def jobseeker_signup(request):
     if request.method == 'POST':
         form = JobSeekerSignUpForm(request.POST)
@@ -157,6 +166,7 @@ def jobseeker_signup(request):
         form = JobSeekerSignUpForm()
     return render(request, 'jobs/signup.html', {'form': form, 'user_type': 'Job Seeker'})
 
+@ratelimit(key='ip', rate='5/m', method='POST', block=True)
 def employer_signup(request):
     if request.method == 'POST':
         form = EmployerSignUpForm(request.POST)
@@ -205,6 +215,7 @@ def employer_signup(request):
         form = EmployerSignUpForm()
     return render(request, 'jobs/signup.html', {'form': form, 'user_type': 'Employer'})
 
+@ratelimit(key='ip', rate='10/m', method='POST', block=True)
 def user_login(request):
     if request.method == 'POST':
         username = request.POST['username']
@@ -580,6 +591,7 @@ def verify_email(request, token):
 
 
 @login_required
+@ratelimit(key='user', rate='3/m', method='ALL', block=True)
 def resend_verification_code(request):
     """Resend phone verification code"""
     try:

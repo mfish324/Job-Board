@@ -3,11 +3,14 @@ Utility functions for Real Jobs, Real People
 """
 import random
 import string
+import logging
 from django.conf import settings
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 from twilio.rest import Client
+
+logger = logging.getLogger(__name__)
 
 
 def generate_verification_code():
@@ -45,7 +48,7 @@ def send_phone_verification_code(phone_number, code):
         return message.sid is not None
 
     except Exception as e:
-        print(f"Error sending SMS: {e}")
+        logger.error(f"Error sending SMS to {phone_number[:4]}****: {e}")
         return False
 
 
@@ -124,7 +127,7 @@ def send_email_verification(user, token):
         return True
 
     except Exception as e:
-        print(f"Error sending email: {e}")
+        logger.error(f"Error sending email to {user.email}: {e}")
         return False
 
 

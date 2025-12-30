@@ -6,6 +6,9 @@ sqlparse==0.5.3
 tzdata==2025.2
 twilio==9.0.4
 
+# Security
+django-ratelimit==4.1.0
+
 # Production dependencies
 gunicorn==21.2.0
 psycopg2-binary>=2.9.9
