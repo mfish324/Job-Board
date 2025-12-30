@@ -3,7 +3,8 @@ services:
     name: realjobsrealpeople
     runtime: python
     buildCommand: "bash build.sh"
-    startCommand: "gunicorn jobboard.wsgi:application"
+    startCommand: "gunicorn jobboard.wsgi:application --workers 4 --timeout 120"
+    healthCheckPath: /
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
@@ -12,7 +13,7 @@ services:
       - key: DEBUG
         value: False
       - key: ALLOWED_HOSTS
-        sync: false
+        value: "localhost,127.0.0.1,.onrender.com,realjobsrealpeople.net,www.realjobsrealpeople.net"
       - key: DATABASE_URL
         fromDatabase:
           name: realjobsrealpeople-db
