@@ -3,65 +3,97 @@
 {% block title %}Terms of Service - Real Jobs, Real People{% endblock %}
 
 {% block content %}
-<div style="max-width: 800px; margin: 0 auto;">
-    <h1>Terms of Service</h1>
-    <p style="color: #666;">Last updated: {% now "F d, Y" %}</p>
-    
-    <div class="job-card">
-        <h3>1. Acceptance of Terms</h3>
-        <p>By using Real Jobs, Real People, you agree to these terms. If you don't agree, please don't use our service.</p>
-    </div>
-    
-    <div class="job-card">
-        <h3>2. User Accounts</h3>
-        <ul>
-            <li>You must provide accurate information when creating an account</li>
-            <li>You are responsible for maintaining the security of your account</li>
-            <li>You must be at least 18 years old to use this service</li>
-            <li>One person or company per account</li>
-        </ul>
-    </div>
-    
-    <div class="job-card">
-        <h3>3. Acceptable Use</h3>
-        <p><strong>You agree NOT to:</strong></p>
-        <ul>
-            <li>Post fake or misleading job listings</li>
-            <li>Submit false applications or information</li>
-            <li>Harass or spam other users</li>
-            <li>Attempt to hack or disrupt the service</li>
-            <li>Violate any applicable laws</li>
-        </ul>
-    </div>
-    
-    <div class="job-card">
-        <h3>4. Job Postings</h3>
-        <ul>
-            <li>Employers must post genuine job opportunities only</li>
-            <li>No discriminatory job postings</li>
-            <li>We reserve the right to remove inappropriate listings</li>
-            <li>Job postings must comply with all employment laws</li>
-        </ul>
-    </div>
-    
-    <div class="job-card">
-        <h3>5. Privacy and Data</h3>
-        <p>Your use of our service is also governed by our <a href="{% url 'privacy_policy' %}" style="color: #3498db;">Privacy Policy</a>.</p>
-    </div>
-    
-    <div class="job-card">
-        <h3>6. Limitation of Liability</h3>
-        <p>Real Jobs, Real People is provided "as is" without warranties. We are not responsible for:</p>
-        <ul>
-            <li>The accuracy of job postings</li>
-            <li>The outcome of job applications</li>
-            <li>User interactions or hiring decisions</li>
-        </ul>
-    </div>
-    
-    <div class="job-card">
-        <h3>7. Contact</h3>
-        <p>For questions about these terms, contact us at: legal@jobboard.com</p>
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <h1 class="fw-bold mb-2"><i class="bi bi-file-earmark-text me-2"></i>Terms of Service</h1>
+            <p class="text-muted mb-4">Last updated: {% now "F d, Y" %}</p>
+
+            <div class="card mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="bi bi-1-circle me-2" style="color: #7e512f;"></i>Acceptance of Terms</h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-0">By using Real Jobs, Real People, you agree to these terms. If you don't agree, please don't use our service.</p>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="bi bi-2-circle me-2" style="color: #7e512f;"></i>User Accounts</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="mb-0">
+                        <li>You must provide accurate information when creating an account</li>
+                        <li>You are responsible for maintaining the security of your account</li>
+                        <li>You must be at least 18 years old to use this service</li>
+                        <li>One person or company per account</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="bi bi-3-circle me-2" style="color: #7e512f;"></i>Acceptable Use</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>You agree NOT to:</strong></p>
+                    <ul class="mb-0">
+                        <li class="mb-2"><i class="bi bi-x-circle me-2 text-danger"></i>Post fake or misleading job listings</li>
+                        <li class="mb-2"><i class="bi bi-x-circle me-2 text-danger"></i>Submit false applications or information</li>
+                        <li class="mb-2"><i class="bi bi-x-circle me-2 text-danger"></i>Harass or spam other users</li>
+                        <li class="mb-2"><i class="bi bi-x-circle me-2 text-danger"></i>Attempt to hack or disrupt the service</li>
+                        <li><i class="bi bi-x-circle me-2 text-danger"></i>Violate any applicable laws</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="bi bi-4-circle me-2" style="color: #7e512f;"></i>Job Postings</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="mb-0">
+                        <li>Employers must post genuine job opportunities only</li>
+                        <li>No discriminatory job postings</li>
+                        <li>We reserve the right to remove inappropriate listings</li>
+                        <li>Job postings must comply with all employment laws</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="bi bi-5-circle me-2" style="color: #7e512f;"></i>Privacy and Data</h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-0">Your use of our service is also governed by our <a href="{% url 'privacy_policy' %}" style="color: #7e512f;">Privacy Policy</a>.</p>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="bi bi-6-circle me-2" style="color: #7e512f;"></i>Limitation of Liability</h5>
+                </div>
+                <div class="card-body">
+                    <p>Real Jobs, Real People is provided "as is" without warranties. We are not responsible for:</p>
+                    <ul class="mb-0">
+                        <li>The accuracy of job postings</li>
+                        <li>The outcome of job applications</li>
+                        <li>User interactions or hiring decisions</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="bi bi-7-circle me-2" style="color: #7e512f;"></i>Contact</h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-0">For questions about these terms, contact us at: <a href="mailto:legal@realjobsrealpeople.net" style="color: #7e512f;">legal@realjobsrealpeople.net</a></p>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
