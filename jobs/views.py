@@ -17,7 +17,8 @@ logger = logging.getLogger(__name__)
 from .models import (Job, UserProfile, JobApplication, PhoneVerification, EmailVerification, SavedJob,
                      HiringStage, ApplicationStageHistory, ApplicationNote, ApplicationRating,
                      ApplicationTag, ApplicationTagAssignment, EmailTemplate, Notification,
-                     EmailLog, Message, EmployerTeam, TeamMember, TeamInvitation, ActivityLog)
+                     EmailLog, Message, EmployerTeam, TeamMember, TeamInvitation, ActivityLog,
+                     ChatLog)
 from .forms import JobSeekerSignUpForm, EmployerSignUpForm, JobPostForm, JobApplicationForm
 from .forms import (JobSeekerSignUpForm, EmployerSignUpForm, JobPostForm,
                    JobApplicationForm, JobSeekerProfileForm, EmployerProfileForm)
@@ -2340,15 +2341,25 @@ def candidate_detail(request, profile_id):
 @ratelimit(key='ip', rate='20/m', method='POST', block=True)
 def chatbot_api(request):
     """AI-powered chatbot using Claude API"""
+    import hashlib
+    import time
+
     try:
         data = json.loads(request.body)
         user_message = data.get('message', '').strip()
+        session_id = data.get('session_id', '')
 
         if not user_message:
             return JsonResponse({'error': 'Message is required'}, status=400)
 
         if len(user_message) > 1000:
             return JsonResponse({'error': 'Message too long (max 1000 characters)'}, status=400)
+
+        # Get IP hash for anonymous tracking
+        ip_address = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', ''))
+        if ip_address:
+            ip_address = ip_address.split(',')[0].strip()
+        ip_hash = hashlib.sha256(ip_address.encode()).hexdigest()[:32] if ip_address else ''
 
         # Check if Anthropic API key is configured
         api_key = getattr(settings, 'ANTHROPIC_API_KEY', None)
@@ -2381,7 +2392,8 @@ Be friendly, concise, and helpful. If you don't know the answer or if the user n
 
 Keep responses brief (2-3 sentences when possible). Do not make up features that don't exist."""
 
-        # Call Claude API
+        # Call Claude API and measure response time
+        start_time = time.time()
         message = client.messages.create(
             model="claude-3-haiku-20240307",
             max_tokens=300,
@@ -2390,8 +2402,22 @@ Keep responses brief (2-3 sentences when possible). Do not make up features that
                 {"role": "user", "content": user_message}
             ]
         )
+        response_time_ms = int((time.time() - start_time) * 1000)
 
         response_text = message.content[0].text
+
+        # Log the conversation
+        try:
+            ChatLog.objects.create(
+                user=request.user if request.user.is_authenticated else None,
+                session_id=session_id,
+                user_message=user_message,
+                ai_response=response_text,
+                ip_hash=ip_hash,
+                response_time_ms=response_time_ms
+            )
+        except Exception as log_error:
+            logger.warning(f"Failed to log chat: {log_error}")
 
         return JsonResponse({
             'response': response_text,

@@ -775,3 +775,24 @@ class ActivityLog(models.Model):
             application=application,
             job=job
         )
+
+
+class ChatLog(models.Model):
+    """Log of chatbot conversations for review and improvement"""
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    session_id = models.CharField(max_length=64, blank=True, help_text="Anonymous session identifier")
+    user_message = models.TextField()
+    ai_response = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    ip_hash = models.CharField(max_length=64, blank=True, help_text="Hashed IP for anonymous tracking")
+    response_time_ms = models.IntegerField(null=True, blank=True, help_text="API response time in milliseconds")
+    was_helpful = models.BooleanField(null=True, blank=True, help_text="User feedback if provided")
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Chat Log'
+        verbose_name_plural = 'Chat Logs'
+
+    def __str__(self):
+        user_str = self.user.username if self.user else f"Anonymous ({self.session_id[:8]}...)"
+        return f"{user_str}: {self.user_message[:50]}..."
