@@ -252,6 +252,13 @@
         .beta-banner .btn-close:hover {
             opacity: 1;
         }
+
+        /* Override Bootstrap success alert to use brand color */
+        .alert-success {
+            background-color: #f0e6df;
+            border-color: var(--primary-color);
+            color: var(--dark-color);
+        }
     </style>
 
     {% block extra_css %}{% endblock %}
@@ -393,6 +400,7 @@
                         </div>
                         <div class="col-6">
                             <ul class="list-unstyled">
+                                <li class="mb-2"><a href="{% url 'about' %}"><i class="bi bi-arrow-right me-1"></i>About Us</a></li>
                                 <li class="mb-2"><a href="{% url 'terms_of_service' %}"><i class="bi bi-arrow-right me-1"></i>Terms of Service</a></li>
                                 <li class="mb-2"><a href="{% url 'contact' %}"><i class="bi bi-arrow-right me-1"></i>Contact</a></li>
                             </ul>

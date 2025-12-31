@@ -243,7 +243,6 @@ def user_login(request):
 
 def user_logout(request):
     logout(request)
-    messages.success(request, 'Logged out successfully!')
     return redirect('home')
 
 @login_required
@@ -503,6 +502,9 @@ def download_resume(request, application_id):
 
 def privacy_policy(request):
     return render(request, 'jobs/privacy_policy.html')
+
+def about(request):
+    return render(request, 'jobs/about.html')
 
 def terms_of_service(request):
     return render(request, 'jobs/terms.html')

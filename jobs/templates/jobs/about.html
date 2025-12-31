@@ -1,0 +1,143 @@
+{% extends 'jobs/base.html' %}
+
+{% block title %}About Us - Real Jobs, Real People{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <!-- Header -->
+            <div class="text-center mb-5">
+                <i class="bi bi-people-fill text-primary" style="font-size: 4rem;"></i>
+                <h1 class="fw-bold mt-3">About Real Jobs, Real People</h1>
+                <p class="lead text-muted">Restoring dignity and humanity to the job search</p>
+            </div>
+
+            <!-- Our Story -->
+            <div class="card mb-4">
+                <div class="card-body p-4">
+                    <h3 class="fw-bold mb-4">
+                        <i class="bi bi-book me-2 text-primary"></i>Our Story
+                    </h3>
+                    <p class="mb-3">
+                        Real Jobs, Real People was born from a simple observation: the job market is broken.
+                        Ghost jobs that were never meant to be filled. Applicants who pour their hearts into
+                        applications only to be ghosted by recruiters. A system that treats job seekers as
+                        data points rather than human beings.
+                    </p>
+                    <p class="mb-3">
+                        We've experienced it ourselves. We've watched friends and family go through the
+                        demoralizing cycle of applying, hoping, and hearing nothing back. The frustration.
+                        The self-doubt. The despair.
+                    </p>
+                    <p class="mb-0">
+                        We believe deeply in the dignity of work. Each of us has an inherent desire to
+                        contribute to our communities, to use our skills and talents to make a difference.
+                        A job isn't just a paycheck&mdash;it's purpose, identity, and connection. The current
+                        job search system undermines all of that, and we decided to do something about it.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Why We're Different -->
+            <div class="card mb-4">
+                <div class="card-body p-4">
+                    <h3 class="fw-bold mb-4">
+                        <i class="bi bi-lightbulb me-2 text-primary"></i>Why We're Different
+                    </h3>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <div class="d-flex">
+                                <i class="bi bi-check-circle-fill text-primary me-3 fs-4"></i>
+                                <div>
+                                    <h5 class="fw-semibold mb-1">Real Jobs Only</h5>
+                                    <p class="text-muted mb-0">Every job posting represents a genuine opportunity. No ghost jobs, no fake listings.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="d-flex">
+                                <i class="bi bi-check-circle-fill text-primary me-3 fs-4"></i>
+                                <div>
+                                    <h5 class="fw-semibold mb-1">Real People</h5>
+                                    <p class="text-muted mb-0">We verify both employers and job seekers to ensure authentic connections.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="d-flex">
+                                <i class="bi bi-check-circle-fill text-primary me-3 fs-4"></i>
+                                <div>
+                                    <h5 class="fw-semibold mb-1">Respectful Process</h5>
+                                    <p class="text-muted mb-0">We encourage employers to communicate with applicants, even when the answer is no.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="d-flex">
+                                <i class="bi bi-check-circle-fill text-primary me-3 fs-4"></i>
+                                <div>
+                                    <h5 class="fw-semibold mb-1">Human-Centered</h5>
+                                    <p class="text-muted mb-0">We built this platform with job seekers' dignity in mind, not just metrics.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Our Mission -->
+            <div class="card mb-4 border-primary">
+                <div class="card-body p-4 text-center">
+                    <h3 class="fw-bold mb-3">
+                        <i class="bi bi-bullseye me-2 text-primary"></i>Our Mission
+                    </h3>
+                    <p class="lead mb-0">
+                        To create a job marketplace where every posting is real, every applicant is respected,
+                        and the hiring process honors the dignity of work and the humanity of all involved.
+                    </p>
+                </div>
+            </div>
+
+            <!-- A Fresh Perspective -->
+            <div class="card mb-4">
+                <div class="card-body p-4">
+                    <h3 class="fw-bold mb-4">
+                        <i class="bi bi-eye me-2 text-primary"></i>A Fresh Perspective
+                    </h3>
+                    <p class="mb-3">
+                        We come from education, not HR. We've spent decades teaching&mdash;helping young people
+                        discover their potential, solve problems, and prepare for their futures. That background
+                        gives us a different lens on the job market.
+                    </p>
+                    <p class="mb-0">
+                        We see job seekers not as applicants to be processed, but as people with unique talents
+                        looking for the right opportunity to contribute. And we see employers not as gatekeepers,
+                        but as community members looking for the right people to help them succeed. Our job is
+                        simply to help them find each other.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Join Us -->
+            <div class="card bg-light border-0">
+                <div class="card-body p-4 text-center">
+                    <h3 class="fw-bold mb-3">Join Us</h3>
+                    <p class="mb-4">
+                        Whether you're looking for your next opportunity or searching for great talent,
+                        we're here to help make the process more human.
+                    </p>
+                    <div class="d-flex justify-content-center gap-3 flex-wrap">
+                        <a href="{% url 'job_list' %}" class="btn btn-primary btn-lg">
+                            <i class="bi bi-search me-2"></i>Browse Jobs
+                        </a>
+                        <a href="{% url 'signup_choice' %}" class="btn btn-outline-primary btn-lg">
+                            <i class="bi bi-person-plus me-2"></i>Create Account
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
