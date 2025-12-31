@@ -38,6 +38,8 @@ services:
         value: noreply@realjobsrealpeople.net
       - key: SITE_URL
         sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
 
 # Database is configured manually in Render dashboard
 # Do not auto-create database from render.yaml to prevent data loss

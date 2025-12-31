@@ -124,4 +124,7 @@ urlpatterns = [
     # Candidate Search (for employers)
     path('employer/candidates/', views.candidate_search, name='candidate_search'),
     path('employer/candidates/<int:profile_id>/', views.candidate_detail, name='candidate_detail'),
+
+    # Chatbot API
+    path('api/chatbot/', views.chatbot_api, name='chatbot_api'),
 ]

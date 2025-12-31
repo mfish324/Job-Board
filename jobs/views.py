@@ -3,11 +3,17 @@ from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Q
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from django.conf import settings
+from django.views.decorators.http import require_POST
+from django.views.decorators.csrf import csrf_exempt
 from django_ratelimit.decorators import ratelimit
 from django_ratelimit.exceptions import Ratelimited
+import json
+import logging
+
+logger = logging.getLogger(__name__)
 from .models import (Job, UserProfile, JobApplication, PhoneVerification, EmailVerification, SavedJob,
                      HiringStage, ApplicationStageHistory, ApplicationNote, ApplicationRating,
                      ApplicationTag, ApplicationTagAssignment, EmailTemplate, Notification,
@@ -2324,3 +2330,79 @@ def candidate_detail(request, profile_id):
         'applied_jobs': applied_jobs,
     }
     return render(request, 'jobs/candidate_detail.html', context)
+
+
+# =============================================================================
+# CHATBOT API
+# =============================================================================
+
+@require_POST
+@ratelimit(key='ip', rate='20/m', method='POST', block=True)
+def chatbot_api(request):
+    """AI-powered chatbot using Claude API"""
+    try:
+        data = json.loads(request.body)
+        user_message = data.get('message', '').strip()
+
+        if not user_message:
+            return JsonResponse({'error': 'Message is required'}, status=400)
+
+        if len(user_message) > 1000:
+            return JsonResponse({'error': 'Message too long (max 1000 characters)'}, status=400)
+
+        # Check if Anthropic API key is configured
+        api_key = getattr(settings, 'ANTHROPIC_API_KEY', None)
+        if not api_key:
+            return JsonResponse({
+                'response': "I'm sorry, the chat assistant is currently unavailable. Please email us at contact@realjobsrealpeople.net for help.",
+                'is_ai': False
+            })
+
+        import anthropic
+        client = anthropic.Anthropic(api_key=api_key)
+
+        # System prompt for the chatbot
+        system_prompt = """You are a helpful assistant for Real Jobs, Real People - a job board platform that connects job seekers with employers.
+
+Your role is to help users with:
+- How to create an account (job seeker or employer)
+- How to search and apply for jobs
+- How to post jobs (for employers)
+- Understanding the verification process (phone and email verification required)
+- General questions about the platform
+
+Key information about the platform:
+- Job seekers can create a free account, search jobs, and apply
+- Employers can post jobs and use the Applicant Tracking System (ATS)
+- All users must verify their phone number and email address
+- The platform is currently in beta testing
+
+Be friendly, concise, and helpful. If you don't know the answer or if the user needs human assistance, suggest they email contact@realjobsrealpeople.net or use the Contact Us page.
+
+Keep responses brief (2-3 sentences when possible). Do not make up features that don't exist."""
+
+        # Call Claude API
+        message = client.messages.create(
+            model="claude-3-haiku-20240307",
+            max_tokens=300,
+            system=system_prompt,
+            messages=[
+                {"role": "user", "content": user_message}
+            ]
+        )
+
+        response_text = message.content[0].text
+
+        return JsonResponse({
+            'response': response_text,
+            'is_ai': True
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+    except Exception as e:
+        logger.error(f"Chatbot error: {e}")
+        return JsonResponse({
+            'response': "I'm having trouble right now. Please try again or email contact@realjobsrealpeople.net for help.",
+            'is_ai': False
+        })

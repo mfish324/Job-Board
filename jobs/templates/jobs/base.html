@@ -449,6 +449,248 @@
     </script>
     {% endif %}
 
+    <!-- Chat Widget -->
+    <div id="chatWidget" class="chat-widget">
+        <button id="chatToggle" class="chat-toggle" onclick="toggleChat()">
+            <i class="bi bi-chat-dots-fill"></i>
+        </button>
+        <div id="chatWindow" class="chat-window" style="display: none;">
+            <div class="chat-header">
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-robot me-2"></i>
+                    <span class="fw-bold">Help Assistant</span>
+                    <span class="badge bg-light text-dark ms-2" style="font-size: 0.65rem;">Powered by Claude</span>
+                </div>
+                <button class="btn-close btn-close-white btn-sm" onclick="toggleChat()"></button>
+            </div>
+            <div id="chatMessages" class="chat-messages">
+                <div class="chat-message bot-message">
+                    <div class="message-content">
+                        <small class="text-muted d-block mb-1"><i class="bi bi-robot me-1"></i>AI Assistant</small>
+                        Hi! I'm an AI assistant powered by Claude. How can I help you with Real Jobs, Real People today?
+                    </div>
+                </div>
+            </div>
+            <div class="chat-input-area">
+                <form id="chatForm" onsubmit="sendMessage(event)">
+                    <div class="input-group">
+                        <input type="text" id="chatInput" class="form-control" placeholder="Type your question..." maxlength="1000">
+                        <button type="submit" class="btn btn-primary" id="chatSendBtn">
+                            <i class="bi bi-send-fill"></i>
+                        </button>
+                    </div>
+                </form>
+                <small class="text-muted d-block mt-1 text-center" style="font-size: 0.7rem;">
+                    AI responses may not always be accurate. For urgent help, <a href="{% url 'contact' %}">contact us</a>.
+                </small>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .chat-widget {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1050;
+        }
+        .chat-toggle {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: var(--primary-color, #7e512f);
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .chat-toggle:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+        .chat-window {
+            position: absolute;
+            bottom: 75px;
+            right: 0;
+            width: 350px;
+            max-width: calc(100vw - 40px);
+            height: 450px;
+            max-height: calc(100vh - 150px);
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 5px 30px rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .chat-header {
+            background: var(--primary-color, #7e512f);
+            color: white;
+            padding: 12px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+            background: #f8f9fa;
+        }
+        .chat-message {
+            margin-bottom: 12px;
+            max-width: 85%;
+        }
+        .bot-message {
+            margin-right: auto;
+        }
+        .user-message {
+            margin-left: auto;
+        }
+        .message-content {
+            padding: 10px 14px;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+        .bot-message .message-content {
+            background: white;
+            border: 1px solid #e9ecef;
+            border-radius: 12px 12px 12px 0;
+        }
+        .user-message .message-content {
+            background: var(--primary-color, #7e512f);
+            color: white;
+            border-radius: 12px 12px 0 12px;
+        }
+        .chat-input-area {
+            padding: 12px;
+            border-top: 1px solid #e9ecef;
+            background: white;
+        }
+        .chat-input-area .form-control {
+            border-radius: 20px 0 0 20px;
+            border-right: none;
+        }
+        .chat-input-area .btn {
+            border-radius: 0 20px 20px 0;
+        }
+        .typing-indicator {
+            display: flex;
+            gap: 4px;
+            padding: 10px 14px;
+        }
+        .typing-indicator span {
+            width: 8px;
+            height: 8px;
+            background: #adb5bd;
+            border-radius: 50%;
+            animation: typing 1.4s infinite;
+        }
+        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typing {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-5px); }
+        }
+        @media (max-width: 576px) {
+            .chat-window {
+                width: calc(100vw - 40px);
+                height: calc(100vh - 150px);
+                bottom: 70px;
+            }
+        }
+    </style>
+
+    <script>
+        function toggleChat() {
+            const chatWindow = document.getElementById('chatWindow');
+            const isVisible = chatWindow.style.display !== 'none';
+            chatWindow.style.display = isVisible ? 'none' : 'flex';
+            if (!isVisible) {
+                document.getElementById('chatInput').focus();
+            }
+        }
+
+        function addMessage(content, isUser, isAI = true) {
+            const messagesDiv = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `chat-message ${isUser ? 'user-message' : 'bot-message'}`;
+
+            let label = '';
+            if (!isUser) {
+                label = `<small class="text-muted d-block mb-1"><i class="bi bi-robot me-1"></i>${isAI ? 'AI Assistant' : 'System'}</small>`;
+            }
+
+            messageDiv.innerHTML = `<div class="message-content">${label}${escapeHtml(content)}</div>`;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function showTyping() {
+            const messagesDiv = document.getElementById('chatMessages');
+            const typingDiv = document.createElement('div');
+            typingDiv.id = 'typingIndicator';
+            typingDiv.className = 'chat-message bot-message';
+            typingDiv.innerHTML = `<div class="message-content typing-indicator"><span></span><span></span><span></span></div>`;
+            messagesDiv.appendChild(typingDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function hideTyping() {
+            const typing = document.getElementById('typingIndicator');
+            if (typing) typing.remove();
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        async function sendMessage(event) {
+            event.preventDefault();
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            if (!message) return;
+
+            const sendBtn = document.getElementById('chatSendBtn');
+            sendBtn.disabled = true;
+            input.value = '';
+
+            addMessage(message, true);
+            showTyping();
+
+            try {
+                const response = await fetch('{% url "chatbot_api" %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({ message: message })
+                });
+
+                hideTyping();
+                const data = await response.json();
+
+                if (data.error) {
+                    addMessage(data.error, false, false);
+                } else {
+                    addMessage(data.response, false, data.is_ai);
+                }
+            } catch (error) {
+                hideTyping();
+                addMessage("Sorry, I couldn't connect. Please try again or email contact@realjobsrealpeople.net", false, false);
+            }
+
+            sendBtn.disabled = false;
+            input.focus();
+        }
+    </script>
+
     {% block extra_js %}{% endblock %}
 </body>
 </html>

@@ -26,6 +26,9 @@ DEBUG = config('DEBUG', default=False, cast=bool)  # Changed this line
 
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(',')
 
+# Anthropic API Key for AI Chatbot
+ANTHROPIC_API_KEY = config('ANTHROPIC_API_KEY', default=None)
+
 
 
 
