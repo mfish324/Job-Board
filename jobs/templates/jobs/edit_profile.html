@@ -45,9 +45,13 @@
         </div>
         {% endfor %}
         
-        <div style="display: flex; gap: 1rem;">
-            <button type="submit" class="btn" style="flex: 1;">Save Changes</button>
-            <a href="{% url 'user_profile' %}" style="flex: 1; text-align: center; padding: 0.5rem 1rem; background: #95a5a6; color: white; text-decoration: none; border-radius: 3px;">Cancel</a>
+        <div class="d-flex gap-3 mt-4">
+            <button type="submit" class="btn btn-primary flex-fill">
+                <i class="bi bi-check-lg me-2"></i>Save Changes
+            </button>
+            <a href="{% url 'user_profile' %}" class="btn btn-outline-secondary flex-fill">
+                <i class="bi bi-x-lg me-2"></i>Cancel
+            </a>
         </div>
     </form>
     
