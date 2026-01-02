@@ -24,9 +24,10 @@ urlpatterns = [
     path('', include('jobs.urls')),
 ]
 
-# Serve media files in development
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# Serve media files
+# In development: served by Django
+# In production: served by Django (temporary - should use cloud storage for scale)
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 # Custom error handlers
 handler403 = 'jobs.views.ratelimited_error'
