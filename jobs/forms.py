@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm
+from django.utils.safestring import mark_safe
 from .models import UserProfile, Job, JobApplication
 
 
@@ -237,14 +238,17 @@ class JobSeekerProfileForm(forms.ModelForm):
             'profile_searchable': 'When enabled, employers can discover your profile when searching for candidates.',
             'allow_recruiter_contact': 'When enabled, verified recruiters can view your profile and reach out about job opportunities.',
         }
-    
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Use mark_safe to allow bold text in labels
+        self.fields['profile_searchable'].label = mark_safe('Allow <strong>employers</strong> to find my profile')
+        self.fields['allow_recruiter_contact'].label = mark_safe('Allow verified <strong>recruiters</strong> to contact me')
         if self.instance and self.instance.user:
             self.fields['first_name'].initial = self.instance.user.first_name
             self.fields['last_name'].initial = self.instance.user.last_name
             self.fields['email'].initial = self.instance.user.email
-    
+
     def save(self, commit=True):
         profile = super().save(commit=False)
         if commit:
