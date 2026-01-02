@@ -132,7 +132,7 @@ STATICFILES_DIRS = [
 ]
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-# WhiteNoise configuration for static files
+# Storage configuration - overridden in production for Cloudinary
 STORAGES = {
     "default": {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
@@ -206,7 +206,14 @@ CLOUDINARY_STORAGE = {
 
 # Use Cloudinary for media storage in production, local filesystem in development
 if not DEBUG:
-    DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+    STORAGES = {
+        "default": {
+            "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        },
+    }
 
 # Limit upload file size (5MB)
 FILE_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5MB
