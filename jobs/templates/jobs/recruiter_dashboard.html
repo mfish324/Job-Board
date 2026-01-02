@@ -1,0 +1,226 @@
+{% extends 'jobs/base.html' %}
+
+{% block title %}Recruiter Dashboard - Real Jobs, Real People{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 class="h2 fw-bold mb-1">Recruiter Dashboard</h1>
+                    <p class="text-muted mb-0">
+                        {% if profile.is_independent_recruiter %}
+                            {{ profile.user.get_full_name }} (Independent Recruiter)
+                        {% else %}
+                            {{ profile.agency_name }}
+                        {% endif %}
+                    </p>
+                </div>
+                <a href="{% url 'edit_profile' %}" class="btn btn-outline-primary">
+                    <i class="bi bi-pencil me-2"></i>Edit Profile
+                </a>
+            </div>
+
+            <!-- Verification Status Card -->
+            <div class="card mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-shield-check me-2"></i>Verification Status
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if is_fully_verified %}
+                        <div class="alert alert-success mb-3">
+                            <i class="bi bi-check-circle-fill me-2"></i>
+                            <strong>Fully Verified!</strong> You have access to search candidates.
+                        </div>
+                    {% else %}
+                        <div class="alert alert-warning mb-3">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            <strong>Verification Required</strong> - Complete all steps below to access candidate search.
+                        </div>
+                    {% endif %}
+
+                    <div class="row g-3">
+                        <!-- Phone Verification -->
+                        <div class="col-md-6">
+                            <div class="d-flex align-items-center p-3 border rounded {% if verification_status.phone_verified %}border-success bg-success bg-opacity-10{% else %}border-warning{% endif %}">
+                                {% if verification_status.phone_verified %}
+                                    <i class="bi bi-check-circle-fill text-success fs-4 me-3"></i>
+                                {% else %}
+                                    <i class="bi bi-circle text-warning fs-4 me-3"></i>
+                                {% endif %}
+                                <div>
+                                    <strong>Phone Number</strong>
+                                    <p class="mb-0 small text-muted">
+                                        {% if verification_status.phone_verified %}
+                                            Verified
+                                        {% else %}
+                                            <a href="{% url 'verify_phone' %}">Verify now</a>
+                                        {% endif %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Email Verification -->
+                        <div class="col-md-6">
+                            <div class="d-flex align-items-center p-3 border rounded {% if verification_status.email_verified %}border-success bg-success bg-opacity-10{% else %}border-warning{% endif %}">
+                                {% if verification_status.email_verified %}
+                                    <i class="bi bi-check-circle-fill text-success fs-4 me-3"></i>
+                                {% else %}
+                                    <i class="bi bi-circle text-warning fs-4 me-3"></i>
+                                {% endif %}
+                                <div>
+                                    <strong>Email Address</strong>
+                                    <p class="mb-0 small text-muted">
+                                        {% if verification_status.email_verified %}
+                                            Verified
+                                        {% else %}
+                                            Check your inbox or <a href="{% url 'resend_code' %}">resend</a>
+                                        {% endif %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- LinkedIn -->
+                        <div class="col-md-6">
+                            <div class="d-flex align-items-center p-3 border rounded {% if verification_status.linkedin_provided %}border-success bg-success bg-opacity-10{% else %}border-warning{% endif %}">
+                                {% if verification_status.linkedin_provided %}
+                                    <i class="bi bi-check-circle-fill text-success fs-4 me-3"></i>
+                                {% else %}
+                                    <i class="bi bi-circle text-warning fs-4 me-3"></i>
+                                {% endif %}
+                                <div>
+                                    <strong>LinkedIn Profile</strong>
+                                    <p class="mb-0 small text-muted">
+                                        {% if verification_status.linkedin_provided %}
+                                            Provided
+                                        {% else %}
+                                            <a href="{% url 'edit_profile' %}">Add LinkedIn URL</a>
+                                        {% endif %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Agency/Identity -->
+                        <div class="col-md-6">
+                            <div class="d-flex align-items-center p-3 border rounded {% if verification_status.identity_provided %}border-success bg-success bg-opacity-10{% else %}border-warning{% endif %}">
+                                {% if verification_status.identity_provided %}
+                                    <i class="bi bi-check-circle-fill text-success fs-4 me-3"></i>
+                                {% else %}
+                                    <i class="bi bi-circle text-warning fs-4 me-3"></i>
+                                {% endif %}
+                                <div>
+                                    <strong>Agency/Identity</strong>
+                                    <p class="mb-0 small text-muted">
+                                        {% if verification_status.identity_provided %}
+                                            {% if profile.is_independent_recruiter %}Independent{% else %}{{ profile.agency_name }}{% endif %}
+                                        {% else %}
+                                            <a href="{% url 'edit_profile' %}">Add agency info</a>
+                                        {% endif %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Admin Approval -->
+                        <div class="col-12">
+                            <div class="d-flex align-items-center p-3 border rounded {% if verification_status.admin_approved %}border-success bg-success bg-opacity-10{% else %}border-secondary{% endif %}">
+                                {% if verification_status.admin_approved %}
+                                    <i class="bi bi-check-circle-fill text-success fs-4 me-3"></i>
+                                {% else %}
+                                    <i class="bi bi-hourglass-split text-secondary fs-4 me-3"></i>
+                                {% endif %}
+                                <div>
+                                    <strong>Admin Approval</strong>
+                                    <p class="mb-0 small text-muted">
+                                        {% if verification_status.admin_approved %}
+                                            Approved on {{ profile.recruiter_approved_at|date:"M d, Y" }}
+                                        {% else %}
+                                            Pending review - We'll notify you once approved
+                                        {% endif %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Candidate Search Card -->
+            <div class="card">
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-search me-2"></i>Candidate Search
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if is_fully_verified %}
+                        <p class="mb-3">
+                            Search through <strong>{{ candidates_count }}</strong> candidate{{ candidates_count|pluralize }} who have opted-in to recruiter contact.
+                        </p>
+                        <a href="{% url 'candidate_search' %}" class="btn btn-primary">
+                            <i class="bi bi-search me-2"></i>Search Candidates
+                        </a>
+                    {% else %}
+                        <p class="text-muted mb-0">
+                            <i class="bi bi-lock me-2"></i>
+                            Complete all verification steps above to access candidate search.
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Quick Info Card -->
+            <div class="card mb-4">
+                <div class="card-header bg-white">
+                    <h6 class="card-title mb-0">
+                        <i class="bi bi-info-circle me-2"></i>About Recruiter Access
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled mb-0 small">
+                        <li class="mb-2">
+                            <i class="bi bi-check text-success me-2"></i>
+                            Search verified candidates
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-check text-success me-2"></i>
+                            View profiles of candidates who opted-in
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-check text-success me-2"></i>
+                            Contact candidates directly
+                        </li>
+                        <li class="mb-0 text-muted">
+                            <i class="bi bi-x text-muted me-2"></i>
+                            Job posting (employer feature)
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Privacy Note -->
+            <div class="card border-primary">
+                <div class="card-body">
+                    <h6 class="card-title">
+                        <i class="bi bi-shield-lock me-2 text-primary"></i>Privacy First
+                    </h6>
+                    <p class="card-text small text-muted mb-0">
+                        You can only view candidates who have specifically opted-in to recruiter contact.
+                        Your agency name or identity is visible to candidates when you view their profiles.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

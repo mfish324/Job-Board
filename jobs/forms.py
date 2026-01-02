@@ -69,6 +69,135 @@ class EmployerSignUpForm(UserCreationForm):
         return user
 
 
+class RecruiterSignUpForm(UserCreationForm):
+    """Sign up form for recruiters"""
+    email = forms.EmailField(required=True)
+    first_name = forms.CharField(max_length=100)
+    last_name = forms.CharField(max_length=100)
+    phone_number = forms.CharField(
+        max_length=15,
+        required=True,
+        label='Phone Number',
+        help_text='Enter your phone number with country code (e.g., +1234567890)',
+        widget=forms.TextInput(attrs={'placeholder': '+1234567890'})
+    )
+    is_independent_recruiter = forms.BooleanField(
+        required=False,
+        label='I am an independent recruiter',
+        help_text='Check this if you work independently without a recruiting agency'
+    )
+    agency_name = forms.CharField(
+        max_length=200,
+        required=False,
+        label='Agency/Company Name',
+        help_text='The name of your recruiting agency or employer (leave blank if independent)'
+    )
+    agency_website = forms.URLField(
+        required=False,
+        label='Agency/Company Website'
+    )
+    linkedin_url = forms.URLField(
+        required=True,
+        label='Your LinkedIn Profile URL',
+        help_text='Required for recruiter verification',
+        widget=forms.URLInput(attrs={'placeholder': 'https://linkedin.com/in/yourname'})
+    )
+    privacy_consent = forms.BooleanField(
+        required=True,
+        label='I agree to the Privacy Policy and Terms of Service'
+    )
+
+    class Meta:
+        model = User
+        fields = ('username', 'email', 'first_name', 'last_name', 'phone_number',
+                  'is_independent_recruiter', 'agency_name', 'agency_website', 'linkedin_url',
+                  'password1', 'password2', 'privacy_consent')
+
+    def clean(self):
+        cleaned_data = super().clean()
+        is_independent = cleaned_data.get('is_independent_recruiter')
+        agency_name = cleaned_data.get('agency_name')
+
+        # If not independent, agency name is required
+        if not is_independent and not agency_name:
+            self.add_error('agency_name', 'Agency name is required unless you are an independent recruiter.')
+
+        return cleaned_data
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        user.email = self.cleaned_data['email']
+        user.first_name = self.cleaned_data['first_name']
+        user.last_name = self.cleaned_data['last_name']
+        if commit:
+            user.save()
+            UserProfile.objects.create(
+                user=user,
+                user_type='recruiter',
+                is_independent_recruiter=self.cleaned_data.get('is_independent_recruiter', False),
+                agency_name=self.cleaned_data.get('agency_name', ''),
+                agency_website=self.cleaned_data.get('agency_website', ''),
+                recruiter_linkedin_url=self.cleaned_data['linkedin_url'],
+                is_recruiter_approved=False  # Requires admin approval
+            )
+        return user
+
+
+class RecruiterProfileForm(forms.ModelForm):
+    """Profile form for recruiters to edit their information"""
+    first_name = forms.CharField(max_length=100, required=False)
+    last_name = forms.CharField(max_length=100, required=False)
+    email = forms.EmailField(required=True)
+
+    class Meta:
+        model = UserProfile
+        fields = ['is_independent_recruiter', 'agency_name', 'agency_website',
+                  'recruiter_linkedin_url', 'phone']
+        widgets = {
+            'agency_website': forms.URLInput(attrs={'placeholder': 'https://yourcompany.com'}),
+            'recruiter_linkedin_url': forms.URLInput(attrs={'placeholder': 'https://linkedin.com/in/yourname'}),
+            'phone': forms.TextInput(attrs={'placeholder': '+1 234 567 8900'}),
+        }
+        labels = {
+            'is_independent_recruiter': 'I am an independent recruiter',
+            'agency_name': 'Agency/Company Name',
+            'agency_website': 'Agency/Company Website',
+            'recruiter_linkedin_url': 'Your LinkedIn Profile URL',
+            'phone': 'Phone Number',
+        }
+        help_texts = {
+            'is_independent_recruiter': 'Check this if you work independently without a recruiting agency',
+            'recruiter_linkedin_url': 'Required for recruiter verification',
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.user:
+            self.fields['first_name'].initial = self.instance.user.first_name
+            self.fields['last_name'].initial = self.instance.user.last_name
+            self.fields['email'].initial = self.instance.user.email
+
+    def clean(self):
+        cleaned_data = super().clean()
+        is_independent = cleaned_data.get('is_independent_recruiter')
+        agency_name = cleaned_data.get('agency_name')
+
+        if not is_independent and not agency_name:
+            self.add_error('agency_name', 'Agency name is required unless you are an independent recruiter.')
+
+        return cleaned_data
+
+    def save(self, commit=True):
+        profile = super().save(commit=False)
+        if commit:
+            profile.user.first_name = self.cleaned_data['first_name']
+            profile.user.last_name = self.cleaned_data['last_name']
+            profile.user.email = self.cleaned_data['email']
+            profile.user.save()
+            profile.save()
+        return profile
+
+
 class JobPostForm(forms.ModelForm):
     class Meta:
         model = Job
@@ -85,7 +214,7 @@ class JobSeekerProfileForm(forms.ModelForm):
     class Meta:
         model = UserProfile
         fields = ['phone', 'resume', 'skills', 'experience_years', 'linkedin_url',
-                  'desired_title', 'location', 'bio', 'profile_searchable']
+                  'desired_title', 'location', 'bio', 'profile_searchable', 'allow_recruiter_contact']
         widgets = {
             'skills': forms.Textarea(attrs={'rows': 4, 'placeholder': 'List your skills separated by commas'}),
             'phone': forms.TextInput(attrs={'placeholder': '+1 234 567 8900'}),
@@ -101,10 +230,12 @@ class JobSeekerProfileForm(forms.ModelForm):
             'location': 'Your Location',
             'bio': 'About Me',
             'profile_searchable': 'Allow employers to find my profile',
+            'allow_recruiter_contact': 'Allow verified recruiters to contact me',
         }
         help_texts = {
             'linkedin_url': 'Add your LinkedIn profile to enhance your verification status and stand out to employers.',
             'profile_searchable': 'When enabled, employers can discover your profile when searching for candidates.',
+            'allow_recruiter_contact': 'When enabled, verified recruiters can view your profile and reach out about job opportunities.',
         }
     
     def __init__(self, *args, **kwargs):

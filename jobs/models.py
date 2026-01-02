@@ -20,6 +20,7 @@ class UserProfile(models.Model):
     USER_TYPE_CHOICES = (
         ('job_seeker', 'Job Seeker'),
         ('employer', 'Employer'),
+        ('recruiter', 'Recruiter'),
     )
 
     user = models.OneToOneField(User, on_delete=models.CASCADE)
@@ -56,6 +57,33 @@ class UserProfile(models.Model):
     company_website = models.URLField(blank=True)
     company_description = models.TextField(blank=True)
     company_linkedin = models.URLField(blank=True, help_text='Company LinkedIn page URL')
+
+    # Recruiter fields
+    is_independent_recruiter = models.BooleanField(
+        default=False,
+        help_text='Check if you are an independent recruiter without a company affiliation'
+    )
+    agency_name = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text='Name of your recruiting agency or company'
+    )
+    agency_website = models.URLField(blank=True, help_text='Your agency or company website')
+    recruiter_linkedin_url = models.URLField(
+        blank=True,
+        help_text='Your personal LinkedIn profile URL (required for recruiter verification)'
+    )
+    is_recruiter_approved = models.BooleanField(
+        default=False,
+        help_text='Admin approval status for recruiter accounts'
+    )
+    recruiter_approved_at = models.DateTimeField(null=True, blank=True)
+
+    # Job seeker opt-in for recruiter contact
+    allow_recruiter_contact = models.BooleanField(
+        default=False,
+        help_text='Allow verified recruiters to contact you about job opportunities'
+    )
 
     def __str__(self):
         return f"{self.user.username} - {self.user_type}"
@@ -117,6 +145,40 @@ class UserProfile(models.Model):
         if self.has_linkedin():
             badges.append({'type': 'linkedin', 'label': 'LinkedIn Added', 'icon': 'bi-linkedin', 'color': 'primary'})
         return badges
+
+    # Recruiter-specific methods
+    def is_recruiter_verified(self):
+        """Check if recruiter meets all verification requirements"""
+        if self.user_type != 'recruiter':
+            return False
+        return (
+            self.is_phone_verified() and
+            self.is_email_verified() and
+            bool(self.recruiter_linkedin_url) and
+            (bool(self.agency_name) or self.is_independent_recruiter) and
+            self.is_recruiter_approved
+        )
+
+    def get_recruiter_display_name(self):
+        """Get the display name for recruiter (agency/company name or personal name)"""
+        if self.user_type != 'recruiter':
+            return None
+        if self.is_independent_recruiter:
+            return f"{self.user.get_full_name()} (Independent Recruiter)"
+        return self.agency_name or self.user.get_full_name()
+
+    def get_recruiter_verification_status(self):
+        """Returns dict with recruiter verification status for each requirement"""
+        if self.user_type != 'recruiter':
+            return None
+        return {
+            'phone': self.is_phone_verified(),
+            'email': self.is_email_verified(),
+            'linkedin': bool(self.recruiter_linkedin_url),
+            'agency': bool(self.agency_name) or self.is_independent_recruiter,
+            'approved': self.is_recruiter_approved,
+        }
+
 
 class JobApplication(models.Model):
     job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name='applications')

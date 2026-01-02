@@ -3,30 +3,53 @@
 {% block title %}Sign Up - Real Jobs, Real People{% endblock %}
 
 {% block content %}
-<div style="max-width: 600px; margin: 0 auto; text-align: center;">
-    <h1>Join Real Jobs, Real People</h1>
-    <p>Choose how you want to use Real Jobs, Real People</p>
-    
-    <div style="display: flex; gap: 2rem; margin-top: 3rem; justify-content: center;">
-        <div style="flex: 1; max-width: 250px;">
-            <div class="job-card" style="text-align: center; padding: 2rem;">
-                <h2>I'm a Job Seeker</h2>
-                <p style="margin: 1rem 0;">Find and apply to jobs</p>
-                <a href="{% url 'jobseeker_signup' %}" class="btn" style="display: block;">Sign Up as Job Seeker</a>
+<div class="container py-4">
+    <div class="text-center mb-4">
+        <h1 class="h2 fw-bold">Join Real Jobs, Real People</h1>
+        <p class="text-muted">Choose how you want to use our platform</p>
+    </div>
+
+    <div class="row justify-content-center g-4">
+        <!-- Job Seeker Card -->
+        <div class="col-md-4">
+            <div class="card h-100 text-center">
+                <div class="card-body p-4">
+                    <i class="bi bi-person-circle text-primary" style="font-size: 3rem;"></i>
+                    <h3 class="h5 fw-bold mt-3">I'm a Job Seeker</h3>
+                    <p class="text-muted mb-4">Find and apply to verified job opportunities</p>
+                    <a href="{% url 'jobseeker_signup' %}" class="btn btn-primary w-100">Sign Up as Job Seeker</a>
+                </div>
             </div>
         </div>
-        
-        <div style="flex: 1; max-width: 250px;">
-            <div class="job-card" style="text-align: center; padding: 2rem;">
-                <h2>I'm an Employer</h2>
-                <p style="margin: 1rem 0;">Post jobs and find talent</p>
-                <a href="{% url 'employer_signup' %}" class="btn" style="display: block;">Sign Up as Employer</a>
+
+        <!-- Employer Card -->
+        <div class="col-md-4">
+            <div class="card h-100 text-center">
+                <div class="card-body p-4">
+                    <i class="bi bi-building text-primary" style="font-size: 3rem;"></i>
+                    <h3 class="h5 fw-bold mt-3">I'm an Employer</h3>
+                    <p class="text-muted mb-4">Post jobs and find the right talent</p>
+                    <a href="{% url 'employer_signup' %}" class="btn btn-primary w-100">Sign Up as Employer</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recruiter Card -->
+        <div class="col-md-4">
+            <div class="card h-100 text-center">
+                <div class="card-body p-4">
+                    <i class="bi bi-people text-primary" style="font-size: 3rem;"></i>
+                    <h3 class="h5 fw-bold mt-3">I'm a Recruiter</h3>
+                    <p class="text-muted mb-4">Search candidates who want to hear from recruiters</p>
+                    <a href="{% url 'recruiter_signup' %}" class="btn btn-outline-primary w-100">Sign Up as Recruiter</a>
+                    <small class="text-muted d-block mt-2">Requires verification</small>
+                </div>
             </div>
         </div>
     </div>
-    
-    <p style="margin-top: 2rem;">
-        Already have an account? <a href="{% url 'login' %}" style="color: #7e512f;">Login here</a>
+
+    <p class="text-center mt-4">
+        Already have an account? <a href="{% url 'login' %}" class="text-decoration-none">Login here</a>
     </p>
 </div>
 {% endblock %}

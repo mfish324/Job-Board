@@ -25,22 +25,43 @@ class JobAdmin(admin.ModelAdmin):
 
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
-    list_display = ('user', 'user_type', 'phone', 'company_name', 'experience_years')
-    list_filter = ('user_type',)
-    search_fields = ('user__username', 'user__email', 'company_name', 'skills')
+    list_display = ('user', 'user_type', 'phone', 'company_name', 'experience_years', 'is_recruiter_approved')
+    list_filter = ('user_type', 'is_recruiter_approved')
+    search_fields = ('user__username', 'user__email', 'company_name', 'skills', 'agency_name')
+    list_editable = ('is_recruiter_approved',)
+    actions = ['approve_recruiters', 'reject_recruiters']
     fieldsets = (
         ('User Info', {
             'fields': ('user', 'user_type', 'phone')
         }),
         ('Job Seeker Details', {
-            'fields': ('resume', 'skills', 'experience_years'),
+            'fields': ('resume', 'skills', 'experience_years', 'linkedin_url', 'desired_title',
+                      'location', 'bio', 'profile_searchable', 'allow_recruiter_contact'),
             'classes': ('collapse',)
         }),
         ('Employer Details', {
-            'fields': ('company_name', 'company_logo', 'company_website', 'company_description'),
+            'fields': ('company_name', 'company_logo', 'company_website', 'company_linkedin', 'company_description'),
+            'classes': ('collapse',)
+        }),
+        ('Recruiter Details', {
+            'fields': ('is_independent_recruiter', 'agency_name', 'agency_website',
+                      'recruiter_linkedin_url', 'is_recruiter_approved', 'recruiter_approved_at'),
             'classes': ('collapse',)
         }),
     )
+
+    @admin.action(description='Approve selected recruiters')
+    def approve_recruiters(self, request, queryset):
+        from django.utils import timezone
+        recruiters = queryset.filter(user_type='recruiter', is_recruiter_approved=False)
+        count = recruiters.update(is_recruiter_approved=True, recruiter_approved_at=timezone.now())
+        self.message_user(request, f'{count} recruiter(s) approved successfully.')
+
+    @admin.action(description='Reject/Revoke selected recruiters')
+    def reject_recruiters(self, request, queryset):
+        recruiters = queryset.filter(user_type='recruiter')
+        count = recruiters.update(is_recruiter_approved=False, recruiter_approved_at=None)
+        self.message_user(request, f'{count} recruiter(s) approval revoked.')
 
 
 @admin.register(JobApplication)

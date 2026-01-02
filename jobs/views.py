@@ -19,9 +19,9 @@ from .models import (Job, UserProfile, JobApplication, PhoneVerification, EmailV
                      ApplicationTag, ApplicationTagAssignment, EmailTemplate, Notification,
                      EmailLog, Message, EmployerTeam, TeamMember, TeamInvitation, ActivityLog,
                      ChatLog)
-from .forms import JobSeekerSignUpForm, EmployerSignUpForm, JobPostForm, JobApplicationForm
-from .forms import (JobSeekerSignUpForm, EmployerSignUpForm, JobPostForm,
-                   JobApplicationForm, JobSeekerProfileForm, EmployerProfileForm)
+from .forms import (JobSeekerSignUpForm, EmployerSignUpForm, RecruiterSignUpForm,
+                   JobPostForm, JobApplicationForm, JobSeekerProfileForm,
+                   EmployerProfileForm, RecruiterProfileForm)
 from .utils import (generate_verification_code, generate_verification_token,
                    send_phone_verification_code, send_email_verification,
                    format_phone_number, is_valid_phone_number)
@@ -222,6 +222,56 @@ def employer_signup(request):
         form = EmployerSignUpForm()
     return render(request, 'jobs/signup.html', {'form': form, 'user_type': 'Employer'})
 
+
+def recruiter_signup(request):
+    if request.method == 'POST':
+        form = RecruiterSignUpForm(request.POST)
+        if form.is_valid():
+            # Validate phone number
+            phone_number = form.cleaned_data.get('phone_number')
+            if not is_valid_phone_number(phone_number):
+                messages.error(request, 'Please enter a valid phone number.')
+                return render(request, 'jobs/signup.html', {'form': form, 'user_type': 'Recruiter'})
+
+            # Create user
+            user = form.save()
+            username = form.cleaned_data.get('username')
+            password = form.cleaned_data.get('password1')
+            user = authenticate(username=username, password=password)
+            login(request, user)
+
+            # Create phone verification
+            formatted_phone = format_phone_number(phone_number)
+            verification_code = generate_verification_code()
+            PhoneVerification.objects.create(
+                user=user,
+                phone_number=formatted_phone,
+                verification_code=verification_code
+            )
+
+            # Send SMS verification code
+            if send_phone_verification_code(formatted_phone, verification_code):
+                messages.success(request, 'Recruiter account created! Please verify your phone number.')
+            else:
+                messages.warning(request, 'Account created, but we could not send verification code. Please contact support.')
+
+            # Create email verification
+            verification_token = generate_verification_token()
+            EmailVerification.objects.create(
+                user=user,
+                verification_token=verification_token
+            )
+
+            # Send email verification
+            send_email_verification(user, verification_token)
+
+            # Redirect to phone verification
+            return redirect('verify_phone')
+    else:
+        form = RecruiterSignUpForm()
+    return render(request, 'jobs/signup.html', {'form': form, 'user_type': 'Recruiter'})
+
+
 @ratelimit(key='ip', rate='10/m', method='POST', block=True)
 def user_login(request):
     if request.method == 'POST':
@@ -236,6 +286,8 @@ def user_login(request):
             if hasattr(user, 'userprofile'):
                 if user.userprofile.user_type == 'employer':
                     return redirect('employer_dashboard')
+                elif user.userprofile.user_type == 'recruiter':
+                    return redirect('recruiter_dashboard')
             return redirect('home')
         else:
             messages.error(request, 'Invalid username or password.')
@@ -256,6 +308,36 @@ def employer_dashboard(request):
         'jobs': employer_jobs
     }
     return render(request, 'jobs/employer_dashboard.html', context)
+
+
+@login_required
+def recruiter_dashboard(request):
+    """Dashboard for recruiter users showing verification status and candidate search access"""
+    if not hasattr(request.user, 'userprofile') or request.user.userprofile.user_type != 'recruiter':
+        messages.error(request, 'Access denied. Recruiter account required.')
+        return redirect('home')
+
+    profile = request.user.userprofile
+    verification_status = profile.get_recruiter_verification_status()
+    is_fully_verified = profile.is_recruiter_verified()
+
+    # Count candidates available (only if recruiter is verified)
+    candidates_count = 0
+    if is_fully_verified:
+        candidates_count = UserProfile.objects.filter(
+            user_type='job_seeker',
+            profile_searchable=True,
+            allow_recruiter_contact=True
+        ).count()
+
+    context = {
+        'profile': profile,
+        'verification_status': verification_status,
+        'is_fully_verified': is_fully_verified,
+        'candidates_count': candidates_count,
+    }
+    return render(request, 'jobs/recruiter_dashboard.html', context)
+
 
 @login_required
 def post_job(request):
@@ -441,9 +523,11 @@ def user_profile(request):
 @login_required
 def edit_profile(request):
     profile = request.user.userprofile
-    
+
     if profile.user_type == 'job_seeker':
         form_class = JobSeekerProfileForm
+    elif profile.user_type == 'recruiter':
+        form_class = RecruiterProfileForm
     else:
         form_class = EmployerProfileForm
     
@@ -2209,17 +2293,34 @@ def job_analytics(request, job_id):
 
 @login_required
 def candidate_search(request):
-    """Search for candidates/job seekers (employer only)"""
-    # Verify user is an employer
-    if not hasattr(request.user, 'userprofile') or request.user.userprofile.user_type != 'employer':
-        messages.error(request, 'Access denied. Employer account required.')
+    """Search for candidates/job seekers (employer or verified recruiter)"""
+    # Verify user is an employer or verified recruiter
+    if not hasattr(request.user, 'userprofile'):
+        messages.error(request, 'Access denied. Employer or recruiter account required.')
         return redirect('home')
+
+    profile = request.user.userprofile
+    is_employer = profile.user_type == 'employer'
+    is_recruiter = profile.user_type == 'recruiter'
+
+    if not is_employer and not is_recruiter:
+        messages.error(request, 'Access denied. Employer or recruiter account required.')
+        return redirect('home')
+
+    # Recruiters must be fully verified and approved
+    if is_recruiter and not profile.is_recruiter_verified():
+        messages.warning(request, 'Your recruiter account must be fully verified and approved to search candidates.')
+        return redirect('recruiter_dashboard')
 
     # Base queryset: only verified job seekers with searchable profiles
     candidates = UserProfile.objects.filter(
         user_type='job_seeker',
         profile_searchable=True
     ).select_related('user')
+
+    # For recruiters, only show candidates who opted-in to recruiter contact
+    if is_recruiter:
+        candidates = candidates.filter(allow_recruiter_contact=True)
 
     # Only show candidates who have verified (at least email or phone)
     verified_candidates = []
@@ -2293,44 +2394,67 @@ def candidate_search(request):
         'has_resume': has_resume,
         'has_linkedin': has_linkedin,
         'all_locations': all_locations,
-        'total_results': candidates.count()
+        'total_results': candidates.count(),
+        'is_recruiter': is_recruiter,
     }
     return render(request, 'jobs/candidate_search.html', context)
 
 
 @login_required
 def candidate_detail(request, profile_id):
-    """View candidate profile details (employer only)"""
-    # Verify user is an employer
-    if not hasattr(request.user, 'userprofile') or request.user.userprofile.user_type != 'employer':
-        messages.error(request, 'Access denied. Employer account required.')
+    """View candidate profile details (employer or verified recruiter)"""
+    # Verify user is an employer or verified recruiter
+    if not hasattr(request.user, 'userprofile'):
+        messages.error(request, 'Access denied. Employer or recruiter account required.')
         return redirect('home')
 
-    profile = get_object_or_404(UserProfile, id=profile_id, user_type='job_seeker')
+    user_profile = request.user.userprofile
+    is_employer = user_profile.user_type == 'employer'
+    is_recruiter = user_profile.user_type == 'recruiter'
+
+    if not is_employer and not is_recruiter:
+        messages.error(request, 'Access denied. Employer or recruiter account required.')
+        return redirect('home')
+
+    # Recruiters must be fully verified and approved
+    if is_recruiter and not user_profile.is_recruiter_verified():
+        messages.warning(request, 'Your recruiter account must be fully verified and approved to view candidates.')
+        return redirect('recruiter_dashboard')
+
+    candidate_profile = get_object_or_404(UserProfile, id=profile_id, user_type='job_seeker')
 
     # Check if profile is searchable
-    if not profile.profile_searchable:
+    if not candidate_profile.profile_searchable:
         messages.error(request, 'This candidate profile is not available.')
         return redirect('candidate_search')
 
+    # For recruiters, also check if candidate opted-in to recruiter contact
+    if is_recruiter and not candidate_profile.allow_recruiter_contact:
+        messages.error(request, 'This candidate has not opted-in to recruiter contact.')
+        return redirect('candidate_search')
+
     # Check if candidate is verified
-    if not profile.is_verified():
+    if not candidate_profile.is_verified():
         messages.error(request, 'This candidate has not completed verification.')
         return redirect('candidate_search')
 
-    # Get employer's jobs for potential "invite to apply" feature
-    employer_jobs = Job.objects.filter(posted_by=request.user, is_active=True)
-
-    # Check if this candidate has applied to any of the employer's jobs
-    applied_jobs = JobApplication.objects.filter(
-        applicant=profile.user,
-        job__posted_by=request.user
-    ).select_related('job')
+    # Get employer's jobs for potential "invite to apply" feature (employers only)
+    employer_jobs = []
+    applied_jobs = []
+    if is_employer:
+        employer_jobs = Job.objects.filter(posted_by=request.user, is_active=True)
+        # Check if this candidate has applied to any of the employer's jobs
+        applied_jobs = JobApplication.objects.filter(
+            applicant=candidate_profile.user,
+            job__posted_by=request.user
+        ).select_related('job')
 
     context = {
-        'candidate': profile,
+        'candidate': candidate_profile,
         'employer_jobs': employer_jobs,
         'applied_jobs': applied_jobs,
+        'is_recruiter': is_recruiter,
+        'recruiter_display_name': user_profile.get_recruiter_display_name() if is_recruiter else None,
     }
     return render(request, 'jobs/candidate_detail.html', context)
 

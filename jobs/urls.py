@@ -11,6 +11,7 @@ urlpatterns = [
     path('signup/', views.signup_choice, name='signup_choice'),
     path('signup/jobseeker/', views.jobseeker_signup, name='jobseeker_signup'),
     path('signup/employer/', views.employer_signup, name='employer_signup'),
+    path('signup/recruiter/', views.recruiter_signup, name='recruiter_signup'),
     path('login/', views.user_login, name='login'),
     path('logout/', views.user_logout, name='logout'),
 
@@ -42,6 +43,9 @@ urlpatterns = [
     
     # Employer URLs
     path('employer/dashboard/', views.employer_dashboard, name='employer_dashboard'),
+
+    # Recruiter URLs
+    path('recruiter/dashboard/', views.recruiter_dashboard, name='recruiter_dashboard'),
     path('employer/post-job/', views.post_job, name='post_job'),
     path('employer/job/<int:job_id>/edit/', views.edit_job, name='edit_job'),
     path('employer/job/<int:job_id>/delete/', views.delete_job, name='delete_job'),
