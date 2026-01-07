@@ -11,8 +11,8 @@ class JobSeekerSignUpForm(UserCreationForm):
     last_name = forms.CharField(max_length=100)
     phone_number = forms.CharField(
         max_length=15,
-        required=True,
-        label='Phone Number',
+        required=False,
+        label='Phone Number (Optional)',
         help_text='Enter your phone number with country code (e.g., +1234567890)',
         widget=forms.TextInput(attrs={'placeholder': '+1234567890'})
     )
@@ -42,8 +42,8 @@ class EmployerSignUpForm(UserCreationForm):
     company_website = forms.URLField(required=False)
     phone_number = forms.CharField(
         max_length=15,
-        required=True,
-        label='Phone Number',
+        required=False,
+        label='Phone Number (Optional)',
         help_text='Enter your phone number with country code (e.g., +1234567890)',
         widget=forms.TextInput(attrs={'placeholder': '+1234567890'})
     )
@@ -77,8 +77,8 @@ class RecruiterSignUpForm(UserCreationForm):
     last_name = forms.CharField(max_length=100)
     phone_number = forms.CharField(
         max_length=15,
-        required=True,
-        label='Phone Number',
+        required=False,
+        label='Phone Number (Optional)',
         help_text='Enter your phone number with country code (e.g., +1234567890)',
         widget=forms.TextInput(attrs={'placeholder': '+1234567890'})
     )
