@@ -13,12 +13,12 @@ class JobSeekerSignUpForm(UserCreationForm):
         max_length=15,
         required=False,
         label='Phone Number (Optional)',
-        help_text='Enter your phone number with country code (e.g., +1234567890)',
+        help_text='A verified phone number is required for full verification. Employers may not respond to applicants who are not fully verified.',
         widget=forms.TextInput(attrs={'placeholder': '+1234567890'})
     )
     sms_consent = forms.BooleanField(
         required=False,
-        label=mark_safe('By providing your phone number, you agree to receive SMS notifications about <strong>job application updates and account alerts</strong> from Real Jobs Real People. Message frequency varies. Message & data rates may apply. Reply STOP to opt out at any time. <a href="/privacy-policy/" target="_blank">Privacy Policy</a>.'),
+        label=mark_safe('By providing my phone number, I agree to receive SMS notifications about <strong>job application updates and account alerts</strong> from Real Jobs Real People. Message frequency varies. Message & data rates may apply. Reply STOP to opt out at any time. <a href="/privacy-policy/" target="_blank">Privacy Policy</a>.'),
     )
     privacy_consent = forms.BooleanField(
         required=True,
@@ -52,12 +52,12 @@ class EmployerSignUpForm(UserCreationForm):
         max_length=15,
         required=False,
         label='Phone Number (Optional)',
-        help_text='Enter your phone number with country code (e.g., +1234567890)',
+        help_text='A verified phone number is recommended for full account verification.',
         widget=forms.TextInput(attrs={'placeholder': '+1234567890'})
     )
     sms_consent = forms.BooleanField(
         required=False,
-        label=mark_safe('By providing your phone number, you agree to receive SMS notifications about <strong>job posting updates and account alerts</strong> from Real Jobs Real People. Message frequency varies. Message & data rates may apply. Reply STOP to opt out at any time. <a href="/privacy-policy/" target="_blank">Privacy Policy</a>.'),
+        label=mark_safe('By providing my phone number, I agree to receive SMS notifications about <strong>job posting updates and account alerts</strong> from Real Jobs Real People. Message frequency varies. Message & data rates may apply. Reply STOP to opt out at any time. <a href="/privacy-policy/" target="_blank">Privacy Policy</a>.'),
     )
     privacy_consent = forms.BooleanField(
         required=True,
@@ -92,7 +92,7 @@ class RecruiterSignUpForm(UserCreationForm):
         max_length=15,
         required=False,
         label='Phone Number (Optional)',
-        help_text='Enter your phone number with country code (e.g., +1234567890)',
+        help_text='A verified phone number is recommended for full account verification.',
         widget=forms.TextInput(attrs={'placeholder': '+1234567890'})
     )
     is_independent_recruiter = forms.BooleanField(
@@ -118,7 +118,7 @@ class RecruiterSignUpForm(UserCreationForm):
     )
     sms_consent = forms.BooleanField(
         required=False,
-        label=mark_safe('By providing your phone number, you agree to receive SMS notifications about <strong>candidate updates and account alerts</strong> from Real Jobs Real People. Message frequency varies. Message & data rates may apply. Reply STOP to opt out at any time. <a href="/privacy-policy/" target="_blank">Privacy Policy</a>.'),
+        label=mark_safe('By providing my phone number, I agree to receive SMS notifications about <strong>candidate updates and account alerts</strong> from Real Jobs Real People. Message frequency varies. Message & data rates may apply. Reply STOP to opt out at any time. <a href="/privacy-policy/" target="_blank">Privacy Policy</a>.'),
     )
     privacy_consent = forms.BooleanField(
         required=True,

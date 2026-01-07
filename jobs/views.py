@@ -129,10 +129,11 @@ def jobseeker_signup(request):
     if request.method == 'POST':
         form = JobSeekerSignUpForm(request.POST)
         if form.is_valid():
-            # Validate phone number
-            phone_number = form.cleaned_data.get('phone_number')
-            if not is_valid_phone_number(phone_number):
-                messages.error(request, 'Please enter a valid phone number.')
+            phone_number = form.cleaned_data.get('phone_number', '').strip()
+
+            # Validate phone number only if provided
+            if phone_number and not is_valid_phone_number(phone_number):
+                messages.error(request, 'Please enter a valid phone number or leave it blank.')
                 return render(request, 'jobs/signup.html', {'form': form, 'user_type': 'Job Seeker'})
 
             # Create user
@@ -142,20 +143,23 @@ def jobseeker_signup(request):
             user = authenticate(username=username, password=password)
             login(request, user)
 
-            # Create phone verification
-            formatted_phone = format_phone_number(phone_number)
-            verification_code = generate_verification_code()
-            PhoneVerification.objects.create(
-                user=user,
-                phone_number=formatted_phone,
-                verification_code=verification_code
-            )
+            # Create phone verification only if phone number provided
+            if phone_number:
+                formatted_phone = format_phone_number(phone_number)
+                verification_code = generate_verification_code()
+                PhoneVerification.objects.create(
+                    user=user,
+                    phone_number=formatted_phone,
+                    verification_code=verification_code
+                )
 
-            # Send SMS verification code
-            if send_phone_verification_code(formatted_phone, verification_code):
-                messages.success(request, 'Account created! Please verify your phone number.')
+                # Send SMS verification code
+                if send_phone_verification_code(formatted_phone, verification_code):
+                    messages.success(request, 'Account created! Please verify your phone number.')
+                else:
+                    messages.warning(request, 'Account created, but we could not send verification code. Please contact support.')
             else:
-                messages.warning(request, 'Account created, but we could not send verification code. Please contact support.')
+                messages.success(request, 'Account created! Note: Add a phone number later for full verification.')
 
             # Create email verification
             verification_token = generate_verification_token()
@@ -167,8 +171,11 @@ def jobseeker_signup(request):
             # Send email verification
             send_email_verification(user, verification_token)
 
-            # Redirect to phone verification
-            return redirect('verify_phone')
+            # Redirect to phone verification if phone provided, otherwise to profile
+            if phone_number:
+                return redirect('verify_phone')
+            else:
+                return redirect('user_profile')
     else:
         form = JobSeekerSignUpForm()
     return render(request, 'jobs/signup.html', {'form': form, 'user_type': 'Job Seeker'})
@@ -178,10 +185,11 @@ def employer_signup(request):
     if request.method == 'POST':
         form = EmployerSignUpForm(request.POST)
         if form.is_valid():
-            # Validate phone number
-            phone_number = form.cleaned_data.get('phone_number')
-            if not is_valid_phone_number(phone_number):
-                messages.error(request, 'Please enter a valid phone number.')
+            phone_number = form.cleaned_data.get('phone_number', '').strip()
+
+            # Validate phone number only if provided
+            if phone_number and not is_valid_phone_number(phone_number):
+                messages.error(request, 'Please enter a valid phone number or leave it blank.')
                 return render(request, 'jobs/signup.html', {'form': form, 'user_type': 'Employer'})
 
             # Create user
@@ -191,20 +199,23 @@ def employer_signup(request):
             user = authenticate(username=username, password=password)
             login(request, user)
 
-            # Create phone verification
-            formatted_phone = format_phone_number(phone_number)
-            verification_code = generate_verification_code()
-            PhoneVerification.objects.create(
-                user=user,
-                phone_number=formatted_phone,
-                verification_code=verification_code
-            )
+            # Create phone verification only if phone number provided
+            if phone_number:
+                formatted_phone = format_phone_number(phone_number)
+                verification_code = generate_verification_code()
+                PhoneVerification.objects.create(
+                    user=user,
+                    phone_number=formatted_phone,
+                    verification_code=verification_code
+                )
 
-            # Send SMS verification code
-            if send_phone_verification_code(formatted_phone, verification_code):
-                messages.success(request, 'Employer account created! Please verify your phone number.')
+                # Send SMS verification code
+                if send_phone_verification_code(formatted_phone, verification_code):
+                    messages.success(request, 'Employer account created! Please verify your phone number.')
+                else:
+                    messages.warning(request, 'Account created, but we could not send verification code. Please contact support.')
             else:
-                messages.warning(request, 'Account created, but we could not send verification code. Please contact support.')
+                messages.success(request, 'Employer account created! Note: Add a phone number later for full verification.')
 
             # Create email verification
             verification_token = generate_verification_token()
@@ -216,8 +227,11 @@ def employer_signup(request):
             # Send email verification
             send_email_verification(user, verification_token)
 
-            # Redirect to phone verification
-            return redirect('verify_phone')
+            # Redirect to phone verification if phone provided, otherwise to profile
+            if phone_number:
+                return redirect('verify_phone')
+            else:
+                return redirect('user_profile')
     else:
         form = EmployerSignUpForm()
     return render(request, 'jobs/signup.html', {'form': form, 'user_type': 'Employer'})
@@ -227,10 +241,11 @@ def recruiter_signup(request):
     if request.method == 'POST':
         form = RecruiterSignUpForm(request.POST)
         if form.is_valid():
-            # Validate phone number
-            phone_number = form.cleaned_data.get('phone_number')
-            if not is_valid_phone_number(phone_number):
-                messages.error(request, 'Please enter a valid phone number.')
+            phone_number = form.cleaned_data.get('phone_number', '').strip()
+
+            # Validate phone number only if provided
+            if phone_number and not is_valid_phone_number(phone_number):
+                messages.error(request, 'Please enter a valid phone number or leave it blank.')
                 return render(request, 'jobs/signup.html', {'form': form, 'user_type': 'Recruiter'})
 
             # Create user
@@ -240,20 +255,23 @@ def recruiter_signup(request):
             user = authenticate(username=username, password=password)
             login(request, user)
 
-            # Create phone verification
-            formatted_phone = format_phone_number(phone_number)
-            verification_code = generate_verification_code()
-            PhoneVerification.objects.create(
-                user=user,
-                phone_number=formatted_phone,
-                verification_code=verification_code
-            )
+            # Create phone verification only if phone number provided
+            if phone_number:
+                formatted_phone = format_phone_number(phone_number)
+                verification_code = generate_verification_code()
+                PhoneVerification.objects.create(
+                    user=user,
+                    phone_number=formatted_phone,
+                    verification_code=verification_code
+                )
 
-            # Send SMS verification code
-            if send_phone_verification_code(formatted_phone, verification_code):
-                messages.success(request, 'Recruiter account created! Please verify your phone number.')
+                # Send SMS verification code
+                if send_phone_verification_code(formatted_phone, verification_code):
+                    messages.success(request, 'Recruiter account created! Please verify your phone number.')
+                else:
+                    messages.warning(request, 'Account created, but we could not send verification code. Please contact support.')
             else:
-                messages.warning(request, 'Account created, but we could not send verification code. Please contact support.')
+                messages.success(request, 'Recruiter account created! Note: Add a phone number later for full verification.')
 
             # Create email verification
             verification_token = generate_verification_token()
@@ -265,8 +283,11 @@ def recruiter_signup(request):
             # Send email verification
             send_email_verification(user, verification_token)
 
-            # Redirect to phone verification
-            return redirect('verify_phone')
+            # Redirect to phone verification if phone provided, otherwise to profile
+            if phone_number:
+                return redirect('verify_phone')
+            else:
+                return redirect('user_profile')
     else:
         form = RecruiterSignUpForm()
     return render(request, 'jobs/signup.html', {'form': form, 'user_type': 'Recruiter'})
