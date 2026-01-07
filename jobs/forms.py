@@ -16,6 +16,10 @@ class JobSeekerSignUpForm(UserCreationForm):
         help_text='Enter your phone number with country code (e.g., +1234567890)',
         widget=forms.TextInput(attrs={'placeholder': '+1234567890'})
     )
+    sms_consent = forms.BooleanField(
+        required=False,
+        label=mark_safe('By providing your phone number, you agree to receive SMS notifications about <strong>job application updates and account alerts</strong> from Real Jobs Real People. Message frequency varies. Message & data rates may apply. Reply STOP to opt out at any time. <a href="/privacy-policy/" target="_blank">Privacy Policy</a>.'),
+    )
     privacy_consent = forms.BooleanField(
         required=True,
         label='I agree to the Privacy Policy and Terms of Service',
@@ -24,7 +28,7 @@ class JobSeekerSignUpForm(UserCreationForm):
 
     class Meta:
         model = User
-        fields = ('username', 'email', 'first_name', 'last_name', 'phone_number', 'password1', 'password2', 'privacy_consent')
+        fields = ('username', 'email', 'first_name', 'last_name', 'phone_number', 'sms_consent', 'password1', 'password2', 'privacy_consent')
 
     def save(self, commit=True):
         user = super().save(commit=False)
@@ -33,7 +37,11 @@ class JobSeekerSignUpForm(UserCreationForm):
         user.last_name = self.cleaned_data['last_name']
         if commit:
             user.save()
-            UserProfile.objects.create(user=user, user_type='job_seeker')
+            UserProfile.objects.create(
+                user=user,
+                user_type='job_seeker',
+                sms_consent=self.cleaned_data.get('sms_consent', False)
+            )
         return user
 
 class EmployerSignUpForm(UserCreationForm):
@@ -47,6 +55,10 @@ class EmployerSignUpForm(UserCreationForm):
         help_text='Enter your phone number with country code (e.g., +1234567890)',
         widget=forms.TextInput(attrs={'placeholder': '+1234567890'})
     )
+    sms_consent = forms.BooleanField(
+        required=False,
+        label=mark_safe('By providing your phone number, you agree to receive SMS notifications about <strong>job posting updates and account alerts</strong> from Real Jobs Real People. Message frequency varies. Message & data rates may apply. Reply STOP to opt out at any time. <a href="/privacy-policy/" target="_blank">Privacy Policy</a>.'),
+    )
     privacy_consent = forms.BooleanField(
         required=True,
         label='I agree to the Privacy Policy and Terms of Service'
@@ -54,7 +66,7 @@ class EmployerSignUpForm(UserCreationForm):
 
     class Meta:
         model = User
-        fields = ('username', 'email', 'phone_number', 'password1', 'password2', 'privacy_consent')
+        fields = ('username', 'email', 'phone_number', 'sms_consent', 'password1', 'password2', 'privacy_consent')
 
     def save(self, commit=True):
         user = super().save(commit=False)
@@ -65,7 +77,8 @@ class EmployerSignUpForm(UserCreationForm):
                 user=user,
                 user_type='employer',
                 company_name=self.cleaned_data['company_name'],
-                company_website=self.cleaned_data.get('company_website', '')
+                company_website=self.cleaned_data.get('company_website', ''),
+                sms_consent=self.cleaned_data.get('sms_consent', False)
             )
         return user
 
@@ -103,6 +116,10 @@ class RecruiterSignUpForm(UserCreationForm):
         help_text='Required for recruiter verification',
         widget=forms.URLInput(attrs={'placeholder': 'https://linkedin.com/in/yourname'})
     )
+    sms_consent = forms.BooleanField(
+        required=False,
+        label=mark_safe('By providing your phone number, you agree to receive SMS notifications about <strong>candidate updates and account alerts</strong> from Real Jobs Real People. Message frequency varies. Message & data rates may apply. Reply STOP to opt out at any time. <a href="/privacy-policy/" target="_blank">Privacy Policy</a>.'),
+    )
     privacy_consent = forms.BooleanField(
         required=True,
         label='I agree to the Privacy Policy and Terms of Service'
@@ -112,7 +129,7 @@ class RecruiterSignUpForm(UserCreationForm):
         model = User
         fields = ('username', 'email', 'first_name', 'last_name', 'phone_number',
                   'is_independent_recruiter', 'agency_name', 'agency_website', 'linkedin_url',
-                  'password1', 'password2', 'privacy_consent')
+                  'sms_consent', 'password1', 'password2', 'privacy_consent')
 
     def clean(self):
         cleaned_data = super().clean()
@@ -139,7 +156,8 @@ class RecruiterSignUpForm(UserCreationForm):
                 agency_name=self.cleaned_data.get('agency_name', ''),
                 agency_website=self.cleaned_data.get('agency_website', ''),
                 recruiter_linkedin_url=self.cleaned_data['linkedin_url'],
-                is_recruiter_approved=False  # Requires admin approval
+                is_recruiter_approved=False,  # Requires admin approval
+                sms_consent=self.cleaned_data.get('sms_consent', False)
             )
         return user
 

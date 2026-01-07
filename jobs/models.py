@@ -85,6 +85,12 @@ class UserProfile(models.Model):
         help_text='Allow verified recruiters to contact you about job opportunities'
     )
 
+    # SMS consent for Twilio compliance
+    sms_consent = models.BooleanField(
+        default=False,
+        help_text='User has consented to receive SMS notifications'
+    )
+
     def __str__(self):
         return f"{self.user.username} - {self.user_type}"
 
