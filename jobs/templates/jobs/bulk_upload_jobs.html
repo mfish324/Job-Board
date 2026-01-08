@@ -1,0 +1,137 @@
+{% extends 'jobs/base.html' %}
+
+{% block title %}Bulk Upload Jobs - Real Jobs, Real People{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <!-- Header -->
+            <div class="d-flex align-items-center mb-4">
+                <a href="{% url 'employer_dashboard' %}" class="btn btn-outline-secondary me-3">
+                    <i class="bi bi-arrow-left"></i>
+                </a>
+                <div>
+                    <h1 class="mb-0">Bulk Upload Jobs</h1>
+                    <p class="text-muted mb-0">Upload multiple job postings at once using a CSV file</p>
+                </div>
+            </div>
+
+            <!-- Instructions Card -->
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="bi bi-info-circle me-2 text-primary"></i>CSV Format Instructions
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p>Your CSV file should include a header row with the following columns:</p>
+
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Column</th>
+                                    <th>Required</th>
+                                    <th>Description</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><code>title</code></td>
+                                    <td><span class="badge bg-danger">Required</span></td>
+                                    <td>Job title (e.g., "Software Engineer")</td>
+                                </tr>
+                                <tr>
+                                    <td><code>company</code></td>
+                                    <td><span class="badge bg-secondary">Optional</span></td>
+                                    <td>Company name (defaults to your profile's company)</td>
+                                </tr>
+                                <tr>
+                                    <td><code>description</code></td>
+                                    <td><span class="badge bg-danger">Required</span></td>
+                                    <td>Full job description</td>
+                                </tr>
+                                <tr>
+                                    <td><code>location</code></td>
+                                    <td><span class="badge bg-danger">Required</span></td>
+                                    <td>Job location (e.g., "Chicago, IL" or "Remote")</td>
+                                </tr>
+                                <tr>
+                                    <td><code>salary</code></td>
+                                    <td><span class="badge bg-secondary">Optional</span></td>
+                                    <td>Salary range (e.g., "$80,000 - $120,000")</td>
+                                </tr>
+                                <tr>
+                                    <td><code>is_active</code></td>
+                                    <td><span class="badge bg-secondary">Optional</span></td>
+                                    <td>"true" or "false" (defaults to true)</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="alert alert-info mb-0">
+                        <i class="bi bi-lightbulb me-2"></i>
+                        <strong>Tip:</strong> Download the template to get started quickly!
+                        <a href="{% url 'download_job_csv_template' %}" class="alert-link ms-2">
+                            <i class="bi bi-download me-1"></i>Download CSV Template
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Upload Form -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-cloud-upload me-2 text-primary"></i>Upload CSV File
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+
+                        <div class="mb-4">
+                            <label for="csv_file" class="form-label fw-semibold">
+                                Select CSV File <span class="text-danger">*</span>
+                            </label>
+                            <input type="file"
+                                   class="form-control"
+                                   id="csv_file"
+                                   name="csv_file"
+                                   accept=".csv"
+                                   required>
+                            <div class="form-text">Only .csv files are accepted. Maximum recommended: 500 jobs per upload.</div>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="bi bi-upload me-2"></i>Upload Jobs
+                            </button>
+                            <a href="{% url 'employer_dashboard' %}" class="btn btn-outline-secondary">
+                                Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Example CSV -->
+            <div class="card mt-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="bi bi-file-earmark-text me-2"></i>Example CSV Content
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <pre class="bg-dark text-light p-3 rounded" style="overflow-x: auto; font-size: 0.85rem;">title,company,description,location,salary,is_active
+Software Engineer,Acme Corp,"Develop web applications using Python and Django. Requirements: 3+ years experience, BS in Computer Science.",Chicago IL,$80000-$120000,true
+Marketing Manager,Acme Corp,"Lead marketing campaigns and brand strategy. Must have 5+ years marketing experience.",Remote,$70000-$90000,true
+Data Analyst,Acme Corp,"Analyze business data and create reports. SQL and Excel required.",New York NY,$65000-$85000,true</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

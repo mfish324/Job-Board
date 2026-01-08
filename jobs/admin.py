@@ -1,8 +1,18 @@
 from django.contrib import admin
+from django.shortcuts import render, redirect
+from django.urls import path
+from django.contrib import messages
+from django import forms
+import csv
+import io
 from .models import (Job, UserProfile, JobApplication, PhoneVerification, EmailVerification, SavedJob,
                      HiringStage, ApplicationStageHistory, ApplicationNote, ApplicationRating,
                      ApplicationTag, ApplicationTagAssignment, EmailTemplate, Notification,
                      EmailLog, Message, EmployerTeam, TeamMember, TeamInvitation, ActivityLog)
+
+
+class CsvImportForm(forms.Form):
+    csv_file = forms.FileField(label='CSV File')
 
 
 @admin.register(Job)
@@ -21,6 +31,85 @@ class JobAdmin(admin.ModelAdmin):
             'fields': ('is_active', 'posted_by', 'posted_date')
         }),
     )
+    change_list_template = 'admin/jobs/job/change_list.html'
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path('import-csv/', self.admin_site.admin_view(self.import_csv), name='jobs_job_import_csv'),
+        ]
+        return custom_urls + urls
+
+    def import_csv(self, request):
+        if request.method == 'POST':
+            form = CsvImportForm(request.POST, request.FILES)
+            if form.is_valid():
+                csv_file = request.FILES['csv_file']
+
+                # Check file extension
+                if not csv_file.name.endswith('.csv'):
+                    messages.error(request, 'Please upload a CSV file.')
+                    return redirect('..')
+
+                try:
+                    # Read and decode the file
+                    decoded_file = csv_file.read().decode('utf-8')
+                    reader = csv.DictReader(io.StringIO(decoded_file))
+
+                    created_count = 0
+                    error_count = 0
+                    errors = []
+
+                    for row_num, row in enumerate(reader, start=2):
+                        try:
+                            # Required fields
+                            title = row.get('title', '').strip()
+                            company = row.get('company', '').strip()
+                            description = row.get('description', '').strip()
+                            location = row.get('location', '').strip()
+
+                            if not all([title, company, description, location]):
+                                errors.append(f"Row {row_num}: Missing required field(s)")
+                                error_count += 1
+                                continue
+
+                            # Optional fields
+                            salary = row.get('salary', '').strip()
+                            is_active = row.get('is_active', 'true').lower() in ('true', '1', 'yes')
+
+                            Job.objects.create(
+                                title=title,
+                                company=company,
+                                description=description,
+                                location=location,
+                                salary=salary,
+                                is_active=is_active,
+                                posted_by=request.user
+                            )
+                            created_count += 1
+
+                        except Exception as e:
+                            errors.append(f"Row {row_num}: {str(e)}")
+                            error_count += 1
+
+                    if created_count > 0:
+                        messages.success(request, f'Successfully imported {created_count} job(s).')
+                    if error_count > 0:
+                        messages.warning(request, f'Failed to import {error_count} row(s): {"; ".join(errors[:5])}')
+
+                except Exception as e:
+                    messages.error(request, f'Error processing CSV: {str(e)}')
+
+                return redirect('..')
+        else:
+            form = CsvImportForm()
+
+        context = {
+            'form': form,
+            'title': 'Import Jobs from CSV',
+            'opts': self.model._meta,
+        }
+        return render(request, 'admin/jobs/job/csv_import.html', context)
 
 
 @admin.register(UserProfile)

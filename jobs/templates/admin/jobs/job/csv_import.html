@@ -1,0 +1,42 @@
+{% extends "admin/base_site.html" %}
+{% load admin_urls %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 20px auto;">
+    <h1>Import Jobs from CSV</h1>
+
+    <div style="background: #f8f9fa; padding: 20px; border-radius: 5px; margin-bottom: 20px;">
+        <h3>CSV Format Requirements</h3>
+        <p>Your CSV file must include a header row with the following columns:</p>
+        <ul>
+            <li><strong>title</strong> (required) - Job title</li>
+            <li><strong>company</strong> (required) - Company name</li>
+            <li><strong>description</strong> (required) - Job description</li>
+            <li><strong>location</strong> (required) - Job location</li>
+            <li><strong>salary</strong> (optional) - Salary range or amount</li>
+            <li><strong>is_active</strong> (optional) - true/false (defaults to true)</li>
+        </ul>
+
+        <h4>Example CSV:</h4>
+        <pre style="background: #fff; padding: 10px; border: 1px solid #ddd; overflow-x: auto;">title,company,description,location,salary,is_active
+Software Engineer,Acme Corp,"Develop web applications using Python and Django",Chicago IL,$80000-$120000,true
+Marketing Manager,Tech Inc,"Lead marketing campaigns and brand strategy",Remote,$70000-$90000,true</pre>
+
+        <p><a href="{% url 'download_job_csv_template' %}" style="color: #0d6efd;">Download CSV Template</a></p>
+    </div>
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div style="margin-bottom: 15px;">
+            <label for="id_csv_file" style="display: block; margin-bottom: 5px; font-weight: bold;">
+                Select CSV File:
+            </label>
+            {{ form.csv_file }}
+        </div>
+        <div>
+            <input type="submit" value="Import Jobs" class="default" style="padding: 10px 20px; cursor: pointer;">
+            <a href="{% url 'admin:jobs_job_changelist' %}" style="margin-left: 10px;">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

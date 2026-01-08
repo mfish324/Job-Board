@@ -12,6 +12,8 @@ from django_ratelimit.decorators import ratelimit
 from django_ratelimit.exceptions import Ratelimited
 import json
 import logging
+import csv
+import io
 
 logger = logging.getLogger(__name__)
 from .models import (Job, UserProfile, JobApplication, PhoneVerification, EmailVerification, SavedJob,
@@ -441,6 +443,109 @@ def toggle_job_status(request, job_id):
     status = "activated" if job.is_active else "deactivated"
     messages.success(request, f'Job "{job.title}" has been {status}.')
     return redirect('employer_dashboard')
+
+
+def download_job_csv_template(request):
+    """Download a CSV template for bulk job uploads"""
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="job_upload_template.csv"'
+
+    writer = csv.writer(response)
+    writer.writerow(['title', 'company', 'description', 'location', 'salary', 'is_active'])
+    writer.writerow(['Software Engineer', 'Your Company Name', 'Job description goes here. Include requirements, responsibilities, and qualifications.', 'Chicago, IL', '$80,000 - $120,000', 'true'])
+    writer.writerow(['Marketing Manager', 'Your Company Name', 'Another job description here.', 'Remote', '$60,000 - $80,000', 'true'])
+
+    return response
+
+
+@login_required
+def bulk_upload_jobs(request):
+    """Allow employers to upload multiple jobs via CSV"""
+    # Check if user is an employer
+    if not hasattr(request.user, 'userprofile') or request.user.userprofile.user_type not in ['employer', 'recruiter']:
+        messages.error(request, 'Only employers and recruiters can upload jobs.')
+        return redirect('home')
+
+    if request.method == 'POST':
+        csv_file = request.FILES.get('csv_file')
+
+        if not csv_file:
+            messages.error(request, 'Please select a CSV file to upload.')
+            return render(request, 'jobs/bulk_upload_jobs.html')
+
+        if not csv_file.name.endswith('.csv'):
+            messages.error(request, 'Please upload a file with .csv extension.')
+            return render(request, 'jobs/bulk_upload_jobs.html')
+
+        try:
+            # Read and decode the file
+            decoded_file = csv_file.read().decode('utf-8')
+            reader = csv.DictReader(io.StringIO(decoded_file))
+
+            created_count = 0
+            error_count = 0
+            errors = []
+
+            # Get company name from profile
+            company_name = request.user.userprofile.company_name or request.user.userprofile.agency_name or ''
+
+            for row_num, row in enumerate(reader, start=2):
+                try:
+                    # Required fields
+                    title = row.get('title', '').strip()
+                    company = row.get('company', '').strip() or company_name
+                    description = row.get('description', '').strip()
+                    location = row.get('location', '').strip()
+
+                    if not all([title, description, location]):
+                        errors.append(f"Row {row_num}: Missing required field(s) (title, description, or location)")
+                        error_count += 1
+                        continue
+
+                    if not company:
+                        errors.append(f"Row {row_num}: Company name required")
+                        error_count += 1
+                        continue
+
+                    # Optional fields
+                    salary = row.get('salary', '').strip()
+                    is_active = row.get('is_active', 'true').lower() in ('true', '1', 'yes', '')
+
+                    Job.objects.create(
+                        title=title,
+                        company=company,
+                        description=description,
+                        location=location,
+                        salary=salary,
+                        is_active=is_active,
+                        posted_by=request.user
+                    )
+                    created_count += 1
+
+                except Exception as e:
+                    errors.append(f"Row {row_num}: {str(e)}")
+                    error_count += 1
+
+            if created_count > 0:
+                messages.success(request, f'Successfully imported {created_count} job(s)!')
+            if error_count > 0:
+                error_msg = f'Failed to import {error_count} row(s).'
+                if errors:
+                    error_msg += ' Errors: ' + '; '.join(errors[:3])
+                    if len(errors) > 3:
+                        error_msg += f' ... and {len(errors) - 3} more.'
+                messages.warning(request, error_msg)
+
+            if created_count > 0:
+                return redirect('employer_dashboard')
+
+        except UnicodeDecodeError:
+            messages.error(request, 'Could not read the file. Please ensure it is a valid UTF-8 encoded CSV.')
+        except Exception as e:
+            messages.error(request, f'Error processing CSV: {str(e)}')
+
+    return render(request, 'jobs/bulk_upload_jobs.html')
+
 
 @login_required
 def apply_job(request, job_id):
