@@ -168,7 +168,7 @@
                         </div>
 
                         <p class="card-text text-muted mb-3">
-                            {{ job.description|truncatewords:30 }}
+                            {{ job.description|striptags|truncatewords:30 }}
                         </p>
 
                         <div class="d-flex flex-wrap gap-2 mb-3">

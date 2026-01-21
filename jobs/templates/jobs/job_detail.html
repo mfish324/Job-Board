@@ -89,8 +89,8 @@
                     </h4>
                 </div>
                 <div class="card-body">
-                    <div class="job-description" style="white-space: pre-wrap; line-height: 1.8;">
-                        {{ job.description }}
+                    <div class="job-description" style="line-height: 1.8;">
+                        {{ job.description|safe }}
                     </div>
                 </div>
             </div>

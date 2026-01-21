@@ -13,7 +13,8 @@
       "Bash(python manage.py migrate:*)",
       "Bash(python manage.py:*)",
       "Bash(cat:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(pip freeze:*)"
     ],
     "deny": [],
     "ask": []
