@@ -14,6 +14,8 @@ urlpatterns = [
     path('signup/recruiter/', views.recruiter_signup, name='recruiter_signup'),
     path('login/', views.user_login, name='login'),
     path('logout/', views.user_logout, name='logout'),
+    path('verify-2fa/', views.verify_2fa, name='verify_2fa'),
+    path('resend-2fa/', views.resend_2fa_code, name='resend_2fa'),
 
     # Password Reset URLs
     path('password-reset/',

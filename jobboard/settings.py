@@ -59,6 +59,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'jobs.middleware.TrafficNotificationMiddleware',  # Traffic monitoring
 ]
 
 ROOT_URLCONF = 'jobboard.urls'
@@ -314,3 +315,45 @@ LOGGING = {
         },
     },
 }
+
+# ===========================================
+# TWO-FACTOR AUTHENTICATION (2FA) SETTINGS
+# ===========================================
+# Enable/disable 2FA for users with verified phone numbers
+TWO_FACTOR_AUTH_ENABLED = config('TWO_FACTOR_AUTH_ENABLED', default=True, cast=bool)
+
+# ===========================================
+# TRAFFIC NOTIFICATION SETTINGS
+# ===========================================
+# Enable/disable traffic notifications to admin
+TRAFFIC_NOTIFICATION_ENABLED = config('TRAFFIC_NOTIFICATION_ENABLED', default=False, cast=bool)
+
+# How to notify: 'email', 'sms', or 'both'
+TRAFFIC_NOTIFICATION_METHOD = config('TRAFFIC_NOTIFICATION_METHOD', default='email')
+
+# Admin contact for notifications
+ADMIN_NOTIFICATION_EMAIL = config('ADMIN_NOTIFICATION_EMAIL', default='')
+ADMIN_NOTIFICATION_PHONE = config('ADMIN_NOTIFICATION_PHONE', default='')
+
+# Cooldown period to avoid spamming (minutes between notifications for same IP)
+TRAFFIC_NOTIFICATION_COOLDOWN_MINUTES = config('TRAFFIC_NOTIFICATION_COOLDOWN_MINUTES', default=5, cast=int)
+
+# Paths to exclude from traffic notifications
+TRAFFIC_NOTIFICATION_EXCLUDE_PATHS = [
+    '/static/',
+    '/media/',
+    '/admin/',
+    '/favicon.ico',
+    '/robots.txt',
+    '/api/notifications/',
+    '/api/chatbot/',
+]
+
+# ===========================================
+# ADMIN ERROR NOTIFICATIONS
+# ===========================================
+# Configure admins to receive error emails (500 errors)
+ADMINS = [
+    # ('Your Name', 'your-email@example.com'),
+]
+MANAGERS = ADMINS

@@ -246,31 +246,6 @@
             color: var(--primary-color);
             text-decoration: none;
         }
-        /* Beta Banner */
-        .beta-banner {
-            background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
-            color: white;
-            padding: 0.75rem 0;
-            text-align: center;
-            font-size: 0.9rem;
-            position: relative;
-        }
-        .beta-banner a {
-            color: white;
-            text-decoration: underline;
-        }
-        .beta-banner .btn-close {
-            position: absolute;
-            right: 1rem;
-            top: 50%;
-            transform: translateY(-50%);
-            filter: brightness(0) invert(1);
-            opacity: 0.8;
-        }
-        .beta-banner .btn-close:hover {
-            opacity: 1;
-        }
-
         /* Override Bootstrap success alert to use brand color */
         .alert-success {
             background-color: #f0e6df;
@@ -282,16 +257,6 @@
     {% block extra_css %}{% endblock %}
 </head>
 <body>
-    <!-- Beta Banner -->
-    <div class="beta-banner" id="betaBanner">
-        <div class="container">
-            <i class="bi bi-stars me-2"></i>
-            <strong>Beta Testing</strong> - We're still building! Your feedback helps us improve.
-            <a href="{% url 'contact' %}" class="ms-2">Share feedback</a>
-            <button type="button" class="btn-close" aria-label="Close" onclick="dismissBetaBanner()"></button>
-        </div>
-    </div>
-
     <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-dark">
         <div class="container">
@@ -431,21 +396,6 @@
 
     <!-- Bootstrap 5 JS Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-
-    <!-- Beta Banner Script -->
-    <script>
-        function dismissBetaBanner() {
-            document.getElementById('betaBanner').style.display = 'none';
-            localStorage.setItem('betaBannerDismissed', 'true');
-        }
-
-        // Check if banner was dismissed
-        document.addEventListener('DOMContentLoaded', function() {
-            if (localStorage.getItem('betaBannerDismissed') === 'true') {
-                document.getElementById('betaBanner').style.display = 'none';
-            }
-        });
-    </script>
 
     {% if user.is_authenticated %}
     <!-- Notification Badge Script -->

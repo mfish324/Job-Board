@@ -272,6 +272,46 @@ class EmailVerification(models.Model):
         expiry_time = self.created_at + timedelta(hours=24)  # 24 hour expiry for email
         return timezone.now() > expiry_time
 
+
+class TwoFactorCode(models.Model):
+    """Stores 2FA codes sent during login"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='two_factor_codes')
+    code = models.CharField(max_length=8)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_used = models.BooleanField(default=False)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.user.username} - 2FA - {'Used' if self.is_used else 'Active'}"
+
+    def is_expired(self):
+        from django.utils import timezone
+        from datetime import timedelta
+        expiry_time = self.created_at + timedelta(minutes=5)  # 5 minute expiry for 2FA
+        return timezone.now() > expiry_time
+
+    class Meta:
+        ordering = ['-created_at']
+
+
+class SiteVisit(models.Model):
+    """Tracks site visits for admin notifications"""
+    ip_address = models.GenericIPAddressField()
+    path = models.CharField(max_length=500)
+    user_agent = models.TextField(blank=True)
+    referer = models.URLField(blank=True, null=True)
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    visited_at = models.DateTimeField(auto_now_add=True)
+    country = models.CharField(max_length=100, blank=True)
+    city = models.CharField(max_length=100, blank=True)
+    notified = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"{self.ip_address} - {self.path} - {self.visited_at}"
+
+    class Meta:
+        ordering = ['-visited_at']
+
 class SavedJob(models.Model):
     """Job bookmarks - allows users to save jobs for later"""
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='saved_jobs')

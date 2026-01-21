@@ -1,9 +1,10 @@
 """
 Utility functions for Real Jobs, Real People
 """
-import random
+import secrets
 import string
 import logging
+import bleach
 from django.conf import settings
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
@@ -12,15 +13,40 @@ from twilio.rest import Client
 
 logger = logging.getLogger(__name__)
 
+# Allowed HTML tags for job descriptions (XSS prevention)
+ALLOWED_TAGS = ['p', 'br', 'strong', 'b', 'em', 'i', 'u', 'ul', 'ol', 'li', 'a', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'div']
+ALLOWED_ATTRIBUTES = {'a': ['href', 'title'], 'span': ['class'], 'div': ['class']}
+
+
+def sanitize_html(html_content):
+    """
+    Sanitize HTML content to prevent XSS attacks.
+    Only allows safe tags and attributes.
+    """
+    if not html_content:
+        return ''
+    return bleach.clean(
+        html_content,
+        tags=ALLOWED_TAGS,
+        attributes=ALLOWED_ATTRIBUTES,
+        strip=True
+    )
+
 
 def generate_verification_code():
-    """Generate a random 6-digit verification code"""
-    return ''.join(random.choices(string.digits, k=6))
+    """Generate a cryptographically secure 6-digit verification code"""
+    # Use secrets module for cryptographic security instead of random
+    return ''.join(secrets.choice(string.digits) for _ in range(6))
+
+
+def generate_2fa_code():
+    """Generate a cryptographically secure 6-digit 2FA code"""
+    return ''.join(secrets.choice(string.digits) for _ in range(6))
 
 
 def generate_verification_token():
-    """Generate a random 64-character verification token for email"""
-    return ''.join(random.choices(string.ascii_letters + string.digits, k=64))
+    """Generate a cryptographically secure 64-character verification token for email"""
+    return secrets.token_urlsafe(48)  # Generates ~64 chars of URL-safe base64
 
 
 def send_phone_verification_code(phone_number, code):
@@ -52,6 +78,96 @@ def send_phone_verification_code(phone_number, code):
         return False
 
 
+def send_2fa_code(phone_number, code):
+    """
+    Send 2FA login code via SMS using Twilio
+
+    Args:
+        phone_number (str): Phone number to send code to
+        code (str): 6-digit 2FA code
+
+    Returns:
+        bool: True if sent successfully, False otherwise
+    """
+    try:
+        client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+
+        message = client.messages.create(
+            body=f"Your Real Jobs, Real People login code is: {code}. Valid for 5 minutes. If you did not request this, please ignore.",
+            from_=settings.TWILIO_PHONE_NUMBER,
+            to=phone_number
+        )
+
+        return message.sid is not None
+
+    except Exception as e:
+        logger.error(f"Error sending 2FA SMS to {phone_number[:4]}****: {e}")
+        return False
+
+
+def send_admin_traffic_notification(visit_info, method='email'):
+    """
+    Send notification to admin about new site traffic.
+
+    Args:
+        visit_info (dict): Information about the visit (ip, path, user_agent, etc.)
+        method (str): 'email', 'sms', or 'both'
+
+    Returns:
+        bool: True if sent successfully
+    """
+    admin_email = getattr(settings, 'ADMIN_NOTIFICATION_EMAIL', None)
+    admin_phone = getattr(settings, 'ADMIN_NOTIFICATION_PHONE', None)
+
+    success = True
+
+    if method in ('email', 'both') and admin_email:
+        try:
+            subject = f"New Visit: {visit_info.get('path', '/')}"
+            message = f"""
+New visitor on Real Jobs, Real People!
+
+Time: {visit_info.get('time', 'Unknown')}
+Page: {visit_info.get('path', '/')}
+IP Address: {visit_info.get('ip', 'Unknown')}
+User Agent: {visit_info.get('user_agent', 'Unknown')[:100]}
+Referrer: {visit_info.get('referer', 'Direct')}
+User: {visit_info.get('user', 'Anonymous')}
+
+---
+Real Jobs, Real People Traffic Monitor
+            """
+            send_mail(
+                subject=subject,
+                message=message,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[admin_email],
+                fail_silently=True,
+            )
+        except Exception as e:
+            logger.error(f"Error sending traffic notification email: {e}")
+            success = False
+
+    if method in ('sms', 'both') and admin_phone:
+        try:
+            client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+            message = f"RJRP Visit: {visit_info.get('path', '/')} from {visit_info.get('ip', '?')} at {visit_info.get('time', 'now')}"
+            # Truncate if too long
+            if len(message) > 160:
+                message = message[:157] + '...'
+
+            client.messages.create(
+                body=message,
+                from_=settings.TWILIO_PHONE_NUMBER,
+                to=admin_phone
+            )
+        except Exception as e:
+            logger.error(f"Error sending traffic notification SMS: {e}")
+            success = False
+
+    return success
+
+
 def send_email_verification(user, token):
     """
     Send email verification link to user
@@ -64,6 +180,9 @@ def send_email_verification(user, token):
         bool: True if sent successfully, False otherwise
     """
     try:
+        from datetime import datetime
+        current_year = datetime.now().year
+
         verification_link = f"{settings.SITE_URL}/verify-email/{token}/" if hasattr(settings, 'SITE_URL') else f"http://localhost:8000/verify-email/{token}/"
 
         subject = 'Verify your email - Real Jobs, Real People'
@@ -94,7 +213,7 @@ def send_email_verification(user, token):
                 </p>
             </div>
             <div style="background: #7e512f; padding: 20px; text-align: center; color: white; font-size: 12px;">
-                <p style="margin: 0;">&copy; 2025 Real Jobs, Real People. All rights reserved.</p>
+                <p style="margin: 0;">&copy; {current_year} Real Jobs, Real People. All rights reserved.</p>
             </div>
         </body>
         </html>

@@ -1,0 +1,81 @@
+{% extends 'jobs/base.html' %}
+
+{% block title %}Two-Factor Authentication - Real Jobs, Real People{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-5 col-lg-4">
+            <div class="text-center mb-4">
+                <i class="bi bi-shield-lock text-primary" style="font-size: 4rem;"></i>
+                <h2 class="fw-bold mt-3">Verify Your Identity</h2>
+                <p class="text-muted">Enter the 6-digit code sent to your phone</p>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-body p-4">
+                    <form method="post">
+                        {% csrf_token %}
+
+                        <div class="mb-4">
+                            <label for="code" class="form-label fw-semibold">
+                                <i class="bi bi-key me-1"></i>Verification Code
+                            </label>
+                            <input type="text"
+                                   name="code"
+                                   id="code"
+                                   class="form-control form-control-lg text-center"
+                                   maxlength="6"
+                                   pattern="[0-9]{6}"
+                                   placeholder="000000"
+                                   required
+                                   autofocus
+                                   autocomplete="one-time-code"
+                                   inputmode="numeric"
+                                   style="font-size: 1.5rem; letter-spacing: 0.5rem;">
+                            <div class="form-text text-center">
+                                Code expires in 5 minutes
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary btn-lg w-100 mb-3">
+                            <i class="bi bi-check-circle me-2"></i>Verify & Login
+                        </button>
+                    </form>
+
+                    <div class="text-center">
+                        <p class="text-muted mb-2">Didn't receive the code?</p>
+                        <form method="post" action="{% url 'resend_2fa' %}" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-outline-secondary btn-sm">
+                                <i class="bi bi-arrow-clockwise me-1"></i>Resend Code
+                            </button>
+                        </form>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <div class="text-center">
+                        <a href="{% url 'login' %}" class="text-decoration-none">
+                            <i class="bi bi-arrow-left me-1"></i>Back to Login
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Security Info -->
+            <div class="card mt-4 bg-light border-0">
+                <div class="card-body text-center p-4">
+                    <h6 class="fw-bold mb-3">
+                        <i class="bi bi-info-circle text-primary me-2"></i>Why am I seeing this?
+                    </h6>
+                    <p class="small text-muted mb-0">
+                        Two-factor authentication adds an extra layer of security to your account.
+                        Even if someone knows your password, they can't log in without access to your phone.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

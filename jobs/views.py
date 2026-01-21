@@ -20,13 +20,14 @@ from .models import (Job, UserProfile, JobApplication, PhoneVerification, EmailV
                      HiringStage, ApplicationStageHistory, ApplicationNote, ApplicationRating,
                      ApplicationTag, ApplicationTagAssignment, EmailTemplate, Notification,
                      EmailLog, Message, EmployerTeam, TeamMember, TeamInvitation, ActivityLog,
-                     ChatLog)
+                     ChatLog, TwoFactorCode, SiteVisit)
 from .forms import (JobSeekerSignUpForm, EmployerSignUpForm, RecruiterSignUpForm,
                    JobPostForm, JobApplicationForm, JobSeekerProfileForm,
                    EmployerProfileForm, RecruiterProfileForm)
 from .utils import (generate_verification_code, generate_verification_token,
                    send_phone_verification_code, send_email_verification,
-                   format_phone_number, is_valid_phone_number)
+                   format_phone_number, is_valid_phone_number, generate_2fa_code,
+                   send_2fa_code, sanitize_html)
 
 
 # Rate limit exception handler
@@ -239,6 +240,7 @@ def employer_signup(request):
     return render(request, 'jobs/signup.html', {'form': form, 'user_type': 'Employer'})
 
 
+@ratelimit(key='ip', rate='5/m', method='POST', block=True)
 def recruiter_signup(request):
     if request.method == 'POST':
         form = RecruiterSignUpForm(request.POST)
@@ -295,6 +297,16 @@ def recruiter_signup(request):
     return render(request, 'jobs/signup.html', {'form': form, 'user_type': 'Recruiter'})
 
 
+def get_client_ip(request):
+    """Get the client's IP address from the request"""
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0].strip()
+    else:
+        ip = request.META.get('REMOTE_ADDR')
+    return ip
+
+
 @ratelimit(key='ip', rate='10/m', method='POST', block=True)
 def user_login(request):
     if request.method == 'POST':
@@ -302,9 +314,41 @@ def user_login(request):
         password = request.POST['password']
         user = authenticate(request, username=username, password=password)
         if user is not None:
-            login(request, user)
-            messages.success(request, 'Logged in successfully!')
-            
+            # Check if user has a verified phone number for 2FA
+            has_verified_phone = False
+            phone_number = None
+            if hasattr(user, 'phone_verification') and user.phone_verification.is_verified:
+                has_verified_phone = True
+                phone_number = user.phone_verification.phone_number
+
+            # Check if 2FA is enabled in settings
+            two_fa_enabled = getattr(settings, 'TWO_FACTOR_AUTH_ENABLED', False)
+
+            if two_fa_enabled and has_verified_phone:
+                # Generate and send 2FA code
+                code = generate_2fa_code()
+                TwoFactorCode.objects.create(
+                    user=user,
+                    code=code,
+                    ip_address=get_client_ip(request)
+                )
+
+                if send_2fa_code(phone_number, code):
+                    # Store user ID in session for 2FA verification
+                    request.session['2fa_user_id'] = user.id
+                    request.session['2fa_pending'] = True
+                    messages.info(request, f'A verification code has been sent to your phone ending in ...{phone_number[-4:]}')
+                    return redirect('verify_2fa')
+                else:
+                    # If SMS fails, log them in anyway (graceful degradation)
+                    logger.warning(f"2FA SMS failed for user {user.username}, proceeding with login")
+                    login(request, user)
+                    messages.warning(request, 'Logged in successfully. (2FA SMS could not be sent)')
+            else:
+                # No 2FA - regular login
+                login(request, user)
+                messages.success(request, 'Logged in successfully!')
+
             # Redirect based on user type
             if hasattr(user, 'userprofile'):
                 if user.userprofile.user_type == 'employer':
@@ -315,6 +359,108 @@ def user_login(request):
         else:
             messages.error(request, 'Invalid username or password.')
     return render(request, 'jobs/login.html')
+
+
+@ratelimit(key='ip', rate='5/m', method='POST', block=True)
+def verify_2fa(request):
+    """Verify 2FA code sent via SMS"""
+    # Check if there's a pending 2FA
+    if not request.session.get('2fa_pending') or not request.session.get('2fa_user_id'):
+        messages.error(request, 'No pending 2FA verification. Please log in again.')
+        return redirect('login')
+
+    user_id = request.session.get('2fa_user_id')
+
+    if request.method == 'POST':
+        entered_code = request.POST.get('code', '').strip()
+
+        try:
+            from django.contrib.auth.models import User
+            user = User.objects.get(id=user_id)
+
+            # Get the most recent unused 2FA code for this user
+            two_fa = TwoFactorCode.objects.filter(
+                user=user,
+                is_used=False
+            ).first()
+
+            if not two_fa:
+                messages.error(request, 'No valid verification code found. Please log in again.')
+                return redirect('login')
+
+            if two_fa.is_expired():
+                messages.error(request, 'Verification code has expired. Please log in again.')
+                # Clean up session
+                request.session.pop('2fa_user_id', None)
+                request.session.pop('2fa_pending', None)
+                return redirect('login')
+
+            if two_fa.code == entered_code:
+                # Mark code as used
+                two_fa.is_used = True
+                two_fa.save()
+
+                # Complete login
+                login(request, user)
+
+                # Clean up session
+                request.session.pop('2fa_user_id', None)
+                request.session.pop('2fa_pending', None)
+
+                messages.success(request, 'Logged in successfully!')
+
+                # Redirect based on user type
+                if hasattr(user, 'userprofile'):
+                    if user.userprofile.user_type == 'employer':
+                        return redirect('employer_dashboard')
+                    elif user.userprofile.user_type == 'recruiter':
+                        return redirect('recruiter_dashboard')
+                return redirect('home')
+            else:
+                messages.error(request, 'Invalid verification code. Please try again.')
+
+        except Exception as e:
+            logger.error(f"2FA verification error: {e}")
+            messages.error(request, 'An error occurred. Please try again.')
+
+    return render(request, 'jobs/verify_2fa.html')
+
+
+@ratelimit(key='ip', rate='3/m', method='POST', block=True)
+def resend_2fa_code(request):
+    """Resend 2FA code"""
+    if not request.session.get('2fa_pending') or not request.session.get('2fa_user_id'):
+        messages.error(request, 'No pending 2FA verification.')
+        return redirect('login')
+
+    user_id = request.session.get('2fa_user_id')
+
+    try:
+        from django.contrib.auth.models import User
+        user = User.objects.get(id=user_id)
+
+        if hasattr(user, 'phone_verification') and user.phone_verification.is_verified:
+            phone_number = user.phone_verification.phone_number
+            code = generate_2fa_code()
+
+            TwoFactorCode.objects.create(
+                user=user,
+                code=code,
+                ip_address=get_client_ip(request)
+            )
+
+            if send_2fa_code(phone_number, code):
+                messages.success(request, f'A new code has been sent to ...{phone_number[-4:]}')
+            else:
+                messages.error(request, 'Failed to send verification code. Please try again.')
+        else:
+            messages.error(request, 'No verified phone number found.')
+
+    except Exception as e:
+        logger.error(f"Resend 2FA error: {e}")
+        messages.error(request, 'An error occurred. Please try again.')
+
+    return redirect('verify_2fa')
 
 def user_logout(request):
     logout(request)
@@ -367,7 +513,7 @@ def post_job(request):
     if not hasattr(request.user, 'userprofile') or request.user.userprofile.user_type != 'employer':
         messages.error(request, 'Only employers can post jobs.')
         return redirect('home')
-    
+
     if request.method == 'POST':
         form = JobPostForm(request.POST)
         if form.is_valid():
@@ -375,12 +521,14 @@ def post_job(request):
             job.posted_by = request.user
             if not job.company and request.user.userprofile.company_name:
                 job.company = request.user.userprofile.company_name
+            # Sanitize HTML in job description to prevent XSS
+            job.description = sanitize_html(job.description)
             job.save()
             messages.success(request, 'Job posted successfully!')
             return redirect('employer_dashboard')
     else:
         form = JobPostForm(initial={'company': request.user.userprofile.company_name})
-    
+
     return render(request, 'jobs/post_job.html', {'form': form})
 
 @login_required
@@ -396,7 +544,10 @@ def edit_job(request, job_id):
     if request.method == 'POST':
         form = JobPostForm(request.POST, instance=job)
         if form.is_valid():
-            form.save()
+            edited_job = form.save(commit=False)
+            # Sanitize HTML in job description to prevent XSS
+            edited_job.description = sanitize_html(edited_job.description)
+            edited_job.save()
             messages.success(request, 'Job updated successfully!')
             return redirect('employer_dashboard')
     else:
@@ -511,10 +662,13 @@ def bulk_upload_jobs(request):
                     salary = row.get('salary', '').strip()
                     is_active = row.get('is_active', 'true').lower() in ('true', '1', 'yes', '')
 
+                    # Sanitize HTML in description to prevent XSS
+                    sanitized_description = sanitize_html(description)
+
                     Job.objects.create(
                         title=title,
                         company=company,
-                        description=description,
+                        description=sanitized_description,
                         location=location,
                         salary=salary,
                         is_active=is_active,
@@ -721,9 +875,10 @@ def terms_of_service(request):
 
 def contact(request):
     if request.method == 'POST':
-        # Get form data
-        name = request.POST.get('name')
-        email = request.POST.get('email')
+        from django.utils.html import escape
+        # Get form data and escape to prevent XSS
+        name = escape(request.POST.get('name', ''))
+        email = escape(request.POST.get('email', ''))
         subject = request.POST.get('subject')
         message = request.POST.get('message')
         user_type = request.POST.get('user_type')
