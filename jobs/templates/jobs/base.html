@@ -253,30 +253,22 @@
             color: var(--dark-color);
         }
 
-        /* Vetted Job Board Banner */
-        .vetted-banner {
+        /* Vetted Job Board Subtitle */
+        .vetted-subtitle {
             background: linear-gradient(135deg, #166534 0%, #22c55e 100%);
             color: white;
-            padding: 0.5rem 0;
+            padding: 0.6rem 0;
             text-align: center;
-            font-size: 0.9rem;
+            font-size: 0.95rem;
         }
-        .vetted-banner i {
-            font-size: 1rem;
+        .vetted-subtitle i {
+            font-size: 1.1rem;
         }
     </style>
 
     {% block extra_css %}{% endblock %}
 </head>
 <body>
-    <!-- Vetted Job Board Banner -->
-    <div class="vetted-banner">
-        <div class="container">
-            <i class="bi bi-shield-check me-2"></i>
-            <strong>The Only 100% Vetted Job Board</strong> — Every employer and every job seeker is verified to be 100% REAL!
-        </div>
-    </div>
-
     <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-dark">
         <div class="container">
@@ -358,6 +350,14 @@
             </div>
         </div>
     </nav>
+
+    <!-- Vetted Job Board Subtitle -->
+    <div class="vetted-subtitle">
+        <div class="container">
+            <i class="bi bi-shield-check me-2"></i>
+            <strong>The Only 100% Vetted Job Board</strong> — Every employer and every job seeker is verified to be 100% REAL!
+        </div>
+    </div>
 
     <!-- Messages -->
     {% if messages %}
