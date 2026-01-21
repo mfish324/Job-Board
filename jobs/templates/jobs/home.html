@@ -2,12 +2,24 @@
 
 {% block title %}Home - Real Jobs, Real People - Find Your Dream Job{% endblock %}
 
+{% block extra_css %}
+<style>
+    .hero-text {
+        opacity: 1;
+        transition: opacity 0.5s ease-in-out;
+        min-height: 4.5rem;
+    }
+    .hero-text.fade-out {
+        opacity: 0;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <!-- Hero Section -->
 <div class="hero-section text-center">
     <div class="container">
-        <h1 class="display-4 fw-bold mb-3">Find Your Dream Job</h1>
-        <p class="lead mb-4">Discover opportunities from top companies around the world</p>
+        <h1 class="display-4 fw-bold mb-4 hero-text" id="heroText">Where Real Opportunities Meet Real People</h1>
         <div class="d-flex justify-content-center gap-3 mb-4">
             <a href="{% url 'job_list' %}" class="btn btn-light btn-lg px-5">
                 <i class="bi bi-search me-2"></i>Browse Jobs
@@ -81,7 +93,7 @@
                             <i class="bi bi-building me-1"></i>{{ job.company }}
                         </h6>
                         <p class="card-text text-muted mb-3">
-                            {{ job.description|truncatewords:25 }}
+                            {{ job.description|striptags|truncatewords:25 }}
                         </p>
                         <div class="d-flex justify-content-between align-items-center">
                             <div class="text-muted small">
@@ -140,4 +152,43 @@
     </div>
 </div>
 {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const heroTexts = [
+        "Where Real Opportunities Meet Real People",
+        "Your Next Chapter Starts Here",
+        "Connecting Talent with Opportunity",
+        "Jobs That Match Your Ambition",
+        "Find Work That Works for You",
+        "Real Jobs. Real Companies. Real Results.",
+        "Your Career, Your Terms",
+        "Where Careers Take Off",
+        "More Than a Job Board—A Launchpad",
+        "Discover Roles Worth Your Talent",
+        "The Shortest Path to Your Next Role",
+        "Built for Job Seekers, Not Algorithms"
+    ];
+
+    let currentIndex = 0;
+    const heroElement = document.getElementById('heroText');
+
+    function rotateHeroText() {
+        // Fade out
+        heroElement.classList.add('fade-out');
+
+        setTimeout(() => {
+            // Change text
+            currentIndex = (currentIndex + 1) % heroTexts.length;
+            heroElement.textContent = heroTexts[currentIndex];
+
+            // Fade in
+            heroElement.classList.remove('fade-out');
+        }, 500); // Wait for fade-out to complete
+    }
+
+    // Start rotation after 3 seconds, then every 3 seconds
+    setInterval(rotateHeroText, 3000);
+</script>
 {% endblock %}
