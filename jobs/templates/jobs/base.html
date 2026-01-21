@@ -253,16 +253,18 @@
             color: var(--dark-color);
         }
 
-        /* Vetted Job Board Subtitle */
-        .vetted-subtitle {
-            background: linear-gradient(135deg, var(--primary-color) 0%, #9d6a3d 100%);
-            color: white;
-            padding: 0.6rem 0;
+        /* Vetted Job Board Tagline in Navbar */
+        .navbar-vetted {
+            width: 100%;
             text-align: center;
-            font-size: 0.95rem;
+            padding-top: 0.75rem;
+            margin-top: 0.5rem;
+            border-top: 1px solid rgba(255,255,255,0.2);
+            font-size: 0.9rem;
+            color: rgba(255,255,255,0.95);
         }
-        .vetted-subtitle i {
-            font-size: 1.1rem;
+        .navbar-vetted i {
+            font-size: 1rem;
         }
     </style>
 
@@ -271,7 +273,7 @@
 <body>
     <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-dark">
-        <div class="container">
+        <div class="container flex-wrap">
             <a class="navbar-brand" href="{% url 'home' %}">
                 <img src="{% static 'jobs/images/logo.png' %}" alt="Real Jobs, Real People Logo" class="logo">
                 <span class="d-none d-md-inline">Real Jobs, Real People</span>
@@ -348,16 +350,13 @@
                     {% endif %}
                 </ul>
             </div>
+            <!-- Vetted Job Board Tagline -->
+            <div class="navbar-vetted">
+                <i class="bi bi-shield-check me-2"></i>
+                <strong>The Only 100% Vetted Job Board</strong> — Every employer and every job seeker is verified to be 100% REAL!
+            </div>
         </div>
     </nav>
-
-    <!-- Vetted Job Board Subtitle -->
-    <div class="vetted-subtitle">
-        <div class="container">
-            <i class="bi bi-shield-check me-2"></i>
-            <strong>The Only 100% Vetted Job Board</strong> — Every employer and every job seeker is verified to be 100% REAL!
-        </div>
-    </div>
 
     <!-- Messages -->
     {% if messages %}
