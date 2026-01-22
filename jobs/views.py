@@ -135,7 +135,11 @@ def jobseeker_signup(request):
         if not verify_turnstile(turnstile_token, get_client_ip(request)):
             messages.error(request, 'Please complete the human verification check.')
             form = JobSeekerSignUpForm(request.POST)
-            return render(request, 'jobs/signup.html', {'form': form, 'user_type': 'Job Seeker'})
+            return render(request, 'jobs/signup.html', {
+                'form': form,
+                'user_type': 'Job Seeker',
+                'turnstile_site_key': getattr(settings, 'TURNSTILE_SITE_KEY', '')
+            })
 
         form = JobSeekerSignUpForm(request.POST)
         if form.is_valid():
@@ -144,7 +148,11 @@ def jobseeker_signup(request):
             # Validate phone number only if provided
             if phone_number and not is_valid_phone_number(phone_number):
                 messages.error(request, 'Please enter a valid phone number or leave it blank.')
-                return render(request, 'jobs/signup.html', {'form': form, 'user_type': 'Job Seeker'})
+                return render(request, 'jobs/signup.html', {
+                    'form': form,
+                    'user_type': 'Job Seeker',
+                    'turnstile_site_key': getattr(settings, 'TURNSTILE_SITE_KEY', '')
+                })
 
             # Create user
             user = form.save()
@@ -202,7 +210,11 @@ def employer_signup(request):
         if not verify_turnstile(turnstile_token, get_client_ip(request)):
             messages.error(request, 'Please complete the human verification check.')
             form = EmployerSignUpForm(request.POST)
-            return render(request, 'jobs/signup.html', {'form': form, 'user_type': 'Employer'})
+            return render(request, 'jobs/signup.html', {
+                'form': form,
+                'user_type': 'Employer',
+                'turnstile_site_key': getattr(settings, 'TURNSTILE_SITE_KEY', '')
+            })
 
         form = EmployerSignUpForm(request.POST)
         if form.is_valid():
@@ -211,7 +223,11 @@ def employer_signup(request):
             # Validate phone number only if provided
             if phone_number and not is_valid_phone_number(phone_number):
                 messages.error(request, 'Please enter a valid phone number or leave it blank.')
-                return render(request, 'jobs/signup.html', {'form': form, 'user_type': 'Employer'})
+                return render(request, 'jobs/signup.html', {
+                    'form': form,
+                    'user_type': 'Employer',
+                    'turnstile_site_key': getattr(settings, 'TURNSTILE_SITE_KEY', '')
+                })
 
             # Create user
             user = form.save()
@@ -270,7 +286,11 @@ def recruiter_signup(request):
         if not verify_turnstile(turnstile_token, get_client_ip(request)):
             messages.error(request, 'Please complete the human verification check.')
             form = RecruiterSignUpForm(request.POST)
-            return render(request, 'jobs/signup.html', {'form': form, 'user_type': 'Recruiter'})
+            return render(request, 'jobs/signup.html', {
+                'form': form,
+                'user_type': 'Recruiter',
+                'turnstile_site_key': getattr(settings, 'TURNSTILE_SITE_KEY', '')
+            })
 
         form = RecruiterSignUpForm(request.POST)
         if form.is_valid():
@@ -279,7 +299,11 @@ def recruiter_signup(request):
             # Validate phone number only if provided
             if phone_number and not is_valid_phone_number(phone_number):
                 messages.error(request, 'Please enter a valid phone number or leave it blank.')
-                return render(request, 'jobs/signup.html', {'form': form, 'user_type': 'Recruiter'})
+                return render(request, 'jobs/signup.html', {
+                    'form': form,
+                    'user_type': 'Recruiter',
+                    'turnstile_site_key': getattr(settings, 'TURNSTILE_SITE_KEY', '')
+                })
 
             # Create user
             user = form.save()
@@ -347,14 +371,18 @@ def user_login(request):
         turnstile_token = request.POST.get('cf-turnstile-response', '')
         if not verify_turnstile(turnstile_token, get_client_ip(request)):
             messages.error(request, 'Please complete the human verification check.')
-            return render(request, 'jobs/login.html')
+            return render(request, 'jobs/login.html', {
+                'turnstile_site_key': getattr(settings, 'TURNSTILE_SITE_KEY', '')
+            })
 
         username = request.POST.get('username', '').strip()
         password = request.POST.get('password', '')
 
         if not username or not password:
             messages.error(request, 'Please enter both username and password.')
-            return render(request, 'jobs/login.html')
+            return render(request, 'jobs/login.html', {
+                'turnstile_site_key': getattr(settings, 'TURNSTILE_SITE_KEY', '')
+            })
 
         user = authenticate(request, username=username, password=password)
         if user is not None:
