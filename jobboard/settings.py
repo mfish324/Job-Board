@@ -29,6 +29,12 @@ ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(','
 # Anthropic API Key for AI Chatbot
 ANTHROPIC_API_KEY = config('ANTHROPIC_API_KEY', default=None)
 
+# Cloudflare Turnstile (Bot Protection)
+# Get your keys at: https://dash.cloudflare.com/sign-up?to=/:account/turnstile
+TURNSTILE_SITE_KEY = config('TURNSTILE_SITE_KEY', default='')
+TURNSTILE_SECRET_KEY = config('TURNSTILE_SECRET_KEY', default='')
+TURNSTILE_FAIL_OPEN = config('TURNSTILE_FAIL_OPEN', default=True, cast=bool)  # Allow through if Turnstile is down
+
 
 
 

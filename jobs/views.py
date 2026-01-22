@@ -27,7 +27,7 @@ from .forms import (JobSeekerSignUpForm, EmployerSignUpForm, RecruiterSignUpForm
 from .utils import (generate_verification_code, generate_verification_token,
                    send_phone_verification_code, send_email_verification,
                    format_phone_number, is_valid_phone_number, generate_2fa_code,
-                   send_2fa_code, sanitize_html)
+                   send_2fa_code, sanitize_html, verify_turnstile)
 
 
 # Rate limit exception handler
@@ -130,6 +130,13 @@ def signup_choice(request):
 @ratelimit(key='ip', rate='5/m', method='POST', block=True)
 def jobseeker_signup(request):
     if request.method == 'POST':
+        # Verify Turnstile CAPTCHA
+        turnstile_token = request.POST.get('cf-turnstile-response', '')
+        if not verify_turnstile(turnstile_token, get_client_ip(request)):
+            messages.error(request, 'Please complete the human verification check.')
+            form = JobSeekerSignUpForm(request.POST)
+            return render(request, 'jobs/signup.html', {'form': form, 'user_type': 'Job Seeker'})
+
         form = JobSeekerSignUpForm(request.POST)
         if form.is_valid():
             phone_number = form.cleaned_data.get('phone_number', '').strip()
@@ -181,11 +188,22 @@ def jobseeker_signup(request):
                 return redirect('user_profile')
     else:
         form = JobSeekerSignUpForm()
-    return render(request, 'jobs/signup.html', {'form': form, 'user_type': 'Job Seeker'})
+    return render(request, 'jobs/signup.html', {
+        'form': form,
+        'user_type': 'Job Seeker',
+        'turnstile_site_key': getattr(settings, 'TURNSTILE_SITE_KEY', '')
+    })
 
 @ratelimit(key='ip', rate='5/m', method='POST', block=True)
 def employer_signup(request):
     if request.method == 'POST':
+        # Verify Turnstile CAPTCHA
+        turnstile_token = request.POST.get('cf-turnstile-response', '')
+        if not verify_turnstile(turnstile_token, get_client_ip(request)):
+            messages.error(request, 'Please complete the human verification check.')
+            form = EmployerSignUpForm(request.POST)
+            return render(request, 'jobs/signup.html', {'form': form, 'user_type': 'Employer'})
+
         form = EmployerSignUpForm(request.POST)
         if form.is_valid():
             phone_number = form.cleaned_data.get('phone_number', '').strip()
@@ -237,12 +255,23 @@ def employer_signup(request):
                 return redirect('user_profile')
     else:
         form = EmployerSignUpForm()
-    return render(request, 'jobs/signup.html', {'form': form, 'user_type': 'Employer'})
+    return render(request, 'jobs/signup.html', {
+        'form': form,
+        'user_type': 'Employer',
+        'turnstile_site_key': getattr(settings, 'TURNSTILE_SITE_KEY', '')
+    })
 
 
 @ratelimit(key='ip', rate='5/m', method='POST', block=True)
 def recruiter_signup(request):
     if request.method == 'POST':
+        # Verify Turnstile CAPTCHA
+        turnstile_token = request.POST.get('cf-turnstile-response', '')
+        if not verify_turnstile(turnstile_token, get_client_ip(request)):
+            messages.error(request, 'Please complete the human verification check.')
+            form = RecruiterSignUpForm(request.POST)
+            return render(request, 'jobs/signup.html', {'form': form, 'user_type': 'Recruiter'})
+
         form = RecruiterSignUpForm(request.POST)
         if form.is_valid():
             phone_number = form.cleaned_data.get('phone_number', '').strip()
@@ -294,7 +323,11 @@ def recruiter_signup(request):
                 return redirect('user_profile')
     else:
         form = RecruiterSignUpForm()
-    return render(request, 'jobs/signup.html', {'form': form, 'user_type': 'Recruiter'})
+    return render(request, 'jobs/signup.html', {
+        'form': form,
+        'user_type': 'Recruiter',
+        'turnstile_site_key': getattr(settings, 'TURNSTILE_SITE_KEY', '')
+    })
 
 
 def get_client_ip(request):
@@ -310,16 +343,31 @@ def get_client_ip(request):
 @ratelimit(key='ip', rate='10/m', method='POST', block=True)
 def user_login(request):
     if request.method == 'POST':
-        username = request.POST['username']
-        password = request.POST['password']
+        # Verify Turnstile CAPTCHA
+        turnstile_token = request.POST.get('cf-turnstile-response', '')
+        if not verify_turnstile(turnstile_token, get_client_ip(request)):
+            messages.error(request, 'Please complete the human verification check.')
+            return render(request, 'jobs/login.html')
+
+        username = request.POST.get('username', '').strip()
+        password = request.POST.get('password', '')
+
+        if not username or not password:
+            messages.error(request, 'Please enter both username and password.')
+            return render(request, 'jobs/login.html')
+
         user = authenticate(request, username=username, password=password)
         if user is not None:
             # Check if user has a verified phone number for 2FA
             has_verified_phone = False
             phone_number = None
-            if hasattr(user, 'phone_verification') and user.phone_verification.is_verified:
-                has_verified_phone = True
-                phone_number = user.phone_verification.phone_number
+            try:
+                if hasattr(user, 'phone_verification') and user.phone_verification.is_verified:
+                    has_verified_phone = True
+                    phone_number = user.phone_verification.phone_number
+            except Exception:
+                # User may not have phone_verification record
+                pass
 
             # Check if 2FA is enabled in settings
             two_fa_enabled = getattr(settings, 'TWO_FACTOR_AUTH_ENABLED', False)
@@ -357,8 +405,10 @@ def user_login(request):
                     return redirect('recruiter_dashboard')
             return redirect('home')
         else:
-            messages.error(request, 'Invalid username or password.')
-    return render(request, 'jobs/login.html')
+            messages.error(request, 'Invalid username or password. Forgot your password? Use the link below to reset it.')
+    return render(request, 'jobs/login.html', {
+        'turnstile_site_key': getattr(settings, 'TURNSTILE_SITE_KEY', '')
+    })
 
 
 @ratelimit(key='ip', rate='5/m', method='POST', block=True)

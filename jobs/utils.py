@@ -5,6 +5,7 @@ import secrets
 import string
 import logging
 import bleach
+import requests
 from django.conf import settings
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
@@ -12,6 +13,43 @@ from django.utils.html import strip_tags
 from twilio.rest import Client
 
 logger = logging.getLogger(__name__)
+
+
+def verify_turnstile(token, remote_ip=None):
+    """
+    Verify Cloudflare Turnstile CAPTCHA token.
+    Returns True if verification passes, False otherwise.
+
+    Set up at: https://dash.cloudflare.com/sign-up?to=/:account/turnstile
+    """
+    secret_key = getattr(settings, 'TURNSTILE_SECRET_KEY', '')
+
+    # If Turnstile is not configured, allow through (for development)
+    if not secret_key:
+        logger.warning("Turnstile not configured - skipping verification")
+        return True
+
+    try:
+        response = requests.post(
+            'https://challenges.cloudflare.com/turnstile/v0/siteverify',
+            data={
+                'secret': secret_key,
+                'response': token,
+                'remoteip': remote_ip
+            },
+            timeout=10
+        )
+        result = response.json()
+
+        if result.get('success'):
+            return True
+        else:
+            logger.warning(f"Turnstile verification failed: {result.get('error-codes', [])}")
+            return False
+    except Exception as e:
+        logger.error(f"Turnstile verification error: {e}")
+        # Fail open in case of network issues (configurable)
+        return getattr(settings, 'TURNSTILE_FAIL_OPEN', True)
 
 # Allowed HTML tags for job descriptions (XSS prevention)
 ALLOWED_TAGS = ['p', 'br', 'strong', 'b', 'em', 'i', 'u', 'ul', 'ol', 'li', 'a', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'div']

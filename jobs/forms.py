@@ -30,6 +30,17 @@ class JobSeekerSignUpForm(UserCreationForm):
         model = User
         fields = ('username', 'email', 'first_name', 'last_name', 'phone_number', 'sms_consent', 'password1', 'password2', 'privacy_consent')
 
+    def clean(self):
+        cleaned_data = super().clean()
+        phone_number = cleaned_data.get('phone_number', '').strip()
+        sms_consent = cleaned_data.get('sms_consent')
+
+        # If phone number is provided, SMS consent is required
+        if phone_number and not sms_consent:
+            self.add_error('sms_consent', 'You must agree to receive SMS messages if you provide a phone number. Without SMS consent, we cannot verify your phone number.')
+
+        return cleaned_data
+
     def save(self, commit=True):
         user = super().save(commit=False)
         user.email = self.cleaned_data['email']
@@ -67,6 +78,17 @@ class EmployerSignUpForm(UserCreationForm):
     class Meta:
         model = User
         fields = ('username', 'email', 'phone_number', 'sms_consent', 'password1', 'password2', 'privacy_consent')
+
+    def clean(self):
+        cleaned_data = super().clean()
+        phone_number = cleaned_data.get('phone_number', '').strip()
+        sms_consent = cleaned_data.get('sms_consent')
+
+        # If phone number is provided, SMS consent is required
+        if phone_number and not sms_consent:
+            self.add_error('sms_consent', 'You must agree to receive SMS messages if you provide a phone number. Without SMS consent, we cannot verify your phone number.')
+
+        return cleaned_data
 
     def save(self, commit=True):
         user = super().save(commit=False)
@@ -135,10 +157,16 @@ class RecruiterSignUpForm(UserCreationForm):
         cleaned_data = super().clean()
         is_independent = cleaned_data.get('is_independent_recruiter')
         agency_name = cleaned_data.get('agency_name')
+        phone_number = cleaned_data.get('phone_number', '').strip()
+        sms_consent = cleaned_data.get('sms_consent')
 
         # If not independent, agency name is required
         if not is_independent and not agency_name:
             self.add_error('agency_name', 'Agency name is required unless you are an independent recruiter.')
+
+        # If phone number is provided, SMS consent is required
+        if phone_number and not sms_consent:
+            self.add_error('sms_consent', 'You must agree to receive SMS messages if you provide a phone number. Without SMS consent, we cannot verify your phone number.')
 
         return cleaned_data
 

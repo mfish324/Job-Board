@@ -2,6 +2,11 @@
 
 {% block title %}Sign Up as {{ user_type }} - Real Jobs, Real People{% endblock %}
 
+{% block extra_css %}
+<!-- Cloudflare Turnstile -->
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+{% endblock %}
+
 {% block content %}
 <div class="container">
     <div class="row justify-content-center">
@@ -38,6 +43,11 @@
                                     <label class="form-check-label" for="{{ field.id_for_label }}">
                                         {{ field.label|safe }}
                                     </label>
+                                    {% if field.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ field.errors.0 }}
+                                        </div>
+                                    {% endif %}
                                 </div>
                             {% else %}
                             <label for="{{ field.id_for_label }}" class="form-label fw-semibold">
@@ -73,6 +83,13 @@
                             {% endif %}
                         </div>
                         {% endfor %}
+
+                        <!-- Cloudflare Turnstile CAPTCHA -->
+                        {% if turnstile_site_key %}
+                        <div class="mb-3">
+                            <div class="cf-turnstile" data-sitekey="{{ turnstile_site_key }}" data-theme="light"></div>
+                        </div>
+                        {% endif %}
 
                         <button type="submit" class="btn btn-primary btn-lg w-100 mt-3">
                             <i class="bi bi-person-check me-2"></i>Create Account
