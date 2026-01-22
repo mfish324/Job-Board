@@ -11,6 +11,9 @@ django-ratelimit==4.1.0
 bleach>=6.0.0
 requests>=2.31.0
 
+# Social Authentication (Google, etc.)
+django-allauth>=65.0.0
+
 # AI Chatbot
 anthropic>=0.39.0
 
