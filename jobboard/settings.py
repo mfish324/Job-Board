@@ -385,9 +385,8 @@ AUTHENTICATION_BACKENDS = [
 # Allauth settings
 ACCOUNT_LOGIN_ON_GET = True
 ACCOUNT_LOGOUT_ON_GET = True
-ACCOUNT_EMAIL_REQUIRED = True
-ACCOUNT_USERNAME_REQUIRED = True
-ACCOUNT_AUTHENTICATION_METHOD = 'username_email'
+ACCOUNT_LOGIN_METHODS = {'username', 'email'}  # Allow login with either username or email
+ACCOUNT_SIGNUP_FIELDS = ['email*', 'username*', 'password1*', 'password2*']  # * means required
 ACCOUNT_EMAIL_VERIFICATION = 'optional'  # Don't require email verification for social logins
 ACCOUNT_SIGNUP_REDIRECT_URL = '/account/profile/'
 LOGIN_REDIRECT_URL = '/'

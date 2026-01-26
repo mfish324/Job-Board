@@ -47,7 +47,7 @@ RJRP/
 ## Key Models
 
 - **UserProfile**: Extended user model with user_type (job_seeker, employer, recruiter)
-- **Job**: Job postings with status, salary, location, etc.
+- **Job**: Job postings with status, salary, location, job_type, experience_level, remote_status, expiration
 - **JobApplication**: Applications linking users to jobs
 - **SavedJob**: Bookmarked jobs for job seekers
 - **PhoneVerification**: SMS verification codes
@@ -57,8 +57,15 @@ RJRP/
 ## User Types
 
 1. **Job Seeker**: Can apply to jobs, upload resumes, opt-in to recruiter contact
-2. **Employer**: Can post jobs, view applicants, manage company profile
+2. **Employer**: Can post jobs (requires verification), view applicants, manage company profile
 3. **Recruiter**: Can search candidates who opted in, requires verification
+
+## Job Fields
+
+- **job_type**: full_time, part_time, contract, temporary, internship, freelance
+- **experience_level**: entry, mid, senior, lead, executive
+- **remote_status**: on_site, remote, hybrid
+- **expires_at**: Auto-set to 60 days from creation, can be refreshed by employer
 
 ## Environment Variables
 
@@ -142,6 +149,19 @@ python manage.py shell
 - Traffic notifications to admin
 - Two-factor authentication
 - Recruiter opt-in system for job seekers
+- Job expiration system (60-day default, refresh capability)
+- Employer verification required before posting jobs
+- Job type, experience level, and remote status filters
+- Duplicate job detection with confirmation flow
+- Verification badges on job listings (basic/enhanced/complete levels)
+
+## Management Commands
+
+```bash
+# Expire stale job listings (run via cron daily)
+python manage.py expire_stale_jobs
+python manage.py expire_stale_jobs --dry-run  # Preview without changes
+```
 
 ## Deployment Notes
 
