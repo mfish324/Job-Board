@@ -52,6 +52,7 @@ urlpatterns = [
     path('employer/job/<int:job_id>/edit/', views.edit_job, name='edit_job'),
     path('employer/job/<int:job_id>/delete/', views.delete_job, name='delete_job'),
     path('employer/job/<int:job_id>/toggle-status/', views.toggle_job_status, name='toggle_job_status'),
+    path('employer/job/<int:job_id>/refresh/', views.refresh_job, name='refresh_job'),
     path('employer/bulk-upload/', views.bulk_upload_jobs, name='bulk_upload_jobs'),
     path('download/job-csv-template/', views.download_job_csv_template, name='download_job_csv_template'),
 

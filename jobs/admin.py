@@ -17,21 +17,29 @@ class CsvImportForm(forms.Form):
 
 @admin.register(Job)
 class JobAdmin(admin.ModelAdmin):
-    list_display = ('title', 'company', 'location', 'posted_by', 'is_active', 'posted_date')
-    list_filter = ('is_active', 'posted_date', 'location')
+    list_display = ('title', 'company', 'location', 'job_type', 'remote_status', 'posted_by',
+                    'is_active', 'is_expired_display', 'expires_at', 'posted_date')
+    list_filter = ('is_active', 'job_type', 'remote_status', 'experience_level', 'posted_date')
     search_fields = ('title', 'company', 'description', 'location')
     date_hierarchy = 'posted_date'
     list_editable = ('is_active',)
-    readonly_fields = ('posted_date',)
+    readonly_fields = ('posted_date', 'last_refreshed')
     fieldsets = (
         ('Job Information', {
             'fields': ('title', 'company', 'description', 'location', 'salary')
         }),
-        ('Status & Meta', {
-            'fields': ('is_active', 'posted_by', 'posted_date')
+        ('Job Details', {
+            'fields': ('job_type', 'experience_level', 'remote_status', 'application_deadline')
+        }),
+        ('Status & Expiration', {
+            'fields': ('is_active', 'expires_at', 'last_refreshed', 'posted_by', 'posted_date')
         }),
     )
     change_list_template = 'admin/jobs/job/change_list.html'
+
+    @admin.display(boolean=True, description='Expired')
+    def is_expired_display(self, obj):
+        return obj.is_expired()
 
     def get_urls(self):
         urls = super().get_urls()

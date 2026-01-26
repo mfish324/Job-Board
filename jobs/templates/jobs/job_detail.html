@@ -24,6 +24,23 @@
                             <h1 class="h2 fw-bold mb-2">{{ job.title }}</h1>
                             <h5 class="text-primary mb-0">
                                 <i class="bi bi-building me-2"></i>{{ job.company }}
+                                {% if job.posted_by and job.posted_by.userprofile %}
+                                    {% with verification_level=job.posted_by.userprofile.get_verification_level %}
+                                    {% if verification_level == 'complete' %}
+                                    <span class="badge bg-primary ms-2" data-bs-toggle="tooltip" title="Fully Verified: Phone, Email, and LinkedIn verified">
+                                        <i class="bi bi-shield-fill-check me-1"></i>Fully Verified
+                                    </span>
+                                    {% elif verification_level == 'enhanced' %}
+                                    <span class="badge bg-success ms-2" data-bs-toggle="tooltip" title="Enhanced Verification: Phone and Email verified">
+                                        <i class="bi bi-shield-check me-1"></i>Enhanced Verification
+                                    </span>
+                                    {% elif verification_level == 'basic' %}
+                                    <span class="badge bg-success ms-2" data-bs-toggle="tooltip" title="Verified Employer: Phone or Email verified">
+                                        <i class="bi bi-patch-check-fill me-1"></i>Verified Employer
+                                    </span>
+                                    {% endif %}
+                                    {% endwith %}
+                                {% endif %}
                             </h5>
                         </div>
                         {% if job.salary %}
@@ -147,11 +164,39 @@
                             <strong>Location:</strong><br>
                             <span class="ms-4">{{ job.location }}</span>
                         </li>
+                        {% if job.job_type %}
+                        <li class="mb-3">
+                            <i class="bi bi-briefcase text-primary me-2"></i>
+                            <strong>Job Type:</strong><br>
+                            <span class="ms-4">{{ job.get_job_type_display }}</span>
+                        </li>
+                        {% endif %}
+                        {% if job.remote_status %}
+                        <li class="mb-3">
+                            <i class="bi bi-globe text-primary me-2"></i>
+                            <strong>Work Location:</strong><br>
+                            <span class="ms-4">{{ job.get_remote_status_display }}</span>
+                        </li>
+                        {% endif %}
+                        {% if job.experience_level %}
+                        <li class="mb-3">
+                            <i class="bi bi-bar-chart text-primary me-2"></i>
+                            <strong>Experience Level:</strong><br>
+                            <span class="ms-4">{{ job.get_experience_level_display }}</span>
+                        </li>
+                        {% endif %}
                         {% if job.salary %}
                         <li class="mb-3">
                             <i class="bi bi-cash text-primary me-2"></i>
                             <strong>Salary:</strong><br>
                             <span class="ms-4">{{ job.salary }}</span>
+                        </li>
+                        {% endif %}
+                        {% if job.application_deadline %}
+                        <li class="mb-3">
+                            <i class="bi bi-calendar-event text-primary me-2"></i>
+                            <strong>Application Deadline:</strong><br>
+                            <span class="ms-4">{{ job.application_deadline|date:"F d, Y" }}</span>
                         </li>
                         {% endif %}
                         <li class="mb-3">
@@ -160,7 +205,7 @@
                             <span class="ms-4">{{ job.posted_date|date:"F d, Y" }}</span>
                         </li>
                         <li class="mb-0">
-                            <i class="bi bi-briefcase text-primary me-2"></i>
+                            <i class="bi bi-check-circle text-primary me-2"></i>
                             <strong>Status:</strong><br>
                             <span class="ms-4">
                                 {% if job.is_active %}

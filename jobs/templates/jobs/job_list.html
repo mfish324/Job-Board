@@ -40,8 +40,8 @@
                             </div>
                         </div>
 
-                        <!-- Filters -->
-                        <div class="row g-3">
+                        <!-- Filters Row 1 -->
+                        <div class="row g-3 mb-3">
                             <div class="col-md-4">
                                 <label class="form-label fw-semibold">
                                     <i class="bi bi-geo-alt me-1"></i>Location
@@ -51,6 +51,51 @@
                                     {% for loc in all_locations %}
                                     <option value="{{ loc }}" {% if location_filter == loc %}selected{% endif %}>
                                         {{ loc }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">
+                                    <i class="bi bi-briefcase me-1"></i>Job Type
+                                </label>
+                                <select name="job_type" class="form-select" onchange="this.form.submit()">
+                                    <option value="">All Types</option>
+                                    {% for value, label in job_type_choices %}
+                                    <option value="{{ value }}" {% if job_type_filter == value %}selected{% endif %}>
+                                        {{ label }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">
+                                    <i class="bi bi-globe me-1"></i>Work Location
+                                </label>
+                                <select name="remote" class="form-select" onchange="this.form.submit()">
+                                    <option value="">All</option>
+                                    {% for value, label in remote_status_choices %}
+                                    <option value="{{ value }}" {% if remote_filter == value %}selected{% endif %}>
+                                        {{ label }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Filters Row 2 -->
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">
+                                    <i class="bi bi-bar-chart me-1"></i>Experience Level
+                                </label>
+                                <select name="experience" class="form-select" onchange="this.form.submit()">
+                                    <option value="">All Levels</option>
+                                    {% for value, label in experience_level_choices %}
+                                    <option value="{{ value }}" {% if experience_filter == value %}selected{% endif %}>
+                                        {{ label }}
                                     </option>
                                     {% endfor %}
                                 </select>
@@ -88,7 +133,7 @@
                         </div>
 
                         <!-- Clear Filters -->
-                        {% if search_query or location_filter or salary_filter or date_filter %}
+                        {% if search_query or location_filter or salary_filter or date_filter or job_type_filter or experience_filter or remote_filter %}
                         <div class="row mt-3">
                             <div class="col text-center">
                                 <a href="{% url 'job_list' %}" class="btn btn-outline-secondary">
@@ -104,35 +149,37 @@
     </div>
 
     <!-- Active Filters Display -->
-    {% if search_query or location_filter or salary_filter or date_filter %}
+    {% if search_query or location_filter or salary_filter or date_filter or job_type_filter or experience_filter or remote_filter %}
     <div class="row mb-3">
         <div class="col">
             <div class="d-flex flex-wrap gap-2 align-items-center">
                 <span class="fw-semibold">Active Filters:</span>
                 {% if search_query %}
-                <span class="badge bg-primary">
-                    Search: "{{ search_query }}"
-                    <a href="?{% if location_filter %}location={{ location_filter }}&{% endif %}{% if salary_filter %}salary={{ salary_filter }}&{% endif %}{% if date_filter %}date_posted={{ date_filter }}{% endif %}" class="text-white ms-1">×</a>
-                </span>
+                <span class="badge bg-primary">Search: "{{ search_query }}"</span>
                 {% endif %}
                 {% if location_filter %}
-                <span class="badge bg-primary">
-                    Location: {{ location_filter }}
-                    <a href="?{% if search_query %}search={{ search_query }}&{% endif %}{% if salary_filter %}salary={{ salary_filter }}&{% endif %}{% if date_filter %}date_posted={{ date_filter }}{% endif %}" class="text-white ms-1">×</a>
-                </span>
+                <span class="badge bg-primary">Location: {{ location_filter }}</span>
+                {% endif %}
+                {% if job_type_filter %}
+                <span class="badge bg-info">Type: {{ job_type_filter }}</span>
+                {% endif %}
+                {% if experience_filter %}
+                <span class="badge bg-info">Experience: {{ experience_filter }}</span>
+                {% endif %}
+                {% if remote_filter %}
+                <span class="badge bg-secondary">{{ remote_filter }}</span>
                 {% endif %}
                 {% if salary_filter %}
-                <span class="badge bg-primary">
-                    With Salary
-                    <a href="?{% if search_query %}search={{ search_query }}&{% endif %}{% if location_filter %}location={{ location_filter }}&{% endif %}{% if date_filter %}date_posted={{ date_filter }}{% endif %}" class="text-white ms-1">×</a>
-                </span>
+                <span class="badge bg-success">With Salary</span>
                 {% endif %}
                 {% if date_filter %}
                 <span class="badge bg-primary">
                     {% if date_filter == '24h' %}Last 24 Hours{% elif date_filter == '7d' %}Last 7 Days{% elif date_filter == '30d' %}Last 30 Days{% endif %}
-                    <a href="?{% if search_query %}search={{ search_query }}&{% endif %}{% if location_filter %}location={{ location_filter }}&{% endif %}{% if salary_filter %}salary={{ salary_filter }}{% endif %}" class="text-white ms-1">×</a>
                 </span>
                 {% endif %}
+                <a href="{% url 'job_list' %}" class="badge bg-danger text-decoration-none">
+                    <i class="bi bi-x me-1"></i>Clear All
+                </a>
             </div>
         </div>
     </div>
@@ -160,6 +207,11 @@
                                 <h5 class="card-title fw-bold mb-1">{{ job.title }}</h5>
                                 <h6 class="text-primary mb-0">
                                     <i class="bi bi-building me-1"></i>{{ job.company }}
+                                    {% if job.posted_by and job.posted_by.userprofile.is_verified %}
+                                    <span class="badge bg-success ms-1" data-bs-toggle="tooltip" title="Verified Employer">
+                                        <i class="bi bi-patch-check-fill"></i>
+                                    </span>
+                                    {% endif %}
                                 </h6>
                             </div>
                             {% if job.salary %}
@@ -175,6 +227,21 @@
                             <span class="badge bg-light text-dark">
                                 <i class="bi bi-geo-alt-fill me-1"></i>{{ job.location }}
                             </span>
+                            {% if job.job_type %}
+                            <span class="badge bg-info text-dark">
+                                <i class="bi bi-briefcase me-1"></i>{{ job.get_job_type_display }}
+                            </span>
+                            {% endif %}
+                            {% if job.remote_status %}
+                            <span class="badge bg-secondary">
+                                <i class="bi bi-{% if job.remote_status == 'remote' %}globe{% elif job.remote_status == 'hybrid' %}building{% else %}geo-alt{% endif %} me-1"></i>{{ job.get_remote_status_display }}
+                            </span>
+                            {% endif %}
+                            {% if job.experience_level %}
+                            <span class="badge bg-light text-dark">
+                                <i class="bi bi-bar-chart me-1"></i>{{ job.get_experience_level_display }}
+                            </span>
+                            {% endif %}
                             <span class="badge bg-light text-dark">
                                 <i class="bi bi-calendar3 me-1"></i>{{ job.posted_date|date:"M d, Y" }}
                             </span>

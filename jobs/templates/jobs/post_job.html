@@ -39,10 +39,29 @@
                 {% endif %}
             </div>
 
+            {% if show_duplicate_warning and duplicate_job %}
+            <div class="alert alert-warning mb-4">
+                <h5 class="alert-heading">
+                    <i class="bi bi-exclamation-triangle me-2"></i>Possible Duplicate Job
+                </h5>
+                <p>We found a similar job posting:</p>
+                <div class="card bg-light mb-3">
+                    <div class="card-body">
+                        <strong>{{ duplicate_job.title }}</strong> at {{ duplicate_job.company }}<br>
+                        <small class="text-muted">Posted on {{ duplicate_job.posted_date|date:"F d, Y" }}</small>
+                    </div>
+                </div>
+                <p class="mb-0">If this is intentional, click "Confirm and Post" below. Otherwise, modify the job details.</p>
+            </div>
+            {% endif %}
+
             <div class="card shadow-sm">
                 <div class="card-body">
                     <form method="post">
                         {% csrf_token %}
+                        {% if show_duplicate_warning %}
+                        <input type="hidden" name="confirm_duplicate" value="true">
+                        {% endif %}
 
                         {% for field in form %}
                         <div class="mb-4">
@@ -92,9 +111,9 @@
                         {% endfor %}
 
                         <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-primary btn-lg">
-                                <i class="bi bi-{% if is_edit %}save{% else %}send-fill{% endif %} me-2"></i>
-                                {% if is_edit %}Update Job{% else %}Post Job{% endif %}
+                            <button type="submit" class="btn btn-{% if show_duplicate_warning %}warning{% else %}primary{% endif %} btn-lg">
+                                <i class="bi bi-{% if is_edit %}save{% elif show_duplicate_warning %}check-circle{% else %}send-fill{% endif %} me-2"></i>
+                                {% if show_duplicate_warning %}Confirm and Post Job{% elif is_edit %}Update Job{% else %}Post Job{% endif %}
                             </button>
                             <a href="{% url 'employer_dashboard' %}" class="btn btn-outline-secondary">
                                 <i class="bi bi-x-circle me-2"></i>Cancel

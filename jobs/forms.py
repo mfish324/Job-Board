@@ -248,9 +248,26 @@ class RecruiterProfileForm(forms.ModelForm):
 class JobPostForm(forms.ModelForm):
     class Meta:
         model = Job
-        fields = ['title', 'company', 'location', 'salary', 'description']
+        fields = ['title', 'company', 'location', 'salary', 'job_type', 'experience_level',
+                  'remote_status', 'application_deadline', 'description']
         widgets = {
             'description': forms.Textarea(attrs={'rows': 8}),
+            'application_deadline': forms.DateInput(attrs={
+                'type': 'date',
+                'class': 'form-control'
+            }),
+            'job_type': forms.Select(attrs={'class': 'form-select'}),
+            'experience_level': forms.Select(attrs={'class': 'form-select'}),
+            'remote_status': forms.Select(attrs={'class': 'form-select'}),
+        }
+        labels = {
+            'job_type': 'Job Type',
+            'experience_level': 'Experience Level',
+            'remote_status': 'Work Location',
+            'application_deadline': 'Application Deadline (Optional)',
+        }
+        help_texts = {
+            'application_deadline': 'Last date to accept applications for this position',
         }
 
 class JobSeekerProfileForm(forms.ModelForm):

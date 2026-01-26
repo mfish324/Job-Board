@@ -52,29 +52,32 @@ def home(request):
 
 def job_list(request):
     from datetime import timedelta
-    
-    jobs = Job.objects.filter(is_active=True)
-    
+
+    # Start with active jobs that are not expired
+    jobs = Job.objects.filter(is_active=True).filter(
+        Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now())
+    )
+
     # Search query
     search_query = request.GET.get('search', '')
     if search_query:
         jobs = jobs.filter(
-            Q(title__icontains=search_query) | 
+            Q(title__icontains=search_query) |
             Q(company__icontains=search_query) |
             Q(description__icontains=search_query) |
             Q(location__icontains=search_query)
         )
-    
+
     # Location filter
     location_filter = request.GET.get('location', '')
     if location_filter:
         jobs = jobs.filter(location__icontains=location_filter)
-    
+
     # Salary filter (has salary or not)
     salary_filter = request.GET.get('salary', '')
     if salary_filter == 'with_salary':
         jobs = jobs.exclude(salary='')
-    
+
     # Date posted filter
     date_filter = request.GET.get('date_posted', '')
     if date_filter:
@@ -84,20 +87,44 @@ def job_list(request):
             jobs = jobs.filter(posted_date__gte=timezone.now() - timedelta(days=7))
         elif date_filter == '30d':
             jobs = jobs.filter(posted_date__gte=timezone.now() - timedelta(days=30))
-    
-    # Get unique locations for filter dropdown
-    all_locations = Job.objects.filter(is_active=True).values_list('location', flat=True).distinct().order_by('location')
-    
+
+    # Job type filter
+    job_type_filter = request.GET.get('job_type', '')
+    if job_type_filter:
+        jobs = jobs.filter(job_type=job_type_filter)
+
+    # Experience level filter
+    experience_filter = request.GET.get('experience', '')
+    if experience_filter:
+        jobs = jobs.filter(experience_level=experience_filter)
+
+    # Remote status filter
+    remote_filter = request.GET.get('remote', '')
+    if remote_filter:
+        jobs = jobs.filter(remote_status=remote_filter)
+
+    # Get unique locations for filter dropdown (exclude expired jobs)
+    all_locations = Job.objects.filter(is_active=True).filter(
+        Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now())
+    ).values_list('location', flat=True).distinct().order_by('location')
+
     jobs = jobs.order_by('-posted_date')
-    
+
     context = {
         'jobs': jobs,
         'search_query': search_query,
         'location_filter': location_filter,
         'salary_filter': salary_filter,
         'date_filter': date_filter,
+        'job_type_filter': job_type_filter,
+        'experience_filter': experience_filter,
+        'remote_filter': remote_filter,
         'all_locations': all_locations,
-        'total_results': jobs.count()
+        'total_results': jobs.count(),
+        # Provide choices for filters
+        'job_type_choices': Job.JOB_TYPE_CHOICES,
+        'experience_level_choices': Job.EXPERIENCE_LEVEL_CHOICES,
+        'remote_status_choices': Job.REMOTE_STATUS_CHOICES,
     }
     return render(request, 'jobs/job_list.html', context)
 
@@ -549,10 +576,15 @@ def employer_dashboard(request):
     if not hasattr(request.user, 'userprofile') or request.user.userprofile.user_type != 'employer':
         messages.error(request, 'Access denied. Employer account required.')
         return redirect('home')
-    
+
+    profile = request.user.userprofile
     employer_jobs = Job.objects.filter(posted_by=request.user).order_by('-posted_date')
+
     context = {
-        'jobs': employer_jobs
+        'jobs': employer_jobs,
+        'profile': profile,
+        'is_verified': profile.is_verified(),
+        'verification_level': profile.get_verification_level(),
     }
     return render(request, 'jobs/employer_dashboard.html', context)
 
@@ -586,26 +618,89 @@ def recruiter_dashboard(request):
     return render(request, 'jobs/recruiter_dashboard.html', context)
 
 
+def check_duplicate_job(employer, title, company, location):
+    """
+    Check if the same employer has posted a similar job within the last 7 days.
+    Returns the duplicate job if found, None otherwise.
+    """
+    from datetime import timedelta
+    seven_days_ago = timezone.now() - timedelta(days=7)
+
+    # Check for same title (case-insensitive)
+    title_match = Job.objects.filter(
+        posted_by=employer,
+        title__iexact=title,
+        posted_date__gte=seven_days_ago
+    ).first()
+
+    if title_match:
+        return title_match
+
+    # Check for same company and location combination
+    location_match = Job.objects.filter(
+        posted_by=employer,
+        company__iexact=company,
+        location__iexact=location,
+        posted_date__gte=seven_days_ago
+    ).first()
+
+    return location_match
+
+
 @login_required
 def post_job(request):
     if not hasattr(request.user, 'userprofile') or request.user.userprofile.user_type != 'employer':
         messages.error(request, 'Only employers can post jobs.')
         return redirect('home')
 
+    profile = request.user.userprofile
+
+    # Check if employer is verified
+    if not profile.is_verified():
+        messages.warning(
+            request,
+            'You must verify your account before posting jobs. Verification helps ensure all listings '
+            'come from real employers. <a href="/account/profile/" class="alert-link">Complete verification</a>'
+        )
+        return redirect('employer_dashboard')
+
+    duplicate_job = None
+    confirm_duplicate = request.POST.get('confirm_duplicate') == 'true'
+
     if request.method == 'POST':
         form = JobPostForm(request.POST)
         if form.is_valid():
+            title = form.cleaned_data['title']
+            company = form.cleaned_data['company'] or profile.company_name
+            location = form.cleaned_data['location']
+
+            # Check for duplicate job (unless user confirmed it's intentional)
+            if not confirm_duplicate:
+                duplicate_job = check_duplicate_job(request.user, title, company, location)
+                if duplicate_job:
+                    messages.warning(
+                        request,
+                        f'We found a similar job posting: "{duplicate_job.title}" posted on '
+                        f'{duplicate_job.posted_date.strftime("%B %d, %Y")}. If this is intentional, '
+                        'please confirm below.'
+                    )
+                    return render(request, 'jobs/post_job.html', {
+                        'form': form,
+                        'duplicate_job': duplicate_job,
+                        'show_duplicate_warning': True
+                    })
+
             job = form.save(commit=False)
             job.posted_by = request.user
-            if not job.company and request.user.userprofile.company_name:
-                job.company = request.user.userprofile.company_name
+            if not job.company and profile.company_name:
+                job.company = profile.company_name
             # Sanitize HTML in job description to prevent XSS
             job.description = sanitize_html(job.description)
             job.save()
             messages.success(request, 'Job posted successfully!')
             return redirect('employer_dashboard')
     else:
-        form = JobPostForm(initial={'company': request.user.userprofile.company_name})
+        form = JobPostForm(initial={'company': profile.company_name})
 
     return render(request, 'jobs/post_job.html', {'form': form})
 
@@ -617,6 +712,16 @@ def edit_job(request, job_id):
     # Ensure only the job owner can edit
     if job.posted_by != request.user:
         messages.error(request, 'You do not have permission to edit this job.')
+        return redirect('employer_dashboard')
+
+    # Check if employer is verified (for consistency with post_job)
+    profile = request.user.userprofile
+    if not profile.is_verified():
+        messages.warning(
+            request,
+            'You must verify your account before editing jobs. '
+            '<a href="/account/profile/" class="alert-link">Complete verification</a>'
+        )
         return redirect('employer_dashboard')
 
     if request.method == 'POST':
@@ -674,15 +779,34 @@ def toggle_job_status(request, job_id):
     return redirect('employer_dashboard')
 
 
+@login_required
+def refresh_job(request, job_id):
+    """Refresh/extend a job listing by the default expiration period"""
+    job = get_object_or_404(Job, id=job_id)
+
+    # Ensure only the job owner can refresh
+    if job.posted_by != request.user:
+        messages.error(request, 'You do not have permission to refresh this job.')
+        return redirect('employer_dashboard')
+
+    # Refresh the job listing
+    job.refresh_listing()
+    messages.success(request, f'Job "{job.title}" has been refreshed and will now expire in {Job.DEFAULT_EXPIRATION_DAYS} days.')
+    return redirect('employer_dashboard')
+
+
 def download_job_csv_template(request):
     """Download a CSV template for bulk job uploads"""
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="job_upload_template.csv"'
 
     writer = csv.writer(response)
-    writer.writerow(['title', 'company', 'description', 'location', 'salary', 'is_active'])
-    writer.writerow(['Software Engineer', 'Your Company Name', 'Job description goes here. Include requirements, responsibilities, and qualifications.', 'Chicago, IL', '$80,000 - $120,000', 'true'])
-    writer.writerow(['Marketing Manager', 'Your Company Name', 'Another job description here.', 'Remote', '$60,000 - $80,000', 'true'])
+    writer.writerow(['title', 'company', 'description', 'location', 'salary', 'job_type', 'experience_level', 'remote_status', 'is_active'])
+    writer.writerow(['Software Engineer', 'Your Company Name', 'Job description goes here. Include requirements, responsibilities, and qualifications.', 'Chicago, IL', '$80,000 - $120,000', 'full_time', 'mid', 'hybrid', 'true'])
+    writer.writerow(['Marketing Manager', 'Your Company Name', 'Another job description here.', 'New York, NY', '$60,000 - $80,000', 'full_time', 'senior', 'remote', 'true'])
+    writer.writerow(['# Job Type options: full_time, part_time, contract, temporary, internship, freelance', '', '', '', '', '', '', '', ''])
+    writer.writerow(['# Experience Level options: entry, mid, senior, lead, executive', '', '', '', '', '', '', '', ''])
+    writer.writerow(['# Remote Status options: on_site, remote, hybrid', '', '', '', '', '', '', '', ''])
 
     return response
 
@@ -694,6 +818,17 @@ def bulk_upload_jobs(request):
     if not hasattr(request.user, 'userprofile') or request.user.userprofile.user_type not in ['employer', 'recruiter']:
         messages.error(request, 'Only employers and recruiters can upload jobs.')
         return redirect('home')
+
+    profile = request.user.userprofile
+
+    # Check if employer is verified
+    if not profile.is_verified():
+        messages.warning(
+            request,
+            'You must verify your account before uploading jobs. Verification helps ensure all listings '
+            'come from real employers. <a href="/account/profile/" class="alert-link">Complete verification</a>'
+        )
+        return redirect('employer_dashboard')
 
     if request.method == 'POST':
         csv_file = request.FILES.get('csv_file')
@@ -740,6 +875,26 @@ def bulk_upload_jobs(request):
                     salary = row.get('salary', '').strip()
                     is_active = row.get('is_active', 'true').lower() in ('true', '1', 'yes', '')
 
+                    # New optional fields
+                    job_type = row.get('job_type', '').strip() or 'full_time'
+                    experience_level = row.get('experience_level', '').strip()
+                    remote_status = row.get('remote_status', '').strip() or 'on_site'
+
+                    # Validate job_type
+                    valid_job_types = [choice[0] for choice in Job.JOB_TYPE_CHOICES]
+                    if job_type and job_type not in valid_job_types:
+                        job_type = 'full_time'
+
+                    # Validate experience_level
+                    valid_experience_levels = [choice[0] for choice in Job.EXPERIENCE_LEVEL_CHOICES]
+                    if experience_level and experience_level not in valid_experience_levels:
+                        experience_level = ''
+
+                    # Validate remote_status
+                    valid_remote_statuses = [choice[0] for choice in Job.REMOTE_STATUS_CHOICES]
+                    if remote_status and remote_status not in valid_remote_statuses:
+                        remote_status = 'on_site'
+
                     # Sanitize HTML in description to prevent XSS
                     sanitized_description = sanitize_html(description)
 
@@ -749,6 +904,9 @@ def bulk_upload_jobs(request):
                         description=sanitized_description,
                         location=location,
                         salary=salary,
+                        job_type=job_type,
+                        experience_level=experience_level,
+                        remote_status=remote_status,
                         is_active=is_active,
                         posted_by=request.user
                     )

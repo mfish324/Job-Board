@@ -4,6 +4,35 @@ from django.core.validators import FileExtensionValidator
 import os
 
 class Job(models.Model):
+    # Job type choices
+    JOB_TYPE_CHOICES = [
+        ('full_time', 'Full-time'),
+        ('part_time', 'Part-time'),
+        ('contract', 'Contract'),
+        ('temporary', 'Temporary'),
+        ('internship', 'Internship'),
+        ('freelance', 'Freelance'),
+    ]
+
+    # Experience level choices
+    EXPERIENCE_LEVEL_CHOICES = [
+        ('entry', 'Entry Level'),
+        ('mid', 'Mid Level'),
+        ('senior', 'Senior Level'),
+        ('lead', 'Lead/Manager'),
+        ('executive', 'Executive'),
+    ]
+
+    # Remote status choices
+    REMOTE_STATUS_CHOICES = [
+        ('on_site', 'On-site'),
+        ('remote', 'Remote'),
+        ('hybrid', 'Hybrid'),
+    ]
+
+    # Default expiration period in days
+    DEFAULT_EXPIRATION_DAYS = 60
+
     title = models.CharField(max_length=200)
     company = models.CharField(max_length=200)
     description = models.TextField()
@@ -12,9 +41,59 @@ class Job(models.Model):
     posted_date = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
     posted_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name='posted_jobs')
-    
+
+    # New fields for job type, experience, and remote status
+    job_type = models.CharField(max_length=20, choices=JOB_TYPE_CHOICES, default='full_time')
+    experience_level = models.CharField(max_length=20, choices=EXPERIENCE_LEVEL_CHOICES, blank=True)
+    remote_status = models.CharField(max_length=20, choices=REMOTE_STATUS_CHOICES, default='on_site')
+    application_deadline = models.DateField(null=True, blank=True, help_text='Optional deadline for applications')
+
+    # Expiration fields
+    expires_at = models.DateTimeField(null=True, blank=True, help_text='When this job listing expires')
+    last_refreshed = models.DateTimeField(null=True, blank=True, help_text='When the employer last confirmed this job is still active')
+
     def __str__(self):
         return f"{self.title} at {self.company}"
+
+    def save(self, *args, **kwargs):
+        # Set expiration date on creation if not already set
+        if not self.pk and not self.expires_at:
+            from django.utils import timezone
+            from datetime import timedelta
+            self.expires_at = timezone.now() + timedelta(days=self.DEFAULT_EXPIRATION_DAYS)
+        super().save(*args, **kwargs)
+
+    def is_expired(self):
+        """Check if the job listing has expired"""
+        if not self.expires_at:
+            return False
+        from django.utils import timezone
+        return timezone.now() > self.expires_at
+
+    def days_until_expiration(self):
+        """Get the number of days until this job expires"""
+        if not self.expires_at:
+            return None
+        from django.utils import timezone
+        delta = self.expires_at - timezone.now()
+        return max(0, delta.days)
+
+    def refresh_listing(self, days=None):
+        """Refresh/extend the job listing by a given number of days"""
+        from django.utils import timezone
+        from datetime import timedelta
+        if days is None:
+            days = self.DEFAULT_EXPIRATION_DAYS
+        self.expires_at = timezone.now() + timedelta(days=days)
+        self.last_refreshed = timezone.now()
+        self.save()
+
+    def is_expiring_soon(self, days=14):
+        """Check if the job is expiring within the specified number of days"""
+        remaining = self.days_until_expiration()
+        if remaining is None:
+            return False
+        return remaining <= days and remaining > 0
 
 class UserProfile(models.Model):
     USER_TYPE_CHOICES = (
