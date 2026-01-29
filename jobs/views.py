@@ -1106,6 +1106,9 @@ def privacy_policy(request):
 def about(request):
     return render(request, 'jobs/about.html')
 
+def employer_guide(request):
+    return render(request, 'jobs/employer_guide.html')
+
 def terms_of_service(request):
     return render(request, 'jobs/terms.html')
 

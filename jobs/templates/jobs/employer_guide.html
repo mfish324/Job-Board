@@ -1,0 +1,209 @@
+{% extends 'jobs/base.html' %}
+
+{% block title %}Employer Guide - Real Jobs, Real People{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <!-- Header -->
+            <div class="text-center mb-5">
+                <i class="bi bi-building text-primary" style="font-size: 4rem;"></i>
+                <h1 class="fw-bold mt-3">Employer Guide</h1>
+                <p class="lead text-muted">Everything you need to know about hiring on Real Jobs, Real People</p>
+            </div>
+
+            <!-- Why Choose Us -->
+            <div class="card mb-4 border-primary">
+                <div class="card-body p-4">
+                    <h3 class="fw-bold mb-4">
+                        <i class="bi bi-star me-2 text-primary"></i>Why Employers Choose Us
+                    </h3>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <div class="d-flex">
+                                <i class="bi bi-shield-check text-success me-3 fs-4"></i>
+                                <div>
+                                    <h5 class="fw-semibold mb-1">Verified Candidates</h5>
+                                    <p class="text-muted mb-0">Every job seeker on our platform is verified, so you're connecting with real people ready to work.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="d-flex">
+                                <i class="bi bi-ban text-success me-3 fs-4"></i>
+                                <div>
+                                    <h5 class="fw-semibold mb-1">No Spam Applications</h5>
+                                    <p class="text-muted mb-0">Our verification process eliminates bots and fake applicants, saving you time.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="d-flex">
+                                <i class="bi bi-cash-stack text-success me-3 fs-4"></i>
+                                <div>
+                                    <h5 class="fw-semibold mb-1">Free to Post</h5>
+                                    <p class="text-muted mb-0">Post jobs at no cost. We believe in connecting talent with opportunity without barriers.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="d-flex">
+                                <i class="bi bi-people text-success me-3 fs-4"></i>
+                                <div>
+                                    <h5 class="fw-semibold mb-1">Quality Over Quantity</h5>
+                                    <p class="text-muted mb-0">Fewer, better-matched applicants who are genuinely interested in your position.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Getting Started -->
+            <div class="card mb-4">
+                <div class="card-body p-4">
+                    <h3 class="fw-bold mb-4">
+                        <i class="bi bi-rocket-takeoff me-2 text-primary"></i>Getting Started
+                    </h3>
+
+                    <div class="mb-4">
+                        <h5 class="fw-semibold"><span class="badge bg-primary me-2">1</span>Create Your Account</h5>
+                        <p class="text-muted ms-4">Sign up as an employer using your work email or Google account. It only takes a minute.</p>
+                    </div>
+
+                    <div class="mb-4">
+                        <h5 class="fw-semibold"><span class="badge bg-primary me-2">2</span>Verify Your Identity</h5>
+                        <p class="text-muted ms-4">Complete our verification process to unlock job posting. This helps maintain the quality and trust our platform is known for.</p>
+                        <div class="ms-4">
+                            <p class="mb-2"><strong>Verification levels:</strong></p>
+                            <ul class="text-muted">
+                                <li><span class="badge bg-secondary">Basic</span> - Email verified</li>
+                                <li><span class="badge bg-info">Enhanced</span> - Email + Phone verified</li>
+                                <li><span class="badge bg-success">Complete</span> - Email + Phone + Company info verified</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <h5 class="fw-semibold"><span class="badge bg-primary me-2">3</span>Post Your First Job</h5>
+                        <p class="text-muted ms-4">Once verified, you can post jobs immediately. Include clear job details to attract the right candidates.</p>
+                    </div>
+
+                    <div class="mb-0">
+                        <h5 class="fw-semibold"><span class="badge bg-primary me-2">4</span>Review Applications</h5>
+                        <p class="text-muted ms-4">Manage all your applications from your dashboard. Download resumes, review cover letters, and connect with candidates.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Writing Great Job Posts -->
+            <div class="card mb-4">
+                <div class="card-body p-4">
+                    <h3 class="fw-bold mb-4">
+                        <i class="bi bi-pencil-square me-2 text-primary"></i>Writing Great Job Posts
+                    </h3>
+                    <p class="mb-3">A well-written job post attracts better candidates. Here are our tips:</p>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card bg-light border-0 mb-3">
+                                <div class="card-body">
+                                    <h6 class="fw-bold text-success"><i class="bi bi-check-circle me-2"></i>Do</h6>
+                                    <ul class="mb-0 small">
+                                        <li>Use a clear, specific job title</li>
+                                        <li>Include salary or salary range</li>
+                                        <li>List actual day-to-day responsibilities</li>
+                                        <li>Be specific about required vs. preferred qualifications</li>
+                                        <li>Mention remote/hybrid/on-site status</li>
+                                        <li>Include your company culture highlights</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card bg-light border-0 mb-3">
+                                <div class="card-body">
+                                    <h6 class="fw-bold text-danger"><i class="bi bi-x-circle me-2"></i>Avoid</h6>
+                                    <ul class="mb-0 small">
+                                        <li>Vague titles like "Superstar Wanted"</li>
+                                        <li>"Competitive salary" without specifics</li>
+                                        <li>Unrealistic requirement lists</li>
+                                        <li>Requiring 5+ years for "entry-level"</li>
+                                        <li>Copy-pasting generic descriptions</li>
+                                        <li>Leaving out location information</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Managing Your Jobs -->
+            <div class="card mb-4">
+                <div class="card-body p-4">
+                    <h3 class="fw-bold mb-4">
+                        <i class="bi bi-gear me-2 text-primary"></i>Managing Your Jobs
+                    </h3>
+
+                    <h5 class="fw-semibold mt-3">Job Expiration</h5>
+                    <p class="text-muted">Jobs automatically expire after <strong>60 days</strong> to keep our listings fresh and relevant. You'll see expiration badges on your dashboard:</p>
+                    <ul class="text-muted">
+                        <li><span class="badge bg-warning text-dark">Expiring Soon</span> - Less than 14 days remaining</li>
+                        <li><span class="badge bg-danger">Expired</span> - Job is no longer visible to candidates</li>
+                    </ul>
+
+                    <h5 class="fw-semibold mt-4">Refreshing Jobs</h5>
+                    <p class="text-muted">Still hiring? Click the <strong>Refresh</strong> button on your dashboard to extend your job for another 60 days. This also bumps your listing in search results.</p>
+
+                    <h5 class="fw-semibold mt-4">Bulk Upload</h5>
+                    <p class="text-muted">Hiring for multiple positions? Use our bulk upload feature to post many jobs at once using a CSV file. Access it from your employer dashboard.</p>
+                </div>
+            </div>
+
+            <!-- Our Commitment -->
+            <div class="card mb-4">
+                <div class="card-body p-4">
+                    <h3 class="fw-bold mb-4">
+                        <i class="bi bi-heart me-2 text-primary"></i>Our Commitment to You
+                    </h3>
+                    <p class="mb-3">When you post on Real Jobs, Real People, you're joining a community committed to respectful hiring practices. We ask that you:</p>
+                    <ul class="text-muted">
+                        <li><strong>Respond to applicants</strong> - Even a brief "no" is better than silence</li>
+                        <li><strong>Post real opportunities</strong> - Only list jobs you're actively hiring for</li>
+                        <li><strong>Be transparent</strong> - Share salary ranges and job requirements honestly</li>
+                        <li><strong>Respect candidates' time</strong> - Keep interview processes reasonable</li>
+                    </ul>
+                    <p class="mb-0">Together, we can make hiring better for everyone.</p>
+                </div>
+            </div>
+
+            <!-- CTA -->
+            <div class="card bg-primary text-white">
+                <div class="card-body p-4 text-center">
+                    <h3 class="fw-bold mb-3">Ready to Find Great Talent?</h3>
+                    <p class="mb-4">Join employers who value quality over quantity.</p>
+                    <div class="d-flex justify-content-center gap-3 flex-wrap">
+                        {% if user.is_authenticated and user.userprofile.user_type == 'employer' %}
+                            <a href="{% url 'post_job' %}" class="btn btn-light btn-lg">
+                                <i class="bi bi-plus-circle me-2"></i>Post a Job
+                            </a>
+                            <a href="{% url 'employer_dashboard' %}" class="btn btn-outline-light btn-lg">
+                                <i class="bi bi-speedometer2 me-2"></i>Go to Dashboard
+                            </a>
+                        {% else %}
+                            <a href="{% url 'employer_signup' %}" class="btn btn-light btn-lg">
+                                <i class="bi bi-person-plus me-2"></i>Sign Up as Employer
+                            </a>
+                            <a href="{% url 'login' %}" class="btn btn-outline-light btn-lg">
+                                <i class="bi bi-box-arrow-in-right me-2"></i>Login
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
