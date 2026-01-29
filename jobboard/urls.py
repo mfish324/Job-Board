@@ -18,8 +18,29 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.http import HttpResponse
+from django.views.decorators.cache import cache_page
+
+
+def robots_txt(request):
+    """Serve robots.txt to allow search engine indexing"""
+    lines = [
+        "User-agent: *",
+        "Allow: /",
+        "",
+        "# Disallow admin and private areas",
+        "Disallow: /admin/",
+        "Disallow: /account/",
+        "Disallow: /employer/",
+        "Disallow: /recruiter/",
+        "",
+        f"Sitemap: https://realjobsrealpeople.net/sitemap.xml",
+    ]
+    return HttpResponse("\n".join(lines), content_type="text/plain")
+
 
 urlpatterns = [
+    path('robots.txt', cache_page(60 * 60)(robots_txt), name='robots_txt'),
     path('admin/', admin.site.urls),
     path('accounts/', include('allauth.urls')),  # Social authentication
     path('', include('jobs.urls')),
