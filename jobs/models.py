@@ -983,3 +983,411 @@ class ChatLog(models.Model):
     def __str__(self):
         user_str = self.user.username if self.user else f"Anonymous ({self.session_id[:8]}...)"
         return f"{user_str}: {self.user_message[:50]}..."
+
+
+# =============================================================================
+# HIRING ACTIVITY SCORE (HAS) MODELS
+# =============================================================================
+
+class Company(models.Model):
+    """
+    Normalized company entity for aggregating company-level data.
+    Links to both verified employer accounts and scraped listings.
+    """
+    name = models.CharField(max_length=255, unique=True)
+    normalized_name = models.CharField(max_length=255, db_index=True)
+
+    # Link to verified employer if claimed
+    verified_employer = models.OneToOneField(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='verified_company',
+        limit_choices_to={'userprofile__user_type': 'employer'}
+    )
+
+    # Company metadata
+    website = models.URLField(blank=True)
+    linkedin_url = models.URLField(blank=True)
+    industry = models.CharField(max_length=100, blank=True)
+    company_size = models.CharField(max_length=50, blank=True, help_text="e.g., 51-200, 1001-5000")
+    headquarters = models.CharField(max_length=200, blank=True)
+
+    # Tracking
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name_plural = 'Companies'
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+    def save(self, *args, **kwargs):
+        # Normalize company name for matching
+        self.normalized_name = self.name.lower().strip()
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def find_or_create(cls, company_name, threshold=0.85):
+        """
+        Find existing company by fuzzy match or create new one.
+        Returns (company, created) tuple.
+        """
+        from difflib import SequenceMatcher
+        normalized = company_name.lower().strip()
+
+        # Exact match first
+        try:
+            return cls.objects.get(normalized_name=normalized), False
+        except cls.DoesNotExist:
+            pass
+
+        # Fuzzy match against existing companies
+        for company in cls.objects.all():
+            ratio = SequenceMatcher(None, normalized, company.normalized_name).ratio()
+            if ratio >= threshold:
+                return company, False
+
+        # Create new
+        return cls.objects.create(name=company_name), True
+
+
+class ScrapedJobListing(models.Model):
+    """
+    Raw job listing data scraped from external ATS systems.
+    These are market-observed roles, not directly posted by employers.
+    """
+    SOURCE_ATS_CHOICES = [
+        ('greenhouse', 'Greenhouse'),
+        ('lever', 'Lever'),
+        ('workday', 'Workday'),
+        ('icims', 'iCIMS'),
+        ('taleo', 'Taleo'),
+        ('bamboohr', 'BambooHR'),
+        ('ashby', 'Ashby'),
+        ('jobvite', 'Jobvite'),
+        ('smartrecruiters', 'SmartRecruiters'),
+        ('other', 'Other'),
+    ]
+
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('stale', 'Stale'),
+        ('closed', 'Closed'),
+        ('published', 'Published to Board'),
+    ]
+
+    JOB_CATEGORY_CHOICES = [
+        ('engineering', 'Engineering/Tech'),
+        ('healthcare', 'Healthcare'),
+        ('retail', 'Retail'),
+        ('finance', 'Finance'),
+        ('sales', 'Sales'),
+        ('marketing', 'Marketing'),
+        ('operations', 'Operations'),
+        ('hr', 'Human Resources'),
+        ('legal', 'Legal'),
+        ('executive', 'Executive'),
+        ('other', 'Other'),
+    ]
+
+    # Source identification
+    source_ats = models.CharField(max_length=50, choices=SOURCE_ATS_CHOICES)
+    source_url = models.URLField(max_length=500, unique=True)
+    external_requisition_id = models.CharField(max_length=100, blank=True, db_index=True)
+
+    # Company info
+    company_name = models.CharField(max_length=255, db_index=True)
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='scraped_listings'
+    )
+    company_careers_url = models.URLField(max_length=500, blank=True)
+
+    # Job details
+    title = models.CharField(max_length=300)
+    description = models.TextField()
+    location = models.CharField(max_length=200, blank=True)
+
+    # Structured fields
+    job_type = models.CharField(max_length=50, blank=True)
+    experience_level = models.CharField(max_length=50, blank=True)
+    remote_status = models.CharField(max_length=50, blank=True)
+    salary_min = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    salary_max = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    salary_currency = models.CharField(max_length=3, default='USD')
+    department = models.CharField(max_length=100, blank=True)
+    job_category = models.CharField(max_length=50, choices=JOB_CATEGORY_CHOICES, default='other')
+
+    # Tracking and signals
+    date_first_seen = models.DateTimeField(auto_now_add=True)
+    date_last_seen = models.DateTimeField(auto_now=True)
+    date_posted_external = models.DateTimeField(null=True, blank=True)
+    date_removed = models.DateTimeField(null=True, blank=True)
+
+    # Content fingerprinting for repost detection
+    description_hash = models.CharField(max_length=64, db_index=True)
+    title_hash = models.CharField(max_length=64, db_index=True)
+    repost_count = models.PositiveIntegerField(default=0)
+    previous_listing = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reposts'
+    )
+
+    # Raw data storage
+    raw_data = models.JSONField(default=dict, blank=True)
+
+    # Status and publishing
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
+    published_to_board = models.BooleanField(default=False)
+    published_at = models.DateTimeField(null=True, blank=True)
+
+    # Link to verified job if employer claims
+    claimed_job = models.OneToOneField(
+        Job,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='scraped_source'
+    )
+
+    class Meta:
+        ordering = ['-date_last_seen']
+        indexes = [
+            models.Index(fields=['company_name', 'status']),
+            models.Index(fields=['source_ats', 'status']),
+            models.Index(fields=['date_last_seen', 'status']),
+            models.Index(fields=['published_to_board', 'status']),
+        ]
+        verbose_name = 'Scraped Job Listing'
+        verbose_name_plural = 'Scraped Job Listings'
+
+    def __str__(self):
+        return f"{self.title} at {self.company_name} ({self.source_ats})"
+
+    def save(self, *args, **kwargs):
+        import hashlib
+        # Generate content hashes
+        normalized_desc = ' '.join(self.description.lower().split())
+        self.description_hash = hashlib.sha256(normalized_desc.encode()).hexdigest()
+
+        normalized_title = ' '.join(self.title.lower().split())
+        title_company = f"{normalized_title}|{self.company_name.lower()}"
+        self.title_hash = hashlib.sha256(title_company.encode()).hexdigest()
+
+        super().save(*args, **kwargs)
+
+    def days_since_first_seen(self):
+        """Days since this listing was first observed"""
+        from django.utils import timezone
+        return (timezone.now() - self.date_first_seen).days
+
+    def days_since_last_seen(self):
+        """Days since this listing was last confirmed active"""
+        from django.utils import timezone
+        return (timezone.now() - self.date_last_seen).days
+
+    def is_stale(self, days=7):
+        """Check if listing hasn't been seen recently"""
+        return self.days_since_last_seen() >= days
+
+
+class HiringActivityScore(models.Model):
+    """
+    Computed hiring activity score for a scraped listing.
+    Indicates likelihood that the job is actively being filled.
+    """
+    SCORE_BAND_CHOICES = [
+        ('very_active', 'Very Active (80-100)'),
+        ('likely_active', 'Likely Active (65-79)'),
+        ('uncertain', 'Uncertain (50-64)'),
+        ('low_signal', 'Low Signal (0-49)'),
+    ]
+
+    listing = models.OneToOneField(
+        ScrapedJobListing,
+        on_delete=models.CASCADE,
+        related_name='activity_score'
+    )
+
+    # Overall score
+    total_score = models.PositiveSmallIntegerField(
+        default=50,
+        help_text='Score from 0-100'
+    )
+    score_band = models.CharField(max_length=20, choices=SCORE_BAND_CHOICES, default='uncertain')
+
+    # Detailed breakdown stored as JSON
+    score_breakdown = models.JSONField(
+        default=dict,
+        help_text='Individual signal scores and contributions'
+    )
+
+    # Algorithm version for tracking changes
+    score_version = models.PositiveSmallIntegerField(default=1)
+
+    # Timestamps
+    calculated_at = models.DateTimeField(auto_now=True)
+
+    # Publishing status (denormalized for query performance)
+    published_to_board = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['-total_score']
+        verbose_name = 'Hiring Activity Score'
+        verbose_name_plural = 'Hiring Activity Scores'
+
+    def __str__(self):
+        return f"{self.listing.title}: {self.total_score} ({self.score_band})"
+
+    def save(self, *args, **kwargs):
+        # Calculate score band
+        if self.total_score >= 80:
+            self.score_band = 'very_active'
+        elif self.total_score >= 65:
+            self.score_band = 'likely_active'
+        elif self.total_score >= 50:
+            self.score_band = 'uncertain'
+        else:
+            self.score_band = 'low_signal'
+
+        # Update published status based on threshold (65+)
+        self.published_to_board = self.total_score >= 65
+
+        super().save(*args, **kwargs)
+
+        # Sync to parent listing
+        if self.listing.published_to_board != self.published_to_board:
+            from django.utils import timezone
+            self.listing.published_to_board = self.published_to_board
+            if self.published_to_board and not self.listing.published_at:
+                self.listing.published_at = timezone.now()
+            self.listing.save(update_fields=['published_to_board', 'published_at'])
+
+    def get_pip_display(self):
+        """Return pip indicator string (e.g., ●●●●○)"""
+        filled = min(5, max(0, self.total_score // 20))
+        return '●' * filled + '○' * (5 - filled)
+
+
+class CompanyHiringProfile(models.Model):
+    """
+    Aggregated hiring patterns at the company level.
+    Updated periodically from scraped listing data.
+    """
+    company = models.OneToOneField(
+        Company,
+        on_delete=models.CASCADE,
+        related_name='hiring_profile'
+    )
+
+    # Activity metrics
+    total_active_listings = models.PositiveIntegerField(default=0)
+    total_historical_listings = models.PositiveIntegerField(default=0)
+    total_distinct_departments = models.PositiveIntegerField(default=0)
+
+    # Lifecycle metrics
+    avg_listing_lifespan_days = models.FloatField(null=True, blank=True)
+    median_listing_lifespan_days = models.FloatField(null=True, blank=True)
+    listing_close_rate_30d = models.FloatField(
+        null=True,
+        blank=True,
+        help_text='Percentage of listings closed in last 30 days'
+    )
+
+    # Net job movement
+    net_job_movement_30d = models.IntegerField(default=0)
+    net_job_movement_90d = models.IntegerField(default=0)
+
+    # Repost patterns
+    repost_frequency = models.FloatField(
+        default=0.0,
+        help_text='Average reposts per listing'
+    )
+
+    # Content quality signals
+    boilerplate_ratio = models.FloatField(
+        default=0.0,
+        help_text='Ratio of shared content across listings (0-1)'
+    )
+    avg_description_length = models.PositiveIntegerField(default=0)
+    has_salary_info_ratio = models.FloatField(default=0.0)
+
+    # Reputation/external signals
+    reputation_score = models.FloatField(
+        default=50.0,
+        help_text='Composite reputation score (0-100)'
+    )
+    has_recent_layoffs = models.BooleanField(default=False)
+    glassdoor_rating = models.FloatField(null=True, blank=True)
+    linkedin_followers = models.PositiveIntegerField(null=True, blank=True)
+
+    # Evergreen detection
+    evergreen_listing_count = models.PositiveIntegerField(
+        default=0,
+        help_text='Listings open > 90 days with no changes'
+    )
+
+    # Timestamps
+    last_calculated = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Company Hiring Profile'
+        verbose_name_plural = 'Company Hiring Profiles'
+
+    def __str__(self):
+        return f"{self.company.name} Hiring Profile"
+
+
+class ListingFeedback(models.Model):
+    """
+    User feedback on scraped listings for quality improvement.
+    Feeds back into scoring algorithm over time.
+    """
+    FEEDBACK_TYPE_CHOICES = [
+        ('applied_got_response', 'Applied - Got Response'),
+        ('applied_no_response', 'Applied - No Response'),
+        ('listing_outdated', 'Listing Appears Outdated'),
+        ('listing_spam', 'Listing is Spam/Fake'),
+        ('company_not_hiring', 'Company Confirmed Not Hiring'),
+        ('successfully_hired', 'Got Hired Through This'),
+        ('other', 'Other'),
+    ]
+
+    listing = models.ForeignKey(
+        ScrapedJobListing,
+        on_delete=models.CASCADE,
+        related_name='feedback'
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='listing_feedback'
+    )
+    feedback_type = models.CharField(max_length=30, choices=FEEDBACK_TYPE_CHOICES)
+    comment = models.TextField(blank=True)
+    days_to_response = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text='Days until response if applicable'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Listing Feedback'
+        verbose_name_plural = 'Listing Feedback'
+
+    def __str__(self):
+        return f"{self.listing.title} - {self.get_feedback_type_display()}"

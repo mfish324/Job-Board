@@ -23,7 +23,9 @@ from .models import (
     Job, UserProfile, JobApplication, PhoneVerification, EmailVerification,
     SavedJob, HiringStage, ApplicationStageHistory, ApplicationNote,
     ApplicationRating, ApplicationTag, ApplicationTagAssignment,
-    EmailTemplate, Notification, EmployerTeam, TeamMember, TeamInvitation
+    EmailTemplate, Notification, EmployerTeam, TeamMember, TeamInvitation,
+    # HAS models
+    Company, ScrapedJobListing, HiringActivityScore, CompanyHiringProfile, ListingFeedback
 )
 
 
@@ -962,3 +964,413 @@ class FullApplicationFlowTest(TestCase):
         response = self.client.get(reverse('user_profile'))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Software Engineer')
+
+
+# =============================================================================
+# HIRING ACTIVITY SCORE (HAS) TESTS
+# =============================================================================
+
+class CompanyModelTest(TestCase):
+    """Test Company model behavior"""
+
+    def setUp(self):
+        self.company = Company.objects.create(
+            name='Test Company Inc.',
+            website='https://testcompany.com',
+            industry='Technology'
+        )
+
+    def test_company_creation(self):
+        """Company should be created with correct attributes"""
+        self.assertEqual(self.company.name, 'Test Company Inc.')
+        self.assertEqual(self.company.industry, 'Technology')
+
+    def test_normalized_name_generation(self):
+        """Normalized name should be generated on save"""
+        self.assertIsNotNone(self.company.normalized_name)
+        # normalized_name preserves lowercase version of original name
+        self.assertEqual(self.company.normalized_name.lower(), 'test company inc.')
+
+    def test_find_or_create_exact_match(self):
+        """find_or_create should find exact match"""
+        found, created = Company.find_or_create('Test Company Inc.')
+        self.assertFalse(created)
+        self.assertEqual(found.id, self.company.id)
+
+    def test_find_or_create_new_company(self):
+        """find_or_create should create new company if not found"""
+        found, created = Company.find_or_create('New Company LLC')
+        self.assertTrue(created)
+        self.assertEqual(found.name, 'New Company LLC')
+
+
+class ScrapedJobListingModelTest(TestCase):
+    """Test ScrapedJobListing model behavior"""
+
+    def setUp(self):
+        self.company = Company.objects.create(name='Tech Corp')
+        self.listing = ScrapedJobListing.objects.create(
+            source_ats='greenhouse',
+            source_url='https://boards.greenhouse.io/techcorp/jobs/12345',
+            company_name='Tech Corp',
+            company=self.company,
+            title='Senior Software Engineer',
+            description='We are looking for a senior engineer...',
+            location='San Francisco, CA'
+        )
+
+    def test_listing_creation(self):
+        """Listing should be created with correct attributes"""
+        self.assertEqual(self.listing.title, 'Senior Software Engineer')
+        self.assertEqual(self.listing.status, 'active')
+        self.assertFalse(self.listing.published_to_board)
+
+    def test_description_hash_generated(self):
+        """Description hash should be generated on save"""
+        self.assertIsNotNone(self.listing.description_hash)
+        self.assertEqual(len(self.listing.description_hash), 64)  # SHA-256 hex
+
+    def test_days_since_first_seen(self):
+        """days_since_first_seen should calculate correctly"""
+        days = self.listing.days_since_first_seen()
+        self.assertEqual(days, 0)  # Just created
+
+    def test_is_stale_new_listing(self):
+        """New listing should not be stale"""
+        self.assertFalse(self.listing.is_stale())
+
+
+class HiringActivityScoreModelTest(TestCase):
+    """Test HiringActivityScore model behavior"""
+
+    def setUp(self):
+        self.listing = ScrapedJobListing.objects.create(
+            source_ats='lever',
+            source_url='https://jobs.lever.co/company/12345',
+            company_name='Lever Company',
+            title='Product Manager',
+            description='Product manager role...'
+        )
+        self.has = HiringActivityScore.objects.create(
+            listing=self.listing,
+            total_score=75,
+            score_breakdown={'base': {'points': 50, 'explanation': 'Base score'}}
+        )
+
+    def test_score_band_calculated_on_save(self):
+        """Score band should be calculated automatically"""
+        self.assertEqual(self.has.score_band, 'likely_active')
+
+    def test_score_band_very_active(self):
+        """Score 80+ should be very_active"""
+        self.has.total_score = 85
+        self.has.save()
+        self.assertEqual(self.has.score_band, 'very_active')
+
+    def test_score_band_uncertain(self):
+        """Score 50-64 should be uncertain"""
+        self.has.total_score = 55
+        self.has.save()
+        self.assertEqual(self.has.score_band, 'uncertain')
+
+    def test_score_band_low_signal(self):
+        """Score below 50 should be low_signal"""
+        self.has.total_score = 35
+        self.has.save()
+        self.assertEqual(self.has.score_band, 'low_signal')
+
+    def test_published_to_board_synced(self):
+        """published_to_board should sync with listing on save"""
+        self.has.total_score = 70  # Above threshold
+        self.has.save()
+        self.listing.refresh_from_db()
+        self.assertTrue(self.listing.published_to_board)
+
+
+class HASEngineTest(TestCase):
+    """Test HAS scoring engine"""
+
+    def setUp(self):
+        from jobs.scoring import HASEngine
+        self.engine = HASEngine()
+
+        self.company = Company.objects.create(
+            name='Active Company',
+            industry='technology'
+        )
+        self.profile = CompanyHiringProfile.objects.create(
+            company=self.company,
+            total_active_listings=10,
+            net_job_movement_30d=5,
+            reputation_score=75.0
+        )
+        self.listing = ScrapedJobListing.objects.create(
+            source_ats='greenhouse',
+            source_url='https://boards.greenhouse.io/active/jobs/1',
+            company_name='Active Company',
+            company=self.company,
+            title='Software Engineer',
+            description='A' * 600,  # Long description for quality points
+            location='New York, NY',
+            salary_min=80000,
+            salary_max=120000
+        )
+
+    def test_base_score(self):
+        """Score should start at base score"""
+        score, breakdown = self.engine.calculate_score(self.listing)
+        self.assertEqual(breakdown['base']['points'], 50)
+
+    def test_freshness_signal_new_listing(self):
+        """Fresh listing should get maximum freshness points"""
+        score, breakdown = self.engine.calculate_score(self.listing)
+        self.assertGreater(breakdown['freshness']['points'], 10)
+
+    def test_specificity_with_salary(self):
+        """Listing with salary should get specificity points"""
+        score, breakdown = self.engine.calculate_score(self.listing)
+        self.assertGreater(breakdown['specificity']['points'], 0)
+
+    def test_company_velocity_positive(self):
+        """Company with positive job movement should get points"""
+        score, breakdown = self.engine.calculate_score(self.listing, profile=self.profile)
+        self.assertGreater(breakdown['company_velocity']['points'], 0)
+
+    def test_company_reputation_good(self):
+        """Company with good reputation should get bonus"""
+        score, breakdown = self.engine.calculate_score(self.listing, profile=self.profile)
+        self.assertGreater(breakdown['company_reputation']['points'], 0)
+
+    def test_score_clamping_max(self):
+        """Score should be clamped to maximum of 100"""
+        # Create an ideal listing
+        score, breakdown = self.engine.calculate_score(self.listing, profile=self.profile)
+        self.assertLessEqual(score, 100)
+
+    def test_score_clamping_min(self):
+        """Score should be clamped to minimum of 0"""
+        # Create a bad listing
+        bad_listing = ScrapedJobListing.objects.create(
+            source_ats='other',
+            source_url='https://example.com/job/bad',
+            company_name='Bad Company',
+            title='Job',
+            description='Short',
+            repost_count=5
+        )
+        # Make it old by setting date_first_seen in the past
+        from django.utils import timezone
+        bad_listing.date_first_seen = timezone.now() - timedelta(days=120)
+        bad_listing.save()
+
+        score, breakdown = self.engine.calculate_score(bad_listing)
+        self.assertGreaterEqual(score, 0)
+
+    def test_get_score_band(self):
+        """get_score_band should return correct band"""
+        self.assertEqual(self.engine.get_score_band(90), 'very_active')
+        self.assertEqual(self.engine.get_score_band(70), 'likely_active')
+        self.assertEqual(self.engine.get_score_band(55), 'uncertain')
+        self.assertEqual(self.engine.get_score_band(30), 'low_signal')
+
+    def test_should_publish(self):
+        """should_publish should return True for scores >= 65"""
+        self.assertTrue(self.engine.should_publish(75))
+        self.assertTrue(self.engine.should_publish(65))
+        self.assertFalse(self.engine.should_publish(64))
+        self.assertFalse(self.engine.should_publish(50))
+
+    def test_score_listing_creates_has(self):
+        """score_listing should create HiringActivityScore record"""
+        has = self.engine.score_listing(self.listing, save=True)
+        self.assertIsNotNone(has.id)
+        self.assertIsNotNone(has.total_score)
+        self.assertIsNotNone(has.score_band)
+
+
+class HASSignalsTest(TestCase):
+    """Test individual HAS signal calculators"""
+
+    def setUp(self):
+        from jobs.scoring.config import get_config
+        self.config = get_config()
+
+        self.listing = ScrapedJobListing.objects.create(
+            source_ats='workday',
+            source_url='https://workday.com/job/1',
+            company_name='Test Company',
+            title='Test Job',
+            description='Test description for the job posting.'
+        )
+
+    def test_repost_penalty(self):
+        """Repost penalty should increase with reposts"""
+        from jobs.scoring.signals import calculate_repost_penalty
+
+        # No reposts
+        self.listing.repost_count = 0
+        points, _ = calculate_repost_penalty(self.listing, self.config)
+        self.assertEqual(points, 0)
+
+        # Some reposts
+        self.listing.repost_count = 2
+        points, _ = calculate_repost_penalty(self.listing, self.config)
+        self.assertEqual(points, -10)  # -5 per repost
+
+        # Many reposts (clamped)
+        self.listing.repost_count = 10
+        points, _ = calculate_repost_penalty(self.listing, self.config)
+        self.assertEqual(points, -15)  # Clamped to min
+
+    def test_specificity_no_salary(self):
+        """Specificity should be lower without salary"""
+        from jobs.scoring.signals import calculate_specificity
+
+        # Without salary
+        points1, _ = calculate_specificity(self.listing, self.config)
+
+        # With salary
+        self.listing.salary_min = 50000
+        self.listing.salary_max = 70000
+        points2, _ = calculate_specificity(self.listing, self.config)
+
+        self.assertGreater(points2, points1)
+
+
+class ListingFeedbackModelTest(TestCase):
+    """Test ListingFeedback model behavior"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='feedbacker', password='testpass123')
+        UserProfile.objects.create(user=self.user, user_type='job_seeker')
+        self.listing = ScrapedJobListing.objects.create(
+            source_ats='greenhouse',
+            source_url='https://boards.greenhouse.io/test/1',
+            company_name='Test Company',
+            title='Test Job',
+            description='Test description'
+        )
+
+    def test_feedback_creation(self):
+        """Feedback should be created correctly"""
+        feedback = ListingFeedback.objects.create(
+            listing=self.listing,
+            user=self.user,
+            feedback_type='applied_got_response',
+            days_to_response=5,
+            comment='Got interview!'
+        )
+        self.assertEqual(feedback.feedback_type, 'applied_got_response')
+        self.assertEqual(feedback.days_to_response, 5)
+
+
+class MarketListingsViewTest(TestCase):
+    """Test market listings views"""
+
+    def setUp(self):
+        self.client = Client()
+        self.employer = User.objects.create_user(username='employer', password='testpass123')
+        UserProfile.objects.create(user=self.employer, user_type='employer', company_name='Test Corp')
+
+        # Create and verify phone for employer
+        PhoneVerification.objects.create(user=self.employer, phone_number='+15551234567', is_verified=True)
+
+        # Create a published listing
+        self.listing = ScrapedJobListing.objects.create(
+            source_ats='greenhouse',
+            source_url='https://boards.greenhouse.io/test/1',
+            company_name='Test Corp',
+            title='Published Job',
+            description='This is a published job listing.',
+            published_to_board=True,
+            status='active'
+        )
+
+        # Create HAS score
+        HiringActivityScore.objects.create(
+            listing=self.listing,
+            total_score=75,
+            score_band='likely_active',
+            score_breakdown={}
+        )
+
+    def test_market_listings_page_loads(self):
+        """Market listings page should load"""
+        response = self.client.get(reverse('market_listings'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_market_listings_shows_published(self):
+        """Market listings should show published listings"""
+        response = self.client.get(reverse('market_listings'))
+        self.assertContains(response, 'Published Job')
+
+    def test_scraped_listing_detail_loads(self):
+        """Scraped listing detail page should load"""
+        response = self.client.get(reverse('scraped_listing_detail', args=[self.listing.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Published Job')
+
+    def test_claim_listing_requires_login(self):
+        """Claim listing should require authentication"""
+        response = self.client.get(reverse('claim_listing', args=[self.listing.id]))
+        self.assertEqual(response.status_code, 302)  # Redirect to login
+
+    def test_claim_listing_employer_only(self):
+        """Only employers can claim listings"""
+        job_seeker = User.objects.create_user(username='seeker', password='testpass123')
+        UserProfile.objects.create(user=job_seeker, user_type='job_seeker')
+        self.client.login(username='seeker', password='testpass123')
+
+        response = self.client.get(reverse('claim_listing', args=[self.listing.id]))
+        self.assertEqual(response.status_code, 302)  # Redirect with error
+
+
+class HASManagementCommandTest(TestCase):
+    """Test HAS management commands"""
+
+    def setUp(self):
+        self.listing = ScrapedJobListing.objects.create(
+            source_ats='greenhouse',
+            source_url='https://boards.greenhouse.io/test/cmd',
+            company_name='Command Test Corp',
+            title='Test Job for Commands',
+            description='Description for command testing.',
+            status='active'
+        )
+
+    def test_score_listings_dry_run(self):
+        """score_listings --dry-run should not create scores"""
+        from django.core.management import call_command
+        from io import StringIO
+
+        out = StringIO()
+        call_command('score_listings', '--dry-run', stdout=out)
+
+        # Should not create any HAS records
+        self.assertFalse(HiringActivityScore.objects.filter(listing=self.listing).exists())
+
+    def test_score_listings_creates_scores(self):
+        """score_listings should create HAS records"""
+        from django.core.management import call_command
+        from io import StringIO
+
+        out = StringIO()
+        call_command('score_listings', '--force', stdout=out)
+
+        # Should create HAS record
+        self.assertTrue(HiringActivityScore.objects.filter(listing=self.listing).exists())
+
+    def test_expire_stale_listings_dry_run(self):
+        """expire_stale_listings --dry-run should not change status"""
+        from django.core.management import call_command
+        from io import StringIO
+
+        # Make listing old
+        self.listing.date_last_seen = timezone.now() - timedelta(days=14)
+        self.listing.save()
+
+        out = StringIO()
+        call_command('expire_stale_listings', '--dry-run', stdout=out)
+
+        self.listing.refresh_from_db()
+        self.assertEqual(self.listing.status, 'active')  # Should still be active

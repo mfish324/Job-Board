@@ -1,0 +1,279 @@
+{% extends 'jobs/base.html' %}
+{% load has_tags %}
+
+{% block title %}{{ listing.title }} at {{ listing.company_name }} - Real Jobs, Real People{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'home' %}">Home</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'market_listings' %}">Market Listings</a></li>
+            <li class="breadcrumb-item active">{{ listing.title }}</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <!-- Main Content -->
+        <div class="col-lg-8">
+            <!-- Job Header -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div>
+                            <h1 class="h2 fw-bold mb-2">{{ listing.title }}</h1>
+                            <h5 class="text-primary mb-2">
+                                <i class="bi bi-building me-2"></i>{{ listing.company_name }}
+                                {{ listing|source_badge }}
+                            </h5>
+                            {% if has_score %}
+                            <div class="mt-2">
+                                {% has_indicator listing %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% if listing.salary_min or listing.salary_max %}
+                        <span class="badge bg-success" style="font-size: 1.1rem; padding: 0.75rem 1rem;">
+                            {{ listing|format_salary }}
+                        </span>
+                        {% endif %}
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        {% if listing.location %}
+                        <span class="badge bg-light text-dark p-2">
+                            <i class="bi bi-geo-alt-fill me-1"></i>{{ listing.location }}
+                        </span>
+                        {% endif %}
+                        <span class="badge bg-light text-dark p-2">
+                            <i class="bi bi-calendar3 me-1"></i>First seen {{ listing.date_first_seen|timesince }} ago
+                        </span>
+                        <span class="badge bg-light text-dark p-2">
+                            <i class="bi bi-eye me-1"></i>Last seen {{ listing.date_last_seen|timesince }} ago
+                        </span>
+                        {% if listing.source_ats %}
+                        <span class="badge bg-light text-dark p-2">
+                            <i class="bi bi-link-45deg me-1"></i>{{ listing.get_source_ats_display }}
+                        </span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Market-Observed Notice -->
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Market-Observed Listing:</strong> This job was found through automated scanning of employer career pages.
+                        {% if can_claim %}
+                        <a href="{% url 'claim_listing' listing.id %}" class="alert-link">Claim this listing</a> if you're the employer.
+                        {% endif %}
+                    </div>
+
+                    <!-- External Apply Button -->
+                    <a href="{{ listing.source_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-lg w-100">
+                        <i class="bi bi-box-arrow-up-right me-2"></i>Apply on {{ listing.get_source_ats_display }}
+                    </a>
+                </div>
+            </div>
+
+            <!-- Job Description -->
+            <div class="card mb-4">
+                <div class="card-header bg-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-file-text me-2 text-primary"></i>Job Description
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="job-description" style="line-height: 1.8;">
+                        {{ listing.description|safe }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Feedback Section -->
+            {% if user.is_authenticated %}
+            <div class="card mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-chat-dots me-2 text-primary"></i>Provide Feedback
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-3">Help improve job quality by sharing your experience with this listing.</p>
+                    <form method="post" action="{% url 'submit_listing_feedback' listing.id %}">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label class="form-label">Feedback Type</label>
+                            <select name="feedback_type" class="form-select" required>
+                                <option value="">Select...</option>
+                                <option value="applied_got_response">Applied - Got Response</option>
+                                <option value="applied_no_response">Applied - No Response</option>
+                                <option value="listing_outdated">Listing Appears Outdated</option>
+                                <option value="listing_spam">Listing is Spam/Fake</option>
+                                <option value="company_not_hiring">Company Confirmed Not Hiring</option>
+                                <option value="successfully_hired">Got Hired Through This!</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Days to Response (if applicable)</label>
+                            <input type="number" name="days_to_response" class="form-control" min="0" placeholder="e.g., 7">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Additional Comments (optional)</label>
+                            <textarea name="comment" class="form-control" rows="2" placeholder="Any additional details..."></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-outline-primary">
+                            <i class="bi bi-send me-2"></i>Submit Feedback
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Quick Actions -->
+            <div class="card mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Quick Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{{ listing.source_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
+                            <i class="bi bi-box-arrow-up-right me-2"></i>Apply Externally
+                        </a>
+                        {% if can_claim %}
+                        <a href="{% url 'claim_listing' listing.id %}" class="btn btn-success">
+                            <i class="bi bi-patch-check me-2"></i>Claim This Listing
+                        </a>
+                        {% endif %}
+                        <a href="{% url 'market_listings' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left me-2"></i>Back to Market
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Job Info -->
+            <div class="card mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Job Information</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled mb-0">
+                        <li class="mb-3">
+                            <i class="bi bi-building text-primary me-2"></i>
+                            <strong>Company:</strong><br>
+                            <span class="ms-4">{{ listing.company_name }}</span>
+                        </li>
+                        {% if listing.location %}
+                        <li class="mb-3">
+                            <i class="bi bi-geo-alt text-primary me-2"></i>
+                            <strong>Location:</strong><br>
+                            <span class="ms-4">{{ listing.location }}</span>
+                        </li>
+                        {% endif %}
+                        {% if listing.job_type %}
+                        <li class="mb-3">
+                            <i class="bi bi-briefcase text-primary me-2"></i>
+                            <strong>Job Type:</strong><br>
+                            <span class="ms-4">{{ listing.job_type|title }}</span>
+                        </li>
+                        {% endif %}
+                        {% if listing.remote_status %}
+                        <li class="mb-3">
+                            <i class="bi bi-globe text-primary me-2"></i>
+                            <strong>Work Location:</strong><br>
+                            <span class="ms-4">{{ listing.remote_status|title }}</span>
+                        </li>
+                        {% endif %}
+                        {% if listing.experience_level %}
+                        <li class="mb-3">
+                            <i class="bi bi-bar-chart text-primary me-2"></i>
+                            <strong>Experience Level:</strong><br>
+                            <span class="ms-4">{{ listing.experience_level|title }}</span>
+                        </li>
+                        {% endif %}
+                        {% if listing.department %}
+                        <li class="mb-3">
+                            <i class="bi bi-diagram-3 text-primary me-2"></i>
+                            <strong>Department:</strong><br>
+                            <span class="ms-4">{{ listing.department }}</span>
+                        </li>
+                        {% endif %}
+                        <li class="mb-3">
+                            <i class="bi bi-link-45deg text-primary me-2"></i>
+                            <strong>Source:</strong><br>
+                            <span class="ms-4">{{ listing.get_source_ats_display }}</span>
+                        </li>
+                        <li class="mb-0">
+                            <i class="bi bi-check-circle text-primary me-2"></i>
+                            <strong>Status:</strong><br>
+                            <span class="ms-4">
+                                {% if listing.status == 'active' %}
+                                <span class="badge bg-success">Active</span>
+                                {% elif listing.status == 'stale' %}
+                                <span class="badge bg-warning">Stale</span>
+                                {% elif listing.status == 'closed' %}
+                                <span class="badge bg-secondary">Closed</span>
+                                {% else %}
+                                <span class="badge bg-info">Published</span>
+                                {% endif %}
+                            </span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- HAS Score Details -->
+            {% if has_score %}
+            <div class="card mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-speedometer2 me-2 text-primary"></i>Activity Score
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-3">
+                        <span class="display-4 fw-bold text-{% if has_score.total_score >= 65 %}success{% elif has_score.total_score >= 50 %}warning{% else %}danger{% endif %}">
+                            {{ has_score.total_score }}
+                        </span>
+                        <span class="text-muted">/100</span>
+                    </div>
+                    <div class="text-center mb-3">
+                        {{ has_score|score_band_badge }}
+                    </div>
+                    <p class="text-muted small mb-0">
+                        Higher scores indicate more likely active hiring based on listing freshness,
+                        company activity, and other signals.
+                    </p>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Related Listings -->
+            {% if related_listings %}
+            <div class="card">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">More from {{ listing.company_name }}</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled mb-0">
+                        {% for related in related_listings %}
+                        <li class="mb-2">
+                            <a href="{% url 'scraped_listing_detail' related.id %}" class="text-decoration-none">
+                                {{ related.title }}
+                            </a>
+                            <br>
+                            <small class="text-muted">{{ related.location }}</small>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

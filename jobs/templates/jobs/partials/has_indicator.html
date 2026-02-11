@@ -1,0 +1,61 @@
+{% comment %}
+HAS (Hiring Activity Score) Indicator Component
+
+Displays the score as pips with optional tooltip showing breakdown.
+
+Usage:
+    {% load has_tags %}
+    {% has_indicator listing %}
+    {% has_indicator listing show_tooltip=False %}
+{% endcomment %}
+
+{% if score is not None %}
+<div class="has-indicator d-inline-flex align-items-center gap-1">
+    {% comment %} Score Pips {% endcomment %}
+    <span class="has-pips" {% if show_tooltip %}data-bs-toggle="tooltip" data-bs-html="true" title="{% spaceless %}
+        <strong>Hiring Activity Score: {{ score }}/100</strong><br>
+        <small class='text-muted'>{{ band|title }}</small>
+        {% if breakdown %}
+        <hr class='my-1'>
+        {% for signal, data in breakdown.items %}
+            {% if data.points != 0 or signal == 'base' %}
+            {{ signal|title }}: {% if data.points > 0 %}+{% endif %}{{ data.points }}<br>
+            {% endif %}
+        {% endfor %}
+        {% endif %}
+    {% endspaceless %}"{% endif %}>
+        {% if score >= 80 %}
+            <span class="text-success">●●●●●</span>
+        {% elif score >= 60 %}
+            <span class="text-success">●●●●</span><span class="text-muted">○</span>
+        {% elif score >= 40 %}
+            <span class="text-warning">●●●</span><span class="text-muted">○○</span>
+        {% elif score >= 20 %}
+            <span class="text-warning">●●</span><span class="text-muted">○○○</span>
+        {% else %}
+            <span class="text-danger">●</span><span class="text-muted">○○○○</span>
+        {% endif %}
+    </span>
+
+    {% comment %} Band Badge {% endcomment %}
+    {% if band == 'very_active' %}
+        <span class="badge bg-success-subtle text-success">
+            <i class="bi bi-lightning-charge-fill"></i> Very Active
+        </span>
+    {% elif band == 'likely_active' %}
+        <span class="badge bg-primary-subtle text-primary">
+            <i class="bi bi-check-circle"></i> Likely Active
+        </span>
+    {% elif band == 'uncertain' %}
+        <span class="badge bg-warning-subtle text-warning">
+            <i class="bi bi-question-circle"></i> Uncertain
+        </span>
+    {% elif band == 'low_signal' %}
+        <span class="badge bg-secondary-subtle text-secondary">
+            <i class="bi bi-exclamation-circle"></i> Low Signal
+        </span>
+    {% endif %}
+</div>
+{% else %}
+<span class="text-muted">—</span>
+{% endif %}

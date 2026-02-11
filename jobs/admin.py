@@ -8,7 +8,8 @@ import io
 from .models import (Job, UserProfile, JobApplication, PhoneVerification, EmailVerification, SavedJob,
                      HiringStage, ApplicationStageHistory, ApplicationNote, ApplicationRating,
                      ApplicationTag, ApplicationTagAssignment, EmailTemplate, Notification,
-                     EmailLog, Message, EmployerTeam, TeamMember, TeamInvitation, ActivityLog)
+                     EmailLog, Message, EmployerTeam, TeamMember, TeamInvitation, ActivityLog,
+                     Company, ScrapedJobListing, HiringActivityScore, CompanyHiringProfile, ListingFeedback)
 
 
 class CsvImportForm(forms.Form):
@@ -401,3 +402,173 @@ class ActivityLogAdmin(admin.ModelAdmin):
     def description_preview(self, obj):
         return obj.description[:50] + '...' if len(obj.description) > 50 else obj.description
     description_preview.short_description = 'Description'
+
+
+# =============================================================================
+# HIRING ACTIVITY SCORE (HAS) ADMIN
+# =============================================================================
+
+@admin.register(Company)
+class CompanyAdmin(admin.ModelAdmin):
+    list_display = ('name', 'verified_employer', 'industry', 'active_listings_count', 'created_at')
+    list_filter = ('industry', 'created_at')
+    search_fields = ('name', 'normalized_name', 'website')
+    readonly_fields = ('normalized_name', 'created_at', 'updated_at')
+    raw_id_fields = ('verified_employer',)
+
+    fieldsets = (
+        ('Company Information', {
+            'fields': ('name', 'normalized_name', 'verified_employer')
+        }),
+        ('Details', {
+            'fields': ('website', 'linkedin_url', 'industry', 'company_size', 'headquarters')
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def active_listings_count(self, obj):
+        return obj.scraped_listings.filter(status='active').count()
+    active_listings_count.short_description = 'Active Listings'
+
+
+@admin.register(ScrapedJobListing)
+class ScrapedJobListingAdmin(admin.ModelAdmin):
+    list_display = ('title', 'company_name', 'source_ats', 'status', 'has_score',
+                    'days_open', 'published_to_board', 'date_last_seen')
+    list_filter = ('source_ats', 'status', 'published_to_board', 'job_category', 'date_first_seen')
+    search_fields = ('title', 'company_name', 'description', 'external_requisition_id')
+    readonly_fields = ('description_hash', 'title_hash', 'date_first_seen', 'date_last_seen')
+    raw_id_fields = ('company', 'claimed_job', 'previous_listing')
+    date_hierarchy = 'date_first_seen'
+
+    fieldsets = (
+        ('Source Information', {
+            'fields': ('source_ats', 'source_url', 'external_requisition_id', 'company_careers_url')
+        }),
+        ('Company', {
+            'fields': ('company_name', 'company')
+        }),
+        ('Job Details', {
+            'fields': ('title', 'description', 'location', 'job_type',
+                       'experience_level', 'remote_status', 'department', 'job_category')
+        }),
+        ('Salary', {
+            'fields': ('salary_min', 'salary_max', 'salary_currency'),
+            'classes': ('collapse',)
+        }),
+        ('Tracking', {
+            'fields': ('date_first_seen', 'date_last_seen', 'date_posted_external', 'date_removed',
+                       'description_hash', 'title_hash', 'repost_count', 'previous_listing')
+        }),
+        ('Status', {
+            'fields': ('status', 'published_to_board', 'published_at', 'claimed_job')
+        }),
+        ('Raw Data', {
+            'fields': ('raw_data',),
+            'classes': ('collapse',)
+        }),
+    )
+
+    @admin.display(description='HAS')
+    def has_score(self, obj):
+        try:
+            return obj.activity_score.total_score
+        except HiringActivityScore.DoesNotExist:
+            return '-'
+
+    @admin.display(description='Days Open')
+    def days_open(self, obj):
+        return obj.days_since_first_seen()
+
+
+@admin.register(HiringActivityScore)
+class HiringActivityScoreAdmin(admin.ModelAdmin):
+    list_display = ('listing_title', 'company', 'total_score', 'score_band',
+                    'published_to_board', 'calculated_at')
+    list_filter = ('score_band', 'published_to_board', 'calculated_at')
+    search_fields = ('listing__title', 'listing__company_name')
+    readonly_fields = ('calculated_at', 'score_breakdown_display')
+    raw_id_fields = ('listing',)
+
+    fieldsets = (
+        ('Listing', {
+            'fields': ('listing',)
+        }),
+        ('Score', {
+            'fields': ('total_score', 'score_band', 'score_version', 'published_to_board')
+        }),
+        ('Breakdown', {
+            'fields': ('score_breakdown_display',)
+        }),
+        ('Timestamps', {
+            'fields': ('calculated_at',),
+            'classes': ('collapse',)
+        }),
+    )
+
+    @admin.display(description='Listing')
+    def listing_title(self, obj):
+        return obj.listing.title[:50]
+
+    @admin.display(description='Company')
+    def company(self, obj):
+        return obj.listing.company_name
+
+    @admin.display(description='Score Breakdown')
+    def score_breakdown_display(self, obj):
+        import json
+        return json.dumps(obj.score_breakdown, indent=2)
+
+
+@admin.register(CompanyHiringProfile)
+class CompanyHiringProfileAdmin(admin.ModelAdmin):
+    list_display = ('company', 'total_active_listings', 'net_job_movement_30d',
+                    'avg_listing_lifespan_days', 'reputation_score', 'last_calculated')
+    list_filter = ('has_recent_layoffs', 'last_calculated')
+    search_fields = ('company__name',)
+    readonly_fields = ('last_calculated',)
+    raw_id_fields = ('company',)
+
+    fieldsets = (
+        ('Company', {
+            'fields': ('company',)
+        }),
+        ('Activity Metrics', {
+            'fields': ('total_active_listings', 'total_historical_listings', 'total_distinct_departments')
+        }),
+        ('Lifecycle Metrics', {
+            'fields': ('avg_listing_lifespan_days', 'median_listing_lifespan_days', 'listing_close_rate_30d')
+        }),
+        ('Job Movement', {
+            'fields': ('net_job_movement_30d', 'net_job_movement_90d', 'repost_frequency')
+        }),
+        ('Content Quality', {
+            'fields': ('boilerplate_ratio', 'avg_description_length', 'has_salary_info_ratio')
+        }),
+        ('Reputation', {
+            'fields': ('reputation_score', 'has_recent_layoffs', 'glassdoor_rating', 'linkedin_followers')
+        }),
+        ('Evergreen Detection', {
+            'fields': ('evergreen_listing_count',)
+        }),
+        ('Timestamps', {
+            'fields': ('last_calculated',),
+            'classes': ('collapse',)
+        }),
+    )
+
+
+@admin.register(ListingFeedback)
+class ListingFeedbackAdmin(admin.ModelAdmin):
+    list_display = ('listing_title', 'feedback_type', 'user', 'days_to_response', 'created_at')
+    list_filter = ('feedback_type', 'created_at')
+    search_fields = ('listing__title', 'listing__company_name', 'comment')
+    date_hierarchy = 'created_at'
+    raw_id_fields = ('listing', 'user')
+
+    @admin.display(description='Listing')
+    def listing_title(self, obj):
+        return obj.listing.title[:50]

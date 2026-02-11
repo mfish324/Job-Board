@@ -138,4 +138,10 @@ urlpatterns = [
 
     # Chatbot API
     path('api/chatbot/', views.chatbot_api, name='chatbot_api'),
+
+    # Market Listings (Scraped Jobs with HAS)
+    path('market/', views.market_listings, name='market_listings'),
+    path('market/listing/<int:listing_id>/', views.scraped_listing_detail, name='scraped_listing_detail'),
+    path('employer/claim-listing/<int:listing_id>/', views.claim_listing, name='claim_listing'),
+    path('market/listing/<int:listing_id>/feedback/', views.submit_listing_feedback, name='submit_listing_feedback'),
 ]

@@ -418,3 +418,19 @@ SOCIALACCOUNT_PROVIDERS = {
 # Google OAuth credentials (set in environment variables)
 GOOGLE_CLIENT_ID = config('GOOGLE_CLIENT_ID', default='')
 GOOGLE_CLIENT_SECRET = config('GOOGLE_CLIENT_SECRET', default='')
+
+# ===========================================
+# HIRING ACTIVITY SCORE (HAS) CONFIGURATION
+# ===========================================
+# Override defaults from jobs.scoring.config.DEFAULT_HAS_CONFIG
+# Only specify values you want to change from defaults
+HAS_CONFIG = {
+    # Publishing threshold - minimum score to auto-publish scraped listings
+    'publish_threshold': 65,
+
+    # You can override specific signal weights here if needed
+    # Example:
+    # 'freshness': {
+    #     'max_points': 20,  # Increase freshness importance
+    # },
+}

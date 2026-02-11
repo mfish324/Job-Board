@@ -1,0 +1,102 @@
+{% extends 'jobs/base.html' %}
+
+{% block title %}Claim Listing - {{ listing.title }} - Real Jobs, Real People{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <!-- Breadcrumb -->
+            <nav aria-label="breadcrumb" class="mb-4">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'home' %}">Home</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'market_listings' %}">Market Listings</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'scraped_listing_detail' listing.id %}">{{ listing.title|truncatewords:5 }}</a></li>
+                    <li class="breadcrumb-item active">Claim Listing</li>
+                </ol>
+            </nav>
+
+            <div class="card">
+                <div class="card-header bg-white">
+                    <h3 class="mb-0">
+                        <i class="bi bi-patch-check-fill text-success me-2"></i>
+                        Claim This Listing
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <h5 class="alert-heading">
+                            <i class="bi bi-info-circle me-2"></i>What happens when you claim a listing?
+                        </h5>
+                        <ul class="mb-0">
+                            <li>The listing becomes a <strong>Verified Employer</strong> job posting</li>
+                            <li>It will appear with a verification badge on our job board</li>
+                            <li>You can edit the listing from your employer dashboard</li>
+                            <li>Applicants can apply directly through our platform</li>
+                            <li>You'll have access to our Applicant Tracking System (ATS)</li>
+                        </ul>
+                    </div>
+
+                    <h4 class="mb-3">Listing Details</h4>
+                    <table class="table table-bordered">
+                        <tr>
+                            <th style="width: 30%;">Job Title</th>
+                            <td>{{ listing.title }}</td>
+                        </tr>
+                        <tr>
+                            <th>Company</th>
+                            <td>{{ listing.company_name }}</td>
+                        </tr>
+                        <tr>
+                            <th>Location</th>
+                            <td>{{ listing.location|default:"Not specified" }}</td>
+                        </tr>
+                        <tr>
+                            <th>Salary</th>
+                            <td>
+                                {% if listing.salary_min and listing.salary_max %}
+                                ${{ listing.salary_min|floatformat:0 }} - ${{ listing.salary_max|floatformat:0 }} {{ listing.salary_currency }}
+                                {% else %}
+                                Not specified
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Source</th>
+                            <td>{{ listing.get_source_ats_display }}</td>
+                        </tr>
+                        <tr>
+                            <th>First Seen</th>
+                            <td>{{ listing.date_first_seen|date:"F d, Y" }}</td>
+                        </tr>
+                    </table>
+
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <strong>Important:</strong> By claiming this listing, you confirm that you are an authorized representative of <strong>{{ listing.company_name }}</strong> and have the authority to post jobs on behalf of this company.
+                    </div>
+
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="form-check mb-4">
+                            <input class="form-check-input" type="checkbox" id="confirmClaim" required>
+                            <label class="form-check-label" for="confirmClaim">
+                                I confirm that I am authorized to claim and manage job postings for <strong>{{ listing.company_name }}</strong>.
+                            </label>
+                        </div>
+
+                        <div class="d-flex gap-3">
+                            <button type="submit" class="btn btn-success btn-lg">
+                                <i class="bi bi-patch-check-fill me-2"></i>Claim This Listing
+                            </button>
+                            <a href="{% url 'scraped_listing_detail' listing.id %}" class="btn btn-outline-secondary btn-lg">
+                                Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -20,7 +20,9 @@ from .models import (Job, UserProfile, JobApplication, PhoneVerification, EmailV
                      HiringStage, ApplicationStageHistory, ApplicationNote, ApplicationRating,
                      ApplicationTag, ApplicationTagAssignment, EmailTemplate, Notification,
                      EmailLog, Message, EmployerTeam, TeamMember, TeamInvitation, ActivityLog,
-                     ChatLog, TwoFactorCode, SiteVisit)
+                     ChatLog, TwoFactorCode, SiteVisit,
+                     # HAS models
+                     Company, ScrapedJobListing, HiringActivityScore, CompanyHiringProfile, ListingFeedback)
 from .forms import (JobSeekerSignUpForm, EmployerSignUpForm, RecruiterSignUpForm,
                    JobPostForm, JobApplicationForm, JobSeekerProfileForm,
                    EmployerProfileForm, RecruiterProfileForm)
@@ -3078,3 +3080,227 @@ Keep responses brief (2-3 sentences when possible). Do not make up features that
             'response': "I'm having trouble right now. Please try again or email contact@realjobsrealpeople.net for help.",
             'is_ai': False
         })
+
+
+# =============================================================================
+# HIRING ACTIVITY SCORE (HAS) - MARKET LISTING VIEWS
+# =============================================================================
+
+def scraped_listing_detail(request, listing_id):
+    """
+    Display details of a scraped job listing from the market.
+
+    Shows the listing details along with the HAS indicator and allows
+    employers to claim the listing if it's their company.
+    """
+    listing = get_object_or_404(ScrapedJobListing, id=listing_id)
+
+    # Check if listing should be viewable (published or high score)
+    if not listing.published_to_board:
+        try:
+            if listing.activity_score.total_score < 50:
+                messages.warning(request, 'This listing is not currently available.')
+                return redirect('job_list')
+        except HiringActivityScore.DoesNotExist:
+            pass
+
+    # Get the HAS score if available
+    has_score = None
+    try:
+        has_score = listing.activity_score
+    except HiringActivityScore.DoesNotExist:
+        pass
+
+    # Check if current user can claim this listing
+    can_claim = False
+    if request.user.is_authenticated:
+        try:
+            profile = request.user.userprofile
+            if profile.user_type == 'employer':
+                # User is an employer - check if company name matches
+                if profile.company_name:
+                    company_match = listing.company_name.lower() in profile.company_name.lower() or \
+                                    profile.company_name.lower() in listing.company_name.lower()
+                    can_claim = company_match and not listing.claimed_job
+        except UserProfile.DoesNotExist:
+            pass
+
+    # Get related listings from the same company
+    related_listings = ScrapedJobListing.objects.filter(
+        company_name=listing.company_name,
+        status='active',
+        published_to_board=True
+    ).exclude(id=listing.id)[:5]
+
+    context = {
+        'listing': listing,
+        'has_score': has_score,
+        'can_claim': can_claim,
+        'related_listings': related_listings,
+    }
+    return render(request, 'jobs/scraped_listing_detail.html', context)
+
+
+@login_required
+def claim_listing(request, listing_id):
+    """
+    Allow an employer to claim a scraped listing as their own.
+
+    This creates a verified Job from the ScrapedJobListing and links them.
+    """
+    listing = get_object_or_404(ScrapedJobListing, id=listing_id)
+
+    # Check that user is an employer
+    try:
+        profile = request.user.userprofile
+        if profile.user_type != 'employer':
+            messages.error(request, 'Only employers can claim listings.')
+            return redirect('scraped_listing_detail', listing_id=listing_id)
+    except UserProfile.DoesNotExist:
+        messages.error(request, 'Please complete your profile first.')
+        return redirect('user_profile')
+
+    # Check that listing isn't already claimed
+    if listing.claimed_job:
+        messages.warning(request, 'This listing has already been claimed.')
+        return redirect('scraped_listing_detail', listing_id=listing_id)
+
+    if request.method == 'POST':
+        # Create a new Job from the scraped listing
+        job = Job.objects.create(
+            title=listing.title,
+            company=listing.company_name,
+            description=listing.description,
+            location=listing.location or '',
+            salary=f"${listing.salary_min:,.0f} - ${listing.salary_max:,.0f}" if listing.salary_min and listing.salary_max else '',
+            job_type=listing.job_type or 'full_time',
+            experience_level=listing.experience_level or 'mid',
+            remote_status=listing.remote_status or 'on_site',
+            posted_by=request.user,
+            is_active=True
+        )
+
+        # Link the scraped listing to the claimed job
+        listing.claimed_job = job
+        listing.status = 'published'
+        listing.published_to_board = True
+        listing.published_at = timezone.now()
+        listing.save()
+
+        # Link company to employer if not already
+        if listing.company:
+            if not listing.company.verified_employer:
+                listing.company.verified_employer = request.user
+                listing.company.save()
+
+        messages.success(request, f'Successfully claimed "{job.title}". You can now manage it from your dashboard.')
+        return redirect('edit_job', job_id=job.id)
+
+    context = {
+        'listing': listing,
+    }
+    return render(request, 'jobs/claim_listing.html', context)
+
+
+@login_required
+@require_POST
+def submit_listing_feedback(request, listing_id):
+    """
+    Submit feedback about a scraped listing.
+
+    Allows users to report if a listing is outdated, fake, or if they
+    applied and got a response (positive signals for HAS).
+    """
+    listing = get_object_or_404(ScrapedJobListing, id=listing_id)
+
+    feedback_type = request.POST.get('feedback_type')
+    comment = request.POST.get('comment', '').strip()
+    days_to_response = request.POST.get('days_to_response')
+
+    if feedback_type not in dict(ListingFeedback.FEEDBACK_TYPE_CHOICES):
+        messages.error(request, 'Invalid feedback type.')
+        return redirect('scraped_listing_detail', listing_id=listing_id)
+
+    # Create the feedback
+    ListingFeedback.objects.create(
+        listing=listing,
+        user=request.user,
+        feedback_type=feedback_type,
+        comment=comment,
+        days_to_response=int(days_to_response) if days_to_response else None
+    )
+
+    messages.success(request, 'Thank you for your feedback! This helps improve job quality for everyone.')
+    return redirect('scraped_listing_detail', listing_id=listing_id)
+
+
+def market_listings(request):
+    """
+    Display market-observed job listings (scraped from ATS).
+
+    Shows listings with HAS scores above the publish threshold.
+    """
+    from datetime import timedelta
+
+    # Only show published listings with good scores
+    listings = ScrapedJobListing.objects.filter(
+        published_to_board=True,
+        status__in=['active', 'published']
+    ).select_related('company', 'activity_score')
+
+    # Search query
+    search_query = request.GET.get('search', '')
+    if search_query:
+        listings = listings.filter(
+            Q(title__icontains=search_query) |
+            Q(company_name__icontains=search_query) |
+            Q(description__icontains=search_query) |
+            Q(location__icontains=search_query)
+        )
+
+    # Location filter
+    location_filter = request.GET.get('location', '')
+    if location_filter:
+        listings = listings.filter(location__icontains=location_filter)
+
+    # ATS source filter
+    source_filter = request.GET.get('source', '')
+    if source_filter:
+        listings = listings.filter(source_ats=source_filter)
+
+    # Score band filter
+    score_filter = request.GET.get('score', '')
+    if score_filter:
+        listings = listings.filter(activity_score__score_band=score_filter)
+
+    # Category filter
+    category_filter = request.GET.get('category', '')
+    if category_filter:
+        listings = listings.filter(job_category=category_filter)
+
+    # Sort by score or date
+    sort_by = request.GET.get('sort', 'score')
+    if sort_by == 'date':
+        listings = listings.order_by('-date_first_seen')
+    else:
+        listings = listings.order_by('-activity_score__total_score', '-date_first_seen')
+
+    # Get filter options
+    ats_choices = ScrapedJobListing.SOURCE_ATS_CHOICES
+    category_choices = ScrapedJobListing.JOB_CATEGORY_CHOICES
+    score_band_choices = HiringActivityScore.SCORE_BAND_CHOICES
+
+    context = {
+        'listings': listings,
+        'search_query': search_query,
+        'location_filter': location_filter,
+        'source_filter': source_filter,
+        'score_filter': score_filter,
+        'category_filter': category_filter,
+        'sort_by': sort_by,
+        'total_results': listings.count(),
+        'ats_choices': ats_choices,
+        'category_choices': category_choices,
+        'score_band_choices': score_band_choices,
+    }
+    return render(request, 'jobs/market_listings.html', context)
