@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -41,8 +42,23 @@ def ratelimited_error(request, exception):
 # Your existing views stay the same
 def home(request):
     recent_jobs = Job.objects.filter(is_active=True).order_by('-posted_date')[:5]
-    total_jobs = Job.objects.filter(is_active=True).count()
-    total_companies = Job.objects.values('company').distinct().count(),
+    total_verified = Job.objects.filter(is_active=True).count()
+    total_observed = ScrapedJobListing.objects.filter(
+        published_to_board=True, status__in=['active', 'published']
+    ).count()
+    total_jobs = total_verified + total_observed
+
+    # Merge unique company names from both models
+    verified_companies = set(
+        Job.objects.filter(is_active=True).values_list('company', flat=True).distinct()
+    )
+    observed_companies = set(
+        ScrapedJobListing.objects.filter(
+            published_to_board=True, status__in=['active', 'published']
+        ).values_list('company_name', flat=True).distinct()
+    )
+    total_companies = len(verified_companies | observed_companies)
+
     total_seekers = UserProfile.objects.filter(user_type='job_seeker').count()
     context = {
         'recent_jobs': recent_jobs,
@@ -54,66 +70,117 @@ def home(request):
 
 def job_list(request):
     from datetime import timedelta
+    from django.core.paginator import Paginator
+    from .unified import UnifiedListing
 
-    # Start with active jobs that are not expired
-    jobs = Job.objects.filter(is_active=True).filter(
+    # Read filter params
+    search_query = request.GET.get('search', '')
+    location_filter = request.GET.get('location', '')
+    salary_filter = request.GET.get('salary', '')
+    date_filter = request.GET.get('date_posted', '')
+    job_type_filter = request.GET.get('job_type', '')
+    experience_filter = request.GET.get('experience', '')
+    remote_filter = request.GET.get('remote', '')
+    source_filter = request.GET.get('source', '')
+    activity_filter = request.GET.get('activity', '')
+    sort_mode = request.GET.get('sort', 'relevant')
+
+    # --- Verified jobs queryset ---
+    verified_qs = Job.objects.filter(is_active=True).filter(
         Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now())
     )
 
-    # Search query
-    search_query = request.GET.get('search', '')
+    # --- Observed listings queryset ---
+    observed_qs = ScrapedJobListing.objects.filter(
+        published_to_board=True,
+        status__in=['active', 'published']
+    ).select_related('activity_score')
+
+    # Apply shared filters to both
     if search_query:
-        jobs = jobs.filter(
+        verified_qs = verified_qs.filter(
             Q(title__icontains=search_query) |
             Q(company__icontains=search_query) |
             Q(description__icontains=search_query) |
             Q(location__icontains=search_query)
         )
+        observed_qs = observed_qs.filter(
+            Q(title__icontains=search_query) |
+            Q(company_name__icontains=search_query) |
+            Q(description__icontains=search_query) |
+            Q(location__icontains=search_query)
+        )
 
-    # Location filter
-    location_filter = request.GET.get('location', '')
     if location_filter:
-        jobs = jobs.filter(location__icontains=location_filter)
+        verified_qs = verified_qs.filter(location__icontains=location_filter)
+        observed_qs = observed_qs.filter(location__icontains=location_filter)
 
-    # Salary filter (has salary or not)
-    salary_filter = request.GET.get('salary', '')
     if salary_filter == 'with_salary':
-        jobs = jobs.exclude(salary='')
+        verified_qs = verified_qs.exclude(salary='')
+        observed_qs = observed_qs.filter(
+            Q(salary_min__isnull=False) | Q(salary_max__isnull=False)
+        )
 
-    # Date posted filter
-    date_filter = request.GET.get('date_posted', '')
     if date_filter:
+        now = timezone.now()
         if date_filter == '24h':
-            jobs = jobs.filter(posted_date__gte=timezone.now() - timedelta(hours=24))
+            cutoff = now - timedelta(hours=24)
         elif date_filter == '7d':
-            jobs = jobs.filter(posted_date__gte=timezone.now() - timedelta(days=7))
+            cutoff = now - timedelta(days=7)
         elif date_filter == '30d':
-            jobs = jobs.filter(posted_date__gte=timezone.now() - timedelta(days=30))
+            cutoff = now - timedelta(days=30)
+        else:
+            cutoff = None
+        if cutoff:
+            verified_qs = verified_qs.filter(posted_date__gte=cutoff)
+            observed_qs = observed_qs.filter(date_first_seen__gte=cutoff)
 
-    # Job type filter
-    job_type_filter = request.GET.get('job_type', '')
     if job_type_filter:
-        jobs = jobs.filter(job_type=job_type_filter)
+        verified_qs = verified_qs.filter(job_type=job_type_filter)
+        observed_qs = observed_qs.filter(job_type__icontains=job_type_filter)
 
-    # Experience level filter
-    experience_filter = request.GET.get('experience', '')
     if experience_filter:
-        jobs = jobs.filter(experience_level=experience_filter)
+        verified_qs = verified_qs.filter(experience_level=experience_filter)
+        observed_qs = observed_qs.filter(experience_level__icontains=experience_filter)
 
-    # Remote status filter
-    remote_filter = request.GET.get('remote', '')
     if remote_filter:
-        jobs = jobs.filter(remote_status=remote_filter)
+        verified_qs = verified_qs.filter(remote_status=remote_filter)
+        observed_qs = observed_qs.filter(remote_status__icontains=remote_filter)
 
-    # Get unique locations for filter dropdown (exclude expired jobs)
-    all_locations = Job.objects.filter(is_active=True).filter(
-        Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now())
-    ).values_list('location', flat=True).distinct().order_by('location')
+    # Activity band filter (observed only)
+    if activity_filter:
+        observed_qs = observed_qs.filter(activity_score__score_band=activity_filter)
 
-    jobs = jobs.order_by('-posted_date')
+    # Source filter: show only one type if requested
+    if source_filter == 'verified':
+        observed_qs = observed_qs.none()
+    elif source_filter == 'observed':
+        verified_qs = verified_qs.none()
+
+    # Get counts before capping
+    verified_count = verified_qs.count()
+    observed_count = observed_qs.count()
+    total_results = verified_count + observed_count
+
+    # Cap querysets for performance
+    verified_qs = verified_qs[:2000]
+    observed_qs = observed_qs[:2000]
+
+    # Merge and sort
+    items = UnifiedListing.merge_querysets(verified_qs, observed_qs, sort_mode)
+
+    # Paginate
+    paginator = Paginator(items, 24)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    # Build filter querystring for pagination links (all GET params except 'page')
+    filter_params = request.GET.copy()
+    filter_params.pop('page', None)
+    filter_querystring = filter_params.urlencode()
 
     context = {
-        'jobs': jobs,
+        'page_obj': page_obj,
         'search_query': search_query,
         'location_filter': location_filter,
         'salary_filter': salary_filter,
@@ -121,12 +188,18 @@ def job_list(request):
         'job_type_filter': job_type_filter,
         'experience_filter': experience_filter,
         'remote_filter': remote_filter,
-        'all_locations': all_locations,
-        'total_results': jobs.count(),
+        'source_filter': source_filter,
+        'activity_filter': activity_filter,
+        'sort_mode': sort_mode,
+        'total_results': total_results,
+        'verified_count': verified_count,
+        'observed_count': observed_count,
+        'filter_querystring': filter_querystring,
         # Provide choices for filters
         'job_type_choices': Job.JOB_TYPE_CHOICES,
         'experience_level_choices': Job.EXPERIENCE_LEVEL_CHOICES,
         'remote_status_choices': Job.REMOTE_STATUS_CHOICES,
+        'score_band_choices': HiringActivityScore.SCORE_BAND_CHOICES,
     }
     return render(request, 'jobs/job_list.html', context)
 
@@ -3086,9 +3159,9 @@ Keep responses brief (2-3 sentences when possible). Do not make up features that
 # HIRING ACTIVITY SCORE (HAS) - MARKET LISTING VIEWS
 # =============================================================================
 
-def scraped_listing_detail(request, listing_id):
+def observed_listing_detail(request, listing_id):
     """
-    Display details of a scraped job listing from the market.
+    Display details of a market-observed job listing.
 
     Shows the listing details along with the HAS indicator and allows
     employers to claim the listing if it's their company.
@@ -3100,11 +3173,10 @@ def scraped_listing_detail(request, listing_id):
         try:
             if listing.activity_score.total_score < 50:
                 messages.warning(request, 'This listing is not currently available.')
-                return redirect('market_listings')
+                return redirect('job_list')
         except HiringActivityScore.DoesNotExist:
-            # No score at all - redirect unpublished listings
             messages.warning(request, 'This listing is not currently available.')
-            return redirect('market_listings')
+            return redirect('job_list')
 
     # Get the HAS score if available
     has_score = None
@@ -3176,7 +3248,7 @@ def claim_listing(request, listing_id):
         profile = request.user.userprofile
         if profile.user_type != 'employer':
             messages.error(request, 'Only employers can claim listings.')
-            return redirect('scraped_listing_detail', listing_id=listing_id)
+            return redirect('observed_listing_detail', listing_id=listing_id)
     except UserProfile.DoesNotExist:
         messages.error(request, 'Please complete your profile first.')
         return redirect('user_profile')
@@ -3184,12 +3256,12 @@ def claim_listing(request, listing_id):
     # Require employer verification before claiming
     if not profile.is_verified():
         messages.error(request, 'Please verify your email or phone before claiming listings.')
-        return redirect('scraped_listing_detail', listing_id=listing_id)
+        return redirect('observed_listing_detail', listing_id=listing_id)
 
     # Check that listing isn't already claimed
     if listing.claimed_job:
         messages.warning(request, 'This listing has already been claimed.')
-        return redirect('scraped_listing_detail', listing_id=listing_id)
+        return redirect('observed_listing_detail', listing_id=listing_id)
 
     if request.method == 'POST':
         # Create a new Job from the scraped listing
@@ -3256,7 +3328,7 @@ def submit_listing_feedback(request, listing_id):
 
     if feedback_type not in dict(ListingFeedback.FEEDBACK_TYPE_CHOICES):
         messages.error(request, 'Invalid feedback type.')
-        return redirect('scraped_listing_detail', listing_id=listing_id)
+        return redirect('observed_listing_detail', listing_id=listing_id)
 
     # Create the feedback
     ListingFeedback.objects.create(
@@ -3268,79 +3340,24 @@ def submit_listing_feedback(request, listing_id):
     )
 
     messages.success(request, 'Thank you for your feedback! This helps improve job quality for everyone.')
-    return redirect('scraped_listing_detail', listing_id=listing_id)
+    return redirect('observed_listing_detail', listing_id=listing_id)
 
 
-def market_listings(request):
-    """
-    Display market-observed job listings (scraped from ATS).
+def market_redirect(request):
+    """301 redirect from /market/ to /jobs/ (preserves query string)."""
+    from django.http import HttpResponsePermanentRedirect
+    qs = request.META.get('QUERY_STRING', '')
+    url = reverse('job_list')
+    if qs:
+        url = f'{url}?{qs}'
+    return HttpResponsePermanentRedirect(url)
 
-    Shows listings with HAS scores above the publish threshold.
-    """
-    from datetime import timedelta
 
-    # Only show published listings with good scores
-    listings = ScrapedJobListing.objects.filter(
-        published_to_board=True,
-        status__in=['active', 'published']
-    ).select_related('company', 'activity_score')
-
-    # Search query
-    search_query = request.GET.get('search', '')
-    if search_query:
-        listings = listings.filter(
-            Q(title__icontains=search_query) |
-            Q(company_name__icontains=search_query) |
-            Q(description__icontains=search_query) |
-            Q(location__icontains=search_query)
-        )
-
-    # Location filter
-    location_filter = request.GET.get('location', '')
-    if location_filter:
-        listings = listings.filter(location__icontains=location_filter)
-
-    # ATS source filter
-    source_filter = request.GET.get('source', '')
-    if source_filter:
-        listings = listings.filter(source_ats=source_filter)
-
-    # Score band filter
-    score_filter = request.GET.get('score', '')
-    if score_filter:
-        listings = listings.filter(activity_score__score_band=score_filter)
-
-    # Category filter
-    category_filter = request.GET.get('category', '')
-    if category_filter:
-        listings = listings.filter(job_category=category_filter)
-
-    # Sort by score or date
-    sort_by = request.GET.get('sort', 'score')
-    if sort_by == 'date':
-        listings = listings.order_by('-date_first_seen')
-    else:
-        listings = listings.order_by('-activity_score__total_score', '-date_first_seen')
-
-    # Get filter options
-    ats_choices = ScrapedJobListing.SOURCE_ATS_CHOICES
-    category_choices = ScrapedJobListing.JOB_CATEGORY_CHOICES
-    score_band_choices = HiringActivityScore.SCORE_BAND_CHOICES
-
-    context = {
-        'listings': listings,
-        'search_query': search_query,
-        'location_filter': location_filter,
-        'source_filter': source_filter,
-        'score_filter': score_filter,
-        'category_filter': category_filter,
-        'sort_by': sort_by,
-        'total_results': listings.count(),
-        'ats_choices': ats_choices,
-        'category_choices': category_choices,
-        'score_band_choices': score_band_choices,
-    }
-    return render(request, 'jobs/market_listings.html', context)
+def market_listing_redirect(request, listing_id):
+    """301 redirect from /market/listing/<id>/ to /jobs/observed/<id>/."""
+    from django.http import HttpResponsePermanentRedirect
+    url = reverse('observed_listing_detail', args=[listing_id])
+    return HttpResponsePermanentRedirect(url)
 
 
 # =============================================================================

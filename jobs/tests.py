@@ -1294,21 +1294,26 @@ class MarketListingsViewTest(TestCase):
             score_breakdown={}
         )
 
-    def test_market_listings_page_loads(self):
-        """Market listings page should load"""
-        response = self.client.get(reverse('market_listings'))
+    def test_job_list_page_loads(self):
+        """Job list page should load and include observed listings"""
+        response = self.client.get(reverse('job_list'))
         self.assertEqual(response.status_code, 200)
 
-    def test_market_listings_shows_published(self):
-        """Market listings should show published listings"""
-        response = self.client.get(reverse('market_listings'))
+    def test_job_list_shows_published(self):
+        """Job list should show published observed listings"""
+        response = self.client.get(reverse('job_list'))
         self.assertContains(response, 'Published Job')
 
-    def test_scraped_listing_detail_loads(self):
-        """Scraped listing detail page should load"""
-        response = self.client.get(reverse('scraped_listing_detail', args=[self.listing.id]))
+    def test_observed_listing_detail_loads(self):
+        """Observed listing detail page should load"""
+        response = self.client.get(reverse('observed_listing_detail', args=[self.listing.id]))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Published Job')
+
+    def test_market_redirect(self):
+        """Old /market/ URL should 301 redirect to /jobs/"""
+        response = self.client.get(reverse('market_redirect'))
+        self.assertEqual(response.status_code, 301)
 
     def test_claim_listing_requires_login(self):
         """Claim listing should require authentication"""

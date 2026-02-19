@@ -10,8 +10,8 @@
             <nav aria-label="breadcrumb" class="mb-4">
                 <ol class="breadcrumb">
                     <li class="breadcrumb-item"><a href="{% url 'home' %}">Home</a></li>
-                    <li class="breadcrumb-item"><a href="{% url 'market_listings' %}">Market Listings</a></li>
-                    <li class="breadcrumb-item"><a href="{% url 'scraped_listing_detail' listing.id %}">{{ listing.title|truncatewords:5 }}</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'job_list' %}">Jobs</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'observed_listing_detail' listing.id %}">{{ listing.title|truncatewords:5 }}</a></li>
                     <li class="breadcrumb-item active">Claim Listing</li>
                 </ol>
             </nav>
@@ -89,7 +89,7 @@
                             <button type="submit" class="btn btn-success btn-lg">
                                 <i class="bi bi-patch-check-fill me-2"></i>Claim This Listing
                             </button>
-                            <a href="{% url 'scraped_listing_detail' listing.id %}" class="btn btn-outline-secondary btn-lg">
+                            <a href="{% url 'observed_listing_detail' listing.id %}" class="btn btn-outline-secondary btn-lg">
                                 Cancel
                             </a>
                         </div>

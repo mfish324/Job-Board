@@ -9,7 +9,7 @@
     <nav aria-label="breadcrumb" class="mb-4">
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="{% url 'home' %}">Home</a></li>
-            <li class="breadcrumb-item"><a href="{% url 'market_listings' %}">Market Listings</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'job_list' %}">Jobs</a></li>
             <li class="breadcrumb-item active">{{ listing.title }}</li>
         </ol>
     </nav>
@@ -198,8 +198,8 @@
                             <i class="bi bi-patch-check me-2"></i>Claim This Listing
                         </a>
                         {% endif %}
-                        <a href="{% url 'market_listings' %}" class="btn btn-outline-secondary">
-                            <i class="bi bi-arrow-left me-2"></i>Back to Market
+                        <a href="{% url 'job_list' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left me-2"></i>Back to Jobs
                         </a>
                     </div>
                 </div>
@@ -312,7 +312,7 @@
                     <ul class="list-unstyled mb-0">
                         {% for related in related_listings %}
                         <li class="mb-2">
-                            <a href="{% url 'scraped_listing_detail' related.id %}" class="text-decoration-none">
+                            <a href="{% url 'observed_listing_detail' related.id %}" class="text-decoration-none">
                                 {{ related.title }}
                             </a>
                             <br>

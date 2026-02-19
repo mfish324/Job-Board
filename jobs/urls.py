@@ -139,11 +139,15 @@ urlpatterns = [
     # Chatbot API
     path('api/chatbot/', views.chatbot_api, name='chatbot_api'),
 
-    # Market Listings (Scraped Jobs with HAS)
-    path('market/', views.market_listings, name='market_listings'),
-    path('market/listing/<int:listing_id>/', views.scraped_listing_detail, name='scraped_listing_detail'),
+    # Observed Listings (Scraped Jobs with HAS) - now under /jobs/
+    path('jobs/observed/<int:listing_id>/', views.observed_listing_detail, name='observed_listing_detail'),
+    path('jobs/observed/<int:listing_id>/feedback/', views.submit_listing_feedback, name='submit_listing_feedback'),
     path('employer/claim-listing/<int:listing_id>/', views.claim_listing, name='claim_listing'),
-    path('market/listing/<int:listing_id>/feedback/', views.submit_listing_feedback, name='submit_listing_feedback'),
+
+    # 301 redirects from old /market/ URLs
+    path('market/', views.market_redirect, name='market_redirect'),
+    path('market/listing/<int:listing_id>/', views.market_listing_redirect, name='market_listing_redirect'),
+    path('market/listing/<int:listing_id>/feedback/', views.market_listing_redirect, name='market_feedback_redirect'),
 
     # Admin tools
     path('manage/sync-genzjobs/', views.admin_sync_genzjobs, name='admin_sync_genzjobs'),
