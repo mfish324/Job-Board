@@ -3347,6 +3347,9 @@ def market_listings(request):
 # ADMIN: GENZJOBS SYNC TRIGGER
 # =============================================================================
 
+_sync_status = {'running': False, 'output': '', 'errors': '', 'success': None}
+
+
 @login_required
 def admin_sync_genzjobs(request):
     """Admin-only view to trigger GenZJobs sync from the browser."""
@@ -3354,11 +3357,13 @@ def admin_sync_genzjobs(request):
         messages.error(request, 'Access denied. Superuser required.')
         return redirect('home')
 
-    from django.core.management import call_command
-    from io import StringIO
+    global _sync_status
 
-    results = None
     if request.method == 'POST':
+        if _sync_status['running']:
+            messages.warning(request, 'A sync is already running. Refresh to check progress.')
+            return redirect('admin_sync_genzjobs')
+
         action = request.POST.get('action', 'sync')
         try:
             batch_limit = int(request.POST.get('limit', 500))
@@ -3366,47 +3371,76 @@ def admin_sync_genzjobs(request):
             batch_limit = 500
         batch_limit = max(10, min(batch_limit, 5000))
 
-        out = StringIO()
-        err = StringIO()
+        import threading
+        from django.core.management import call_command
+        from io import StringIO
+        import django.db
 
-        try:
-            kwargs = {'stdout': out, 'stderr': err, 'limit': batch_limit}
+        def run_sync():
+            global _sync_status
+            out = StringIO()
+            err = StringIO()
+            try:
+                # Close old DB connections so the thread gets fresh ones
+                django.db.connections.close_all()
 
-            if action == 'dry_run':
-                kwargs['dry_run'] = True
-                kwargs.pop('limit')  # dry run doesn't need limit
-                call_command('sync_genzjobs', **kwargs)
-            elif action == 'sync':
-                call_command('sync_genzjobs', **kwargs)
-            elif action == 'sync_and_score':
-                kwargs['score'] = True
-                call_command('sync_genzjobs', **kwargs)
+                kwargs = {'stdout': out, 'stderr': err, 'limit': batch_limit}
 
-            results = {
-                'success': True,
-                'output': out.getvalue(),
-                'errors': err.getvalue(),
-            }
-        except Exception as e:
-            results = {
-                'success': False,
-                'output': out.getvalue(),
-                'errors': f"{err.getvalue()}\n{str(e)}",
-            }
+                if action == 'dry_run':
+                    kwargs['dry_run'] = True
+                    kwargs.pop('limit')
+                    call_command('sync_genzjobs', **kwargs)
+                elif action == 'sync':
+                    call_command('sync_genzjobs', **kwargs)
+                elif action == 'sync_and_score':
+                    kwargs['score'] = True
+                    call_command('sync_genzjobs', **kwargs)
+
+                _sync_status['success'] = True
+                _sync_status['output'] = out.getvalue()
+                _sync_status['errors'] = err.getvalue()
+            except Exception as e:
+                _sync_status['success'] = False
+                _sync_status['output'] = out.getvalue()
+                _sync_status['errors'] = f"{err.getvalue()}\n{str(e)}"
+            finally:
+                _sync_status['running'] = False
+                django.db.connections.close_all()
+
+        _sync_status = {'running': True, 'output': '', 'errors': '', 'success': None}
+        thread = threading.Thread(target=run_sync, daemon=True)
+        thread.start()
+
+        messages.success(request, f'Sync started ({action}, limit {batch_limit}). Refresh to check progress.')
+        return redirect('admin_sync_genzjobs')
+
+    # Build results from last sync
+    results = None
+    if _sync_status['running']:
+        results = {'success': None, 'output': 'Sync in progress...', 'errors': ''}
+    elif _sync_status['success'] is not None:
+        results = {
+            'success': _sync_status['success'],
+            'output': _sync_status['output'],
+            'errors': _sync_status['errors'],
+        }
 
     # Gather stats for the page
     listing_count = ScrapedJobListing.objects.count()
     active_count = ScrapedJobListing.objects.filter(status='active').count()
     genzjobs_count = ScrapedJobListing.objects.filter(genzjobs_id__isnull=False).count()
     scored_count = HiringActivityScore.objects.count()
+    published_count = ScrapedJobListing.objects.filter(published_to_board=True).count()
     genzjobs_enabled = getattr(settings, 'GENZJOBS_ENABLED', False)
 
     context = {
         'results': results,
+        'is_running': _sync_status['running'],
         'listing_count': listing_count,
         'active_count': active_count,
         'genzjobs_count': genzjobs_count,
         'scored_count': scored_count,
+        'published_count': published_count,
         'genzjobs_enabled': genzjobs_enabled,
     }
     return render(request, 'jobs/admin_sync_genzjobs.html', context)

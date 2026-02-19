@@ -14,45 +14,52 @@
     {% endif %}
 
     <div class="row mb-4">
-        <div class="col-md-3">
+        <div class="col-md-3 col-6 mb-2">
             <div class="card text-center">
-                <div class="card-body">
-                    <h4>{{ listing_count }}</h4>
+                <div class="card-body py-2">
+                    <h4 class="mb-0">{{ listing_count }}</h4>
                     <small class="text-muted">Total Listings</small>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-3 col-6 mb-2">
             <div class="card text-center">
-                <div class="card-body">
-                    <h4>{{ active_count }}</h4>
+                <div class="card-body py-2">
+                    <h4 class="mb-0">{{ active_count }}</h4>
                     <small class="text-muted">Active</small>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-3 col-6 mb-2">
             <div class="card text-center">
-                <div class="card-body">
-                    <h4>{{ genzjobs_count }}</h4>
-                    <small class="text-muted">From GenZJobs</small>
+                <div class="card-body py-2">
+                    <h4 class="mb-0">{{ scored_count }}</h4>
+                    <small class="text-muted">HAS Scored</small>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card text-center">
-                <div class="card-body">
-                    <h4>{{ scored_count }}</h4>
-                    <small class="text-muted">HAS Scored</small>
+        <div class="col-md-3 col-6 mb-2">
+            <div class="card text-center border-success">
+                <div class="card-body py-2">
+                    <h4 class="mb-0 text-success">{{ published_count }}</h4>
+                    <small class="text-muted">Published (score 65+)</small>
                 </div>
             </div>
         </div>
     </div>
 
-    {% if genzjobs_enabled %}
+    {% if is_running %}
+    <div class="alert alert-info">
+        <strong>Sync in progress...</strong> This page will auto-refresh every 10 seconds.
+    </div>
+    <script>setTimeout(function() { location.reload(); }, 10000);</script>
+    {% endif %}
+
+    {% if genzjobs_enabled and not is_running %}
     <div class="card mb-4">
         <div class="card-body">
             <h5 class="card-title">Run Sync</h5>
-            <p class="text-muted small mb-3">Sync processes listings in batches to avoid timeouts. Run multiple times to sync all 35k+ listings.</p>
+            <p class="text-muted small mb-3">Sync runs in the background. Refresh the page to check progress. Run multiple times to sync all listings.</p>
 
             <div class="row align-items-end mb-3">
                 <div class="col-auto">
@@ -98,10 +105,10 @@
     </script>
     {% endif %}
 
-    {% if results %}
+    {% if results and not is_running %}
     <div class="card">
-        <div class="card-header {% if results.success %}bg-success text-white{% else %}bg-danger text-white{% endif %}">
-            {% if results.success %}Sync Completed{% else %}Sync Failed{% endif %}
+        <div class="card-header {% if results.success %}bg-success text-white{% elif results.success == False %}bg-danger text-white{% else %}bg-info text-white{% endif %}">
+            {% if results.success %}Sync Completed{% elif results.success == False %}Sync Failed{% else %}Sync Status{% endif %}
         </div>
         <div class="card-body">
             {% if results.output %}
