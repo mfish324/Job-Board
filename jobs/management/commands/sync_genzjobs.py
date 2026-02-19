@@ -77,6 +77,12 @@ class Command(BaseCommand):
             help='Number of listings to process per batch (default: 500)',
         )
         parser.add_argument(
+            '--limit',
+            type=int,
+            default=0,
+            help='Maximum number of listings to sync (0 = unlimited)',
+        )
+        parser.add_argument(
             '--score',
             action='store_true',
             help='Run HAS scoring on synced listings after import',
@@ -115,8 +121,15 @@ class Command(BaseCommand):
         if options['since']:
             qs = qs.filter(updated_at__gte=options['since'])
 
+        limit = options['limit']
+
         total = qs.count()
         self.stdout.write(f"Found {total} active listings in genzjobs")
+
+        if limit:
+            self.stdout.write(f"Limiting to {limit} listings")
+            qs = qs[:limit]
+            total = min(total, limit)
 
         if dry_run:
             self.stdout.write(self.style.WARNING('DRY RUN - no changes will be made'))

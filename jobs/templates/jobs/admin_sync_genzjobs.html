@@ -52,25 +52,50 @@
     <div class="card mb-4">
         <div class="card-body">
             <h5 class="card-title">Run Sync</h5>
+            <p class="text-muted small mb-3">Sync processes listings in batches to avoid timeouts. Run multiple times to sync all 35k+ listings.</p>
+
+            <div class="row align-items-end mb-3">
+                <div class="col-auto">
+                    <label for="batchLimit" class="form-label mb-1">Batch size</label>
+                    <select id="batchLimit" class="form-select" style="width: auto;">
+                        <option value="100">100</option>
+                        <option value="250">250</option>
+                        <option value="500" selected>500</option>
+                        <option value="1000">1,000</option>
+                        <option value="2000">2,000</option>
+                    </select>
+                </div>
+            </div>
+
             <div class="d-flex gap-2 flex-wrap">
                 <form method="post">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="dry_run">
                     <button type="submit" class="btn btn-outline-secondary">Dry Run (Preview)</button>
                 </form>
-                <form method="post">
+                <form method="post" class="sync-form">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="sync">
+                    <input type="hidden" name="limit" class="limit-input" value="500">
                     <button type="submit" class="btn btn-primary">Sync Now</button>
                 </form>
-                <form method="post">
+                <form method="post" class="sync-form">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="sync_and_score">
+                    <input type="hidden" name="limit" class="limit-input" value="500">
                     <button type="submit" class="btn btn-success">Sync + Score</button>
                 </form>
             </div>
         </div>
     </div>
+
+    <script>
+    document.getElementById('batchLimit').addEventListener('change', function() {
+        document.querySelectorAll('.limit-input').forEach(function(input) {
+            input.value = document.getElementById('batchLimit').value;
+        });
+    });
+    </script>
     {% endif %}
 
     {% if results %}

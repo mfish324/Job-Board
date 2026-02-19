@@ -3360,14 +3360,21 @@ def admin_sync_genzjobs(request):
     results = None
     if request.method == 'POST':
         action = request.POST.get('action', 'sync')
+        try:
+            batch_limit = int(request.POST.get('limit', 500))
+        except (ValueError, TypeError):
+            batch_limit = 500
+        batch_limit = max(10, min(batch_limit, 5000))
+
         out = StringIO()
         err = StringIO()
 
         try:
-            kwargs = {'stdout': out, 'stderr': err}
+            kwargs = {'stdout': out, 'stderr': err, 'limit': batch_limit}
 
             if action == 'dry_run':
                 kwargs['dry_run'] = True
+                kwargs.pop('limit')  # dry run doesn't need limit
                 call_command('sync_genzjobs', **kwargs)
             elif action == 'sync':
                 call_command('sync_genzjobs', **kwargs)
