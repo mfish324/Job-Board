@@ -1,0 +1,94 @@
+{% extends "jobs/base.html" %}
+
+{% block title %}Admin: GenZJobs Sync{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <h2>GenZJobs Sync</h2>
+    <p class="text-muted">Sync job listings from the shared GenZJobs database into RJRP.</p>
+
+    {% if not genzjobs_enabled %}
+    <div class="alert alert-danger">
+        <strong>GENZJOBS_DATABASE_URL</strong> is not configured. Add it to your environment variables.
+    </div>
+    {% endif %}
+
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h4>{{ listing_count }}</h4>
+                    <small class="text-muted">Total Listings</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h4>{{ active_count }}</h4>
+                    <small class="text-muted">Active</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h4>{{ genzjobs_count }}</h4>
+                    <small class="text-muted">From GenZJobs</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h4>{{ scored_count }}</h4>
+                    <small class="text-muted">HAS Scored</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if genzjobs_enabled %}
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">Run Sync</h5>
+            <div class="d-flex gap-2 flex-wrap">
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="dry_run">
+                    <button type="submit" class="btn btn-outline-secondary">Dry Run (Preview)</button>
+                </form>
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="sync">
+                    <button type="submit" class="btn btn-primary">Sync Now</button>
+                </form>
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="sync_and_score">
+                    <button type="submit" class="btn btn-success">Sync + Score</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if results %}
+    <div class="card">
+        <div class="card-header {% if results.success %}bg-success text-white{% else %}bg-danger text-white{% endif %}">
+            {% if results.success %}Sync Completed{% else %}Sync Failed{% endif %}
+        </div>
+        <div class="card-body">
+            {% if results.output %}
+            <h6>Output:</h6>
+            <pre class="bg-light p-3" style="max-height: 400px; overflow-y: auto;">{{ results.output }}</pre>
+            {% endif %}
+            {% if results.errors %}
+            <h6 class="text-danger">Errors:</h6>
+            <pre class="bg-light p-3 text-danger" style="max-height: 200px; overflow-y: auto;">{{ results.errors }}</pre>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

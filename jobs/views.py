@@ -3341,3 +3341,65 @@ def market_listings(request):
         'score_band_choices': score_band_choices,
     }
     return render(request, 'jobs/market_listings.html', context)
+
+
+# =============================================================================
+# ADMIN: GENZJOBS SYNC TRIGGER
+# =============================================================================
+
+@login_required
+def admin_sync_genzjobs(request):
+    """Admin-only view to trigger GenZJobs sync from the browser."""
+    if not request.user.is_superuser:
+        messages.error(request, 'Access denied. Superuser required.')
+        return redirect('home')
+
+    from django.core.management import call_command
+    from io import StringIO
+
+    results = None
+    if request.method == 'POST':
+        action = request.POST.get('action', 'sync')
+        out = StringIO()
+        err = StringIO()
+
+        try:
+            kwargs = {'stdout': out, 'stderr': err}
+
+            if action == 'dry_run':
+                kwargs['dry_run'] = True
+                call_command('sync_genzjobs', **kwargs)
+            elif action == 'sync':
+                call_command('sync_genzjobs', **kwargs)
+            elif action == 'sync_and_score':
+                kwargs['score'] = True
+                call_command('sync_genzjobs', **kwargs)
+
+            results = {
+                'success': True,
+                'output': out.getvalue(),
+                'errors': err.getvalue(),
+            }
+        except Exception as e:
+            results = {
+                'success': False,
+                'output': out.getvalue(),
+                'errors': f"{err.getvalue()}\n{str(e)}",
+            }
+
+    # Gather stats for the page
+    listing_count = ScrapedJobListing.objects.count()
+    active_count = ScrapedJobListing.objects.filter(status='active').count()
+    genzjobs_count = ScrapedJobListing.objects.filter(genzjobs_id__isnull=False).count()
+    scored_count = HiringActivityScore.objects.count()
+    genzjobs_enabled = getattr(settings, 'GENZJOBS_ENABLED', False)
+
+    context = {
+        'results': results,
+        'listing_count': listing_count,
+        'active_count': active_count,
+        'genzjobs_count': genzjobs_count,
+        'scored_count': scored_count,
+        'genzjobs_enabled': genzjobs_enabled,
+    }
+    return render(request, 'jobs/admin_sync_genzjobs.html', context)

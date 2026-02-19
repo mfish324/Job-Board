@@ -144,4 +144,7 @@ urlpatterns = [
     path('market/listing/<int:listing_id>/', views.scraped_listing_detail, name='scraped_listing_detail'),
     path('employer/claim-listing/<int:listing_id>/', views.claim_listing, name='claim_listing'),
     path('market/listing/<int:listing_id>/feedback/', views.submit_listing_feedback, name='submit_listing_feedback'),
+
+    # Admin tools
+    path('admin/sync-genzjobs/', views.admin_sync_genzjobs, name='admin_sync_genzjobs'),
 ]
