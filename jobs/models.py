@@ -1466,9 +1466,9 @@ class GenzjobsListing(models.Model):
     company_logo = models.TextField(db_column='companyLogo', blank=True, null=True)
     company_website = models.TextField(db_column='companyWebsite', blank=True, null=True)
 
-    # Tags and skills (PostgreSQL text arrays read as Python lists)
-    skills = models.JSONField(db_column='skills', blank=True, null=True)
-    audience_tags = models.JSONField(db_column='audienceTags', blank=True, null=True)
+    # Tags and skills (PostgreSQL text[] arrays, not JSON)
+    skills = models.TextField(db_column='skills', blank=True, null=True)
+    audience_tags = models.TextField(db_column='audienceTags', blank=True, null=True)
 
     # Status
     is_active = models.BooleanField(db_column='isActive', default=True)

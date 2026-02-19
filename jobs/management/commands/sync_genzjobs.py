@@ -210,11 +210,8 @@ class Command(BaseCommand):
         local.publisher = (gj.publisher or '')[:100]
 
         # Skills count
-        skills = gj.skills
-        if isinstance(skills, list):
-            local.skills_count = len(skills)
-        else:
-            local.skills_count = 0
+        skills = self._parse_pg_array(gj.skills)
+        local.skills_count = len(skills) if skills else 0
 
         # External ID
         if gj.source_id:
@@ -242,18 +239,43 @@ class Command(BaseCommand):
             raw['requirements'] = gj.requirements
         if gj.benefits:
             raw['benefits'] = gj.benefits
-        if gj.skills and isinstance(gj.skills, list):
-            raw['skills'] = gj.skills
+        if skills:
+            raw['skills'] = skills
         if gj.company_logo:
             raw['company_logo'] = gj.company_logo
         if gj.company_website:
             raw['company_website'] = gj.company_website
-        if gj.audience_tags and isinstance(gj.audience_tags, list):
-            raw['audience_tags'] = gj.audience_tags
+        audience_tags = self._parse_pg_array(gj.audience_tags)
+        if audience_tags:
+            raw['audience_tags'] = audience_tags
         local.raw_data = raw
 
         local.save()
         return was_created
+
+    def _parse_pg_array(self, value):
+        """Parse a PostgreSQL text[] array into a Python list."""
+        if value is None:
+            return []
+        if isinstance(value, list):
+            return value
+        if isinstance(value, str):
+            # Handle Postgres array literal: {foo,bar,baz}
+            s = value.strip()
+            if s.startswith('{') and s.endswith('}'):
+                inner = s[1:-1]
+                if not inner:
+                    return []
+                return [item.strip().strip('"') for item in inner.split(',')]
+            # Try JSON parse as fallback
+            import json
+            try:
+                parsed = json.loads(s)
+                if isinstance(parsed, list):
+                    return parsed
+            except (json.JSONDecodeError, ValueError):
+                pass
+        return []
 
     def _map_category(self, category):
         """Map genzjobs category string to ScrapedJobListing JOB_CATEGORY_CHOICES."""

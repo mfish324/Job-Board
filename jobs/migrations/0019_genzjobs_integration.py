@@ -88,10 +88,10 @@ class Migration(migrations.Migration):
                     "company_website",
                     models.TextField(blank=True, db_column="companyWebsite", null=True),
                 ),
-                ("skills", models.JSONField(blank=True, db_column="skills", null=True)),
+                ("skills", models.TextField(blank=True, db_column="skills", null=True)),
                 (
                     "audience_tags",
-                    models.JSONField(blank=True, db_column="audienceTags", null=True),
+                    models.TextField(blank=True, db_column="audienceTags", null=True),
                 ),
                 ("is_active", models.BooleanField(db_column="isActive", default=True)),
                 (
