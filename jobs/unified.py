@@ -76,7 +76,7 @@ class UnifiedListing:
     def posted_date(self):
         if self._is_verified:
             return self._obj.posted_date
-        return self._obj.date_first_seen
+        return self._obj.date_posted_external or self._obj.date_first_seen
 
     @property
     def job_type_display(self):
