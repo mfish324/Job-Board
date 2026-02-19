@@ -146,5 +146,5 @@ urlpatterns = [
     path('market/listing/<int:listing_id>/feedback/', views.submit_listing_feedback, name='submit_listing_feedback'),
 
     # Admin tools
-    path('admin/sync-genzjobs/', views.admin_sync_genzjobs, name='admin_sync_genzjobs'),
+    path('manage/sync-genzjobs/', views.admin_sync_genzjobs, name='admin_sync_genzjobs'),
 ]
