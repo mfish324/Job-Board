@@ -5,6 +5,7 @@ Score configuration and weights for the HAS algorithm.
 Override in settings.py via HAS_CONFIG dictionary.
 """
 
+import copy
 from django.conf import settings
 
 # Default configuration - can be overridden in settings.py
@@ -100,6 +101,36 @@ DEFAULT_HAS_CONFIG = {
         'stale_threshold_days': 14,  # Days since last seen
     },
 
+    # === GENZJOBS-ENRICHED SIGNALS ===
+
+    # Data Completeness: points for rich listing data
+    'data_completeness': {
+        'max_points': 8,
+        'has_requirements': 2,
+        'has_benefits': 2,
+        'has_logo': 1,
+        'has_website': 1,
+        'has_skills': 2,         # At least 3 skills
+        'min_skills_count': 3,
+    },
+
+    # Classification Confidence: ML model confidence
+    'classification_confidence': {
+        'max_points': 3,
+        'min_points': -3,
+        'high_threshold': 0.8,   # Bonus above this
+        'low_threshold': 0.3,    # Penalty below this
+    },
+
+    # Publisher Trustworthiness: bonus for direct ATS or known publishers
+    'publisher_trustworthiness': {
+        'max_points': 5,
+        'direct_ats_bonus': 5,
+        'known_publisher_bonus': 2,
+        'direct_ats_sources': ['greenhouse', 'lever', 'ashby', 'smartrecruiters', 'workday', 'icims', 'bamboohr', 'jobvite', 'taleo'],
+        'known_publishers': ['remotive', 'usajobs', 'arbeitnow', 'jobicy'],
+    },
+
     # === CLAMPING ===
     'min_score': 0,
     'max_score': 100,
@@ -113,7 +144,7 @@ def get_config():
     Returns:
         dict: The merged configuration dictionary
     """
-    config = DEFAULT_HAS_CONFIG.copy()
+    config = copy.deepcopy(DEFAULT_HAS_CONFIG)
 
     # Deep merge with settings override if present
     if hasattr(settings, 'HAS_CONFIG'):

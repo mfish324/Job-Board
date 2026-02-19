@@ -9,7 +9,8 @@ from .models import (Job, UserProfile, JobApplication, PhoneVerification, EmailV
                      HiringStage, ApplicationStageHistory, ApplicationNote, ApplicationRating,
                      ApplicationTag, ApplicationTagAssignment, EmailTemplate, Notification,
                      EmailLog, Message, EmployerTeam, TeamMember, TeamInvitation, ActivityLog,
-                     Company, ScrapedJobListing, HiringActivityScore, CompanyHiringProfile, ListingFeedback)
+                     Company, ScrapedJobListing, HiringActivityScore, CompanyHiringProfile, ListingFeedback,
+                     GenzjobsListing)
 
 
 class CsvImportForm(forms.Form):
@@ -572,3 +573,27 @@ class ListingFeedbackAdmin(admin.ModelAdmin):
     @admin.display(description='Listing')
     def listing_title(self, obj):
         return obj.listing.title[:50]
+
+
+# =============================================================================
+# GENZJOBS UNMANAGED MODEL ADMIN (read-only inspection)
+# =============================================================================
+
+@admin.register(GenzjobsListing)
+class GenzjobsListingAdmin(admin.ModelAdmin):
+    list_display = ('title_preview', 'company', 'source', 'is_active', 'is_rjrp_verified', 'posted_at')
+    list_filter = ('source', 'is_active', 'is_rjrp_verified')
+    search_fields = ('title', 'company', 'url')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    @admin.display(description='Title')
+    def title_preview(self, obj):
+        return (obj.title or '')[:60]

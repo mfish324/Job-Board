@@ -21,7 +21,7 @@ class HASEngine:
         score, breakdown = engine.calculate_score(listing, profile=profile)
     """
 
-    VERSION = 1  # Increment when algorithm changes significantly
+    VERSION = 2  # Increment when algorithm changes significantly
 
     def __init__(self, config=None):
         """
@@ -47,9 +47,10 @@ class HASEngine:
         """
         # Get company hiring profile if not provided
         if profile is None and listing.company:
+            from jobs.models import CompanyHiringProfile
             try:
                 profile = listing.company.hiring_profile
-            except Exception:
+            except CompanyHiringProfile.DoesNotExist:
                 profile = None
 
         breakdown = {}
@@ -98,6 +99,21 @@ class HASEngine:
         )
         total += points
         breakdown['industry_adjustment'] = {'points': points, 'explanation': explanation}
+
+        # Data Completeness (genzjobs enriched)
+        points, explanation = signals.calculate_data_completeness(listing, self.config)
+        total += points
+        breakdown['data_completeness'] = {'points': points, 'explanation': explanation}
+
+        # Classification Confidence (genzjobs enriched)
+        points, explanation = signals.calculate_classification_confidence(listing, self.config)
+        total += points
+        breakdown['classification_confidence'] = {'points': points, 'explanation': explanation}
+
+        # Publisher Trustworthiness (genzjobs enriched)
+        points, explanation = signals.calculate_publisher_trustworthiness(listing, self.config)
+        total += points
+        breakdown['publisher_trustworthiness'] = {'points': points, 'explanation': explanation}
 
         # === NEGATIVE SIGNALS ===
 

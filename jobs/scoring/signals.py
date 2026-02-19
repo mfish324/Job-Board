@@ -289,6 +289,9 @@ def calculate_stale_penalty(listing, config):
     cfg = config['stale_penalty']
     threshold = cfg['stale_threshold_days']
 
+    if not listing.date_last_seen:
+        return 0, "No last-seen date"
+
     days_since_seen = (timezone.now() - listing.date_last_seen).days
 
     if days_since_seen < threshold:
@@ -302,3 +305,106 @@ def calculate_stale_penalty(listing, config):
     )
 
     return round(penalty, 1), f"Stale ({days_since_seen} days since last seen)"
+
+
+# =============================================================================
+# GENZJOBS-ENRICHED SIGNALS
+# =============================================================================
+
+def calculate_data_completeness(listing, config):
+    """
+    Calculate data completeness score based on rich listing data from genzjobs.
+    Awards points for requirements, benefits, logo, website, skills.
+
+    Returns:
+        tuple: (points, explanation)
+    """
+    cfg = config.get('data_completeness', {})
+    if not cfg:
+        return 0, "No data_completeness config"
+
+    points = 0
+    details = []
+
+    if getattr(listing, 'has_requirements', False):
+        points += cfg.get('has_requirements', 2)
+        details.append("requirements")
+
+    if getattr(listing, 'has_benefits', False):
+        points += cfg.get('has_benefits', 2)
+        details.append("benefits")
+
+    if getattr(listing, 'has_company_logo', False):
+        points += cfg.get('has_logo', 1)
+        details.append("logo")
+
+    if getattr(listing, 'has_company_website', False):
+        points += cfg.get('has_website', 1)
+        details.append("website")
+
+    skills_count = getattr(listing, 'skills_count', 0) or 0
+    min_skills = cfg.get('min_skills_count', 3)
+    if skills_count >= min_skills:
+        points += cfg.get('has_skills', 2)
+        details.append(f"{skills_count} skills")
+
+    points = min(points, cfg.get('max_points', 8))
+    explanation = ", ".join(details) if details else "minimal data"
+
+    return round(points, 1), explanation
+
+
+def calculate_classification_confidence(listing, config):
+    """
+    Calculate bonus/penalty based on ML classification confidence.
+
+    Returns:
+        tuple: (points, explanation)
+    """
+    cfg = config.get('classification_confidence', {})
+    if not cfg:
+        return 0, "No classification_confidence config"
+
+    confidence = getattr(listing, 'classification_confidence', None)
+    if confidence is None:
+        return 0, "No classification data"
+
+    high_threshold = cfg.get('high_threshold', 0.8)
+    low_threshold = cfg.get('low_threshold', 0.3)
+
+    if confidence >= high_threshold:
+        points = cfg.get('max_points', 3)
+        return points, f"High confidence ({confidence:.0%})"
+    elif confidence <= low_threshold:
+        points = cfg.get('min_points', -3)
+        return points, f"Low confidence ({confidence:.0%})"
+
+    return 0, f"Moderate confidence ({confidence:.0%})"
+
+
+def calculate_publisher_trustworthiness(listing, config):
+    """
+    Calculate bonus for listings from trusted direct ATS sources or known publishers.
+
+    Returns:
+        tuple: (points, explanation)
+    """
+    cfg = config.get('publisher_trustworthiness', {})
+    if not cfg:
+        return 0, "No publisher_trustworthiness config"
+
+    source = getattr(listing, 'source_ats', '') or ''
+    publisher = getattr(listing, 'publisher', '') or ''
+
+    direct_ats = cfg.get('direct_ats_sources', [])
+    known_pubs = cfg.get('known_publishers', [])
+
+    if source.lower() in direct_ats:
+        points = cfg.get('direct_ats_bonus', 5)
+        return points, f"Direct ATS ({source})"
+
+    if publisher.lower() in known_pubs or source.lower() in known_pubs:
+        points = cfg.get('known_publisher_bonus', 2)
+        return points, f"Known publisher ({publisher or source})"
+
+    return 0, f"Unknown publisher ({publisher or source})"

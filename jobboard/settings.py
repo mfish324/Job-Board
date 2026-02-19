@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.sites',  # Required for allauth
+    'django.contrib.postgres',  # For ArrayField (genzjobs integration)
     'cloudinary_storage',
     'cloudinary',
     'jobs',
@@ -107,6 +108,21 @@ DATABASES = {
         conn_max_age=600
     )
 }
+
+# genzjobs shared database (Neon PostgreSQL)
+GENZJOBS_DATABASE_URL = config('GENZJOBS_DATABASE_URL', default='')
+GENZJOBS_ENABLED = bool(GENZJOBS_DATABASE_URL)
+
+if GENZJOBS_ENABLED:
+    DATABASES['genzjobs'] = dj_database_url.parse(
+        GENZJOBS_DATABASE_URL,
+        conn_max_age=600,
+    )
+    DATABASES['genzjobs']['OPTIONS'] = {
+        'sslmode': 'require',
+    }
+
+DATABASE_ROUTERS = ['jobs.db_router.GenzjobsRouter']
 
 
 # Password validation

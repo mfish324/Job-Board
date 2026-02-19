@@ -3095,14 +3095,16 @@ def scraped_listing_detail(request, listing_id):
     """
     listing = get_object_or_404(ScrapedJobListing, id=listing_id)
 
-    # Check if listing should be viewable (published or high score)
+    # Check if listing should be viewable (published or has a score >= 50)
     if not listing.published_to_board:
         try:
             if listing.activity_score.total_score < 50:
                 messages.warning(request, 'This listing is not currently available.')
-                return redirect('job_list')
+                return redirect('market_listings')
         except HiringActivityScore.DoesNotExist:
-            pass
+            # No score at all - redirect unpublished listings
+            messages.warning(request, 'This listing is not currently available.')
+            return redirect('market_listings')
 
     # Get the HAS score if available
     has_score = None
@@ -3125,6 +3127,24 @@ def scraped_listing_detail(request, listing_id):
         except UserProfile.DoesNotExist:
             pass
 
+    # Fetch genzjobs enrichment data (requirements, benefits, skills)
+    genzjobs_data = {}
+    if listing.genzjobs_id and settings.GENZJOBS_ENABLED:
+        try:
+            from jobs.models import GenzjobsListing
+            gj = GenzjobsListing.objects.get(id=listing.genzjobs_id)
+            if gj.requirements:
+                genzjobs_data['requirements'] = gj.requirements
+            if gj.benefits:
+                genzjobs_data['benefits'] = gj.benefits
+            if gj.skills and isinstance(gj.skills, list):
+                genzjobs_data['skills'] = gj.skills
+        except Exception:
+            pass  # Graceful fallback if genzjobs unavailable
+    elif listing.raw_data:
+        # Fallback to cached raw_data
+        genzjobs_data = listing.raw_data
+
     # Get related listings from the same company
     related_listings = ScrapedJobListing.objects.filter(
         company_name=listing.company_name,
@@ -3137,6 +3157,7 @@ def scraped_listing_detail(request, listing_id):
         'has_score': has_score,
         'can_claim': can_claim,
         'related_listings': related_listings,
+        'genzjobs_data': genzjobs_data,
     }
     return render(request, 'jobs/scraped_listing_detail.html', context)
 
@@ -3159,6 +3180,11 @@ def claim_listing(request, listing_id):
     except UserProfile.DoesNotExist:
         messages.error(request, 'Please complete your profile first.')
         return redirect('user_profile')
+
+    # Require employer verification before claiming
+    if not profile.is_verified():
+        messages.error(request, 'Please verify your email or phone before claiming listings.')
+        return redirect('scraped_listing_detail', listing_id=listing_id)
 
     # Check that listing isn't already claimed
     if listing.claimed_job:
@@ -3192,6 +3218,17 @@ def claim_listing(request, listing_id):
             if not listing.company.verified_employer:
                 listing.company.verified_employer = request.user
                 listing.company.save()
+
+        # Write verification back to genzjobs if connected
+        if listing.genzjobs_id and settings.GENZJOBS_ENABLED:
+            try:
+                from jobs.models import GenzjobsListing
+                gj = GenzjobsListing.objects.get(id=listing.genzjobs_id)
+                gj.is_rjrp_verified = True
+                gj.rjrp_employer_id = str(request.user.id)
+                gj.save(update_fields=['is_rjrp_verified', 'rjrp_employer_id'])
+            except Exception:
+                pass  # Non-critical, write-back will catch it later
 
         messages.success(request, f'Successfully claimed "{job.title}". You can now manage it from your dashboard.')
         return redirect('edit_job', job_id=job.id)

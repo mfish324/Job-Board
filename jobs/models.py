@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.core.validators import FileExtensionValidator
+from django.conf import settings
 import os
 
 class Job(models.Model):
@@ -1070,6 +1071,14 @@ class ScrapedJobListing(models.Model):
         ('ashby', 'Ashby'),
         ('jobvite', 'Jobvite'),
         ('smartrecruiters', 'SmartRecruiters'),
+        # genzjobs sources
+        ('remotive', 'Remotive'),
+        ('usajobs', 'USAJobs'),
+        ('jsearch', 'JSearch'),
+        ('arbeitnow', 'Arbeitnow'),
+        ('jobicy', 'Jobicy'),
+        ('whoishiring', 'Who Is Hiring'),
+        ('direct_ats', 'Direct ATS'),
         ('other', 'Other'),
     ]
 
@@ -1094,9 +1103,15 @@ class ScrapedJobListing(models.Model):
         ('other', 'Other'),
     ]
 
+    # genzjobs integration
+    genzjobs_id = models.CharField(
+        max_length=50, unique=True, null=True, blank=True, db_index=True,
+        help_text='CUID from genzjobs job_listings table'
+    )
+
     # Source identification
     source_ats = models.CharField(max_length=50, choices=SOURCE_ATS_CHOICES)
-    source_url = models.URLField(max_length=500, unique=True)
+    source_url = models.URLField(max_length=500, db_index=True)
     external_requisition_id = models.CharField(max_length=100, blank=True, db_index=True)
 
     # Company info
@@ -1125,9 +1140,18 @@ class ScrapedJobListing(models.Model):
     department = models.CharField(max_length=100, blank=True)
     job_category = models.CharField(max_length=50, choices=JOB_CATEGORY_CHOICES, default='other')
 
+    # Scoring-relevant fields (populated from genzjobs)
+    has_requirements = models.BooleanField(default=False)
+    has_benefits = models.BooleanField(default=False)
+    has_company_logo = models.BooleanField(default=False)
+    has_company_website = models.BooleanField(default=False)
+    classification_confidence = models.FloatField(null=True, blank=True, help_text='ML classification confidence 0-1')
+    skills_count = models.PositiveIntegerField(default=0)
+    publisher = models.CharField(max_length=100, blank=True, help_text='Original publisher/source from genzjobs')
+
     # Tracking and signals
     date_first_seen = models.DateTimeField(auto_now_add=True)
-    date_last_seen = models.DateTimeField(auto_now=True)
+    date_last_seen = models.DateTimeField(default=None, null=True, blank=True)
     date_posted_external = models.DateTimeField(null=True, blank=True)
     date_removed = models.DateTimeField(null=True, blank=True)
 
@@ -1176,8 +1200,16 @@ class ScrapedJobListing(models.Model):
 
     def save(self, *args, **kwargs):
         import hashlib
-        # Generate content hashes
-        normalized_desc = ' '.join(self.description.lower().split())
+        import re
+
+        # Set date_last_seen on first save if not set
+        if not self.date_last_seen:
+            from django.utils import timezone
+            self.date_last_seen = timezone.now()
+
+        # Strip HTML before hashing for consistent fingerprinting
+        plain_desc = re.sub(r'<[^>]+>', '', self.description) if self.description else ''
+        normalized_desc = ' '.join(plain_desc.lower().split())
         self.description_hash = hashlib.sha256(normalized_desc.encode()).hexdigest()
 
         normalized_title = ' '.join(self.title.lower().split())
@@ -1250,18 +1282,19 @@ class HiringActivityScore(models.Model):
         return f"{self.listing.title}: {self.total_score} ({self.score_band})"
 
     def save(self, *args, **kwargs):
-        # Calculate score band
-        if self.total_score >= 80:
-            self.score_band = 'very_active'
-        elif self.total_score >= 65:
-            self.score_band = 'likely_active'
-        elif self.total_score >= 50:
-            self.score_band = 'uncertain'
-        else:
-            self.score_band = 'low_signal'
+        from jobs.scoring.config import get_config
+        config = get_config()
 
-        # Update published status based on threshold (65+)
-        self.published_to_board = self.total_score >= 65
+        # Calculate score band from config (not hardcoded thresholds)
+        bands = config.get('score_bands', {})
+        self.score_band = 'low_signal'  # default
+        for band_name, (min_val, max_val) in bands.items():
+            if min_val <= self.total_score <= max_val:
+                self.score_band = band_name
+                break
+
+        # Use config's publish_threshold
+        self.published_to_board = self.total_score >= config['publish_threshold']
 
         super().save(*args, **kwargs)
 
@@ -1391,3 +1424,71 @@ class ListingFeedback(models.Model):
 
     def __str__(self):
         return f"{self.listing.title} - {self.get_feedback_type_display()}"
+
+
+# =============================================================================
+# GENZJOBS UNMANAGED MODEL (read from shared Neon PostgreSQL)
+# =============================================================================
+
+class GenzjobsListing(models.Model):
+    """
+    Unmanaged model mapping to genzjobs `job_listings` table.
+    Schema is managed by Prisma in the genzjobs project.
+    Only isRjrpVerified and rjrpEmployerId are written by RJRP.
+    """
+    id = models.CharField(max_length=50, primary_key=True, db_column='id')
+
+    # Core fields
+    title = models.TextField(db_column='title')
+    company = models.TextField(db_column='company')
+    location = models.TextField(db_column='location', blank=True, null=True)
+    description = models.TextField(db_column='description', blank=True, null=True)
+    apply_url = models.TextField(db_column='applyUrl', blank=True, null=True)
+    source = models.TextField(db_column='source')
+    source_id = models.TextField(db_column='sourceId', blank=True, null=True)
+    source_url = models.TextField(db_column='sourceUrl', blank=True, null=True)
+
+    # Salary
+    salary_min = models.IntegerField(db_column='salaryMin', blank=True, null=True)
+    salary_max = models.IntegerField(db_column='salaryMax', blank=True, null=True)
+    salary_currency = models.TextField(db_column='salaryCurrency', blank=True, null=True)
+
+    # Classification
+    job_type = models.TextField(db_column='jobType', blank=True, null=True)
+    experience_level = models.TextField(db_column='experienceLevel', blank=True, null=True)
+    remote = models.BooleanField(db_column='remote', default=False)
+    category = models.TextField(db_column='category', blank=True, null=True)
+    classification_confidence = models.FloatField(db_column='classificationConfidence', blank=True, null=True)
+
+    # Rich content
+    requirements = models.TextField(db_column='requirements', blank=True, null=True)
+    benefits = models.TextField(db_column='benefits', blank=True, null=True)
+    company_logo = models.TextField(db_column='companyLogo', blank=True, null=True)
+    company_website = models.TextField(db_column='companyWebsite', blank=True, null=True)
+
+    # Tags and skills (PostgreSQL text arrays read as Python lists)
+    skills = models.JSONField(db_column='skills', blank=True, null=True)
+    audience_tags = models.JSONField(db_column='audienceTags', blank=True, null=True)
+
+    # Status
+    is_active = models.BooleanField(db_column='isActive', default=True)
+    posted_at = models.DateTimeField(db_column='postedAt', blank=True, null=True)
+    last_seen_at = models.DateTimeField(db_column='lastSeenAt', blank=True, null=True)
+    updated_at = models.DateTimeField(db_column='updatedAt', blank=True, null=True)
+    created_at = models.DateTimeField(db_column='createdAt', blank=True, null=True)
+
+    # Publisher metadata
+    publisher = models.TextField(db_column='publisher', blank=True, null=True)
+
+    # RJRP integration fields (writable)
+    is_rjrp_verified = models.BooleanField(db_column='isRjrpVerified', default=False)
+    rjrp_employer_id = models.TextField(db_column='rjrpEmployerId', blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = 'job_listings'
+        verbose_name = 'genzjobs Listing'
+        verbose_name_plural = 'genzjobs Listings'
+
+    def __str__(self):
+        return f"{self.title} at {self.company} ({self.source})"

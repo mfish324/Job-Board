@@ -13,8 +13,40 @@ Usage in templates:
 from django import template
 from django.utils.safestring import mark_safe
 from django.utils.html import format_html
+import bleach
 
 register = template.Library()
+
+# Allowed tags/attributes for safe_description
+ALLOWED_TAGS = [
+    'p', 'br', 'strong', 'b', 'em', 'i', 'u', 'ul', 'ol', 'li',
+    'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a', 'span', 'div',
+    'table', 'thead', 'tbody', 'tr', 'th', 'td',
+]
+ALLOWED_ATTRS = {
+    'a': ['href', 'title', 'target', 'rel'],
+    'span': ['class'],
+    'div': ['class'],
+}
+
+
+@register.filter
+def safe_description(value):
+    """
+    Sanitize HTML description using bleach to prevent XSS.
+
+    Usage:
+        {{ listing.description|safe_description }}
+    """
+    if not value:
+        return ''
+    cleaned = bleach.clean(
+        str(value),
+        tags=ALLOWED_TAGS,
+        attributes=ALLOWED_ATTRS,
+        strip=True,
+    )
+    return mark_safe(cleaned)
 
 
 @register.filter
