@@ -1170,6 +1170,10 @@ class ScrapedJobListing(models.Model):
     # Raw data storage
     raw_data = models.JSONField(default=dict, blank=True)
 
+    # Link health tracking
+    link_last_checked = models.DateTimeField(null=True, blank=True, help_text='When the source URL was last verified')
+    link_status_code = models.PositiveSmallIntegerField(null=True, blank=True, help_text='Last HTTP status code from source URL')
+
     # Status and publishing
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
     published_to_board = models.BooleanField(default=False)

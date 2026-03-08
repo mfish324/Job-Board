@@ -3238,12 +3238,21 @@ def observed_listing_detail(request, listing_id):
         published_to_board=True
     ).exclude(id=listing.id)[:5]
 
+    # Link health indicators
+    link_dead = listing.link_status_code in (404, 410, 403) if listing.link_status_code else False
+    link_stale = False
+    if not link_dead and listing.date_last_seen:
+        days_since_seen = (timezone.now() - listing.date_last_seen).days
+        link_stale = days_since_seen >= 3
+
     context = {
         'listing': listing,
         'has_score': has_score,
         'can_claim': can_claim,
         'related_listings': related_listings,
         'genzjobs_data': genzjobs_data,
+        'link_dead': link_dead,
+        'link_stale': link_stale,
     }
     return render(request, 'jobs/scraped_listing_detail.html', context)
 

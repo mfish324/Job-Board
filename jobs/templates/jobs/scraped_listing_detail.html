@@ -88,9 +88,37 @@
                     </div>
                     {% endif %}
 
+                    <!-- Link Health Warning -->
+                    {% if link_dead %}
+                    <div class="alert mb-3" style="background-color: #fdf0ec; border: 1px solid #e8a999; color: #6b3224; border-radius: 10px;">
+                        <div class="d-flex align-items-start gap-2">
+                            <i class="bi bi-exclamation-triangle-fill mt-1" style="color: #c4714f;"></i>
+                            <div>
+                                <strong>This posting may no longer be available.</strong>
+                                <p class="mb-0 mt-1" style="font-size: 0.9rem;">
+                                    Our link checker detected that the external page returned an error. The position may have been filled or the listing removed.
+                                    You can still try the link below, or <a href="{% url 'job_list' %}">browse other jobs</a>.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    {% elif link_stale %}
+                    <div class="alert mb-3" style="background-color: #fdf8ee; border: 1px solid #e8d5a0; color: #5c4a12; border-radius: 10px;">
+                        <div class="d-flex align-items-start gap-2">
+                            <i class="bi bi-clock-history mt-1" style="color: #c49a3c;"></i>
+                            <div>
+                                <strong>This listing hasn't been seen in our scans recently.</strong>
+                                <p class="mb-0 mt-1" style="font-size: 0.9rem;">
+                                    It was last detected {{ listing.date_last_seen|timesince }} ago. The position may still be open, but we recommend applying promptly.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
                     <!-- External Apply Button -->
-                    <a href="{{ listing.source_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-lg w-100">
-                        <i class="bi bi-box-arrow-up-right me-2"></i>Apply on {{ listing.get_source_ats_display }}
+                    <a href="{{ listing.source_url }}" target="_blank" rel="noopener noreferrer" class="btn {% if link_dead %}btn-outline-secondary{% else %}btn-primary{% endif %} btn-lg w-100">
+                        <i class="bi bi-box-arrow-up-right me-2"></i>{% if link_dead %}Try Applying on {{ listing.get_source_ats_display }}{% else %}Apply on {{ listing.get_source_ats_display }}{% endif %}
                     </a>
                 </div>
             </div>
