@@ -87,21 +87,19 @@
         <div class="col-lg-6 mb-4">
             <div class="card job-card job-card-verified h-100">
                 <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <div class="flex-grow-1">
-                            <div class="d-flex align-items-center gap-2 mb-1">
-                                <span class="trust-badge trust-badge-verified">&#10003; Verified</span>
-                            </div>
-                            <h5 class="card-title fw-bold mb-1">{{ job.title }}</h5>
-                            <h6 class="text-primary mb-0">
-                                <i class="bi bi-building me-1"></i>{{ job.company }}
-                            </h6>
-                        </div>
-                        {% if job.salary %}
-                        <span class="badge bg-success ms-2">{{ job.salary }}</span>
-                        {% endif %}
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <span class="trust-badge trust-badge-verified">&#10003; Verified</span>
                     </div>
-                    <p class="card-text text-muted mb-3">
+                    <h5 class="job-title mb-1">{{ job.title }}</h5>
+                    <h6 class="text-primary mb-1">
+                        <i class="bi bi-building me-1"></i>{{ job.company }}
+                    </h6>
+                    {% if job.salary %}
+                    <div class="salary-display mb-2">
+                        <i class="bi bi-cash-stack me-1"></i>{{ job.salary }}
+                    </div>
+                    {% endif %}
+                    <p class="card-text text-muted mb-3" style="font-size: 0.9rem;">
                         {{ job.description|striptags|truncatewords:25 }}
                     </p>
                     <div class="d-flex justify-content-between align-items-center">
@@ -144,24 +142,24 @@
         <div class="col-lg-6 mb-4">
             <div class="card job-card job-card-observed h-100">
                 <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <div class="flex-grow-1">
-                            <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
-                                <span class="trust-badge trust-badge-observed">&#128269; Observed</span>
-                                {% if item.has_score_value %}
-                                {% include "jobs/partials/has_pips.html" with score=item.has_score_value %}
-                                {% endif %}
-                            </div>
-                            <h5 class="card-title fw-bold mb-1">{{ item.title }}</h5>
-                            <h6 class="text-primary mb-0">
-                                <i class="bi bi-building me-1"></i>{{ item.company_name }}
-                            </h6>
-                        </div>
-                        {% if item.salary_display %}
-                        <span class="badge bg-success fs-6 ms-2">{{ item.salary_display }}</span>
+                    <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                        <span class="trust-badge trust-badge-observed">&#128269; Observed</span>
+                        {% if item.has_score_value %}
+                        <span class="activity-label">
+                            Active {{ item.has_score_value }}/100
+                        </span>
                         {% endif %}
                     </div>
-                    <p class="card-text text-muted mb-3">
+                    <h5 class="job-title mb-1">{{ item.title }}</h5>
+                    <h6 class="text-primary mb-1">
+                        <i class="bi bi-building me-1"></i>{{ item.company_name }}
+                    </h6>
+                    {% if item.salary_display %}
+                    <div class="salary-display mb-2">
+                        <i class="bi bi-cash-stack me-1"></i>{{ item.salary_display }}
+                    </div>
+                    {% endif %}
+                    <p class="card-text text-muted mb-3" style="font-size: 0.9rem;">
                         {{ item.description|striptags|truncatewords:25 }}
                     </p>
                     <div class="d-flex justify-content-between align-items-center">

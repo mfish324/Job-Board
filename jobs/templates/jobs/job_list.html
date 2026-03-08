@@ -98,8 +98,17 @@
                             </div>
                         </div>
 
-                        <!-- Filters Row 2 -->
-                        <div class="row g-3">
+                        <!-- More Filters Toggle -->
+                        <div class="row g-3 mb-3">
+                            <div class="col-12">
+                                <button type="button" class="btn-more-filters" id="moreFiltersBtn" onclick="toggleMoreFilters()">
+                                    <i class="bi bi-sliders me-1"></i>More Filters <i class="bi bi-chevron-down ms-1"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Filters Row 2 (collapsible) -->
+                        <div class="row g-3 more-filters-row" id="moreFiltersRow">
                             <div class="col-md-3">
                                 <label class="form-label fw-semibold">
                                     <i class="bi bi-bar-chart me-1"></i>Experience Level
@@ -190,7 +199,7 @@
                 <span class="badge bg-primary">Search: "{{ search_query }}"</span>
                 {% endif %}
                 {% if source_filter %}
-                <span class="badge bg-{% if source_filter == 'verified' %}success{% else %}info{% endif %}">
+                <span class="badge" style="background-color: {% if source_filter == 'verified' %}#c49a3c{% else %}#7a8c6e{% endif %}; color: #fff;">
                     Source: {{ source_filter|title }}
                 </span>
                 {% endif %}
@@ -198,13 +207,13 @@
                 <span class="badge bg-primary">Location: {{ location_filter }}</span>
                 {% endif %}
                 {% if job_type_filter %}
-                <span class="badge bg-info">Type: {{ job_type_filter }}</span>
+                <span class="badge badge-job-type">Type: {{ job_type_filter }}</span>
                 {% endif %}
                 {% if experience_filter %}
-                <span class="badge bg-info">Experience: {{ experience_filter }}</span>
+                <span class="badge" style="background-color: var(--primary-color); color: #fff;">Experience: {{ experience_filter }}</span>
                 {% endif %}
                 {% if remote_filter %}
-                <span class="badge bg-secondary">{{ remote_filter }}</span>
+                <span class="badge badge-remote">{{ remote_filter }}</span>
                 {% endif %}
                 {% if salary_filter %}
                 <span class="badge bg-success">With Salary</span>
@@ -267,50 +276,52 @@
             <div class="col-lg-6 mb-4">
                 <div class="card job-card h-100 {% if item.is_verified %}job-card-verified{% else %}job-card-observed{% endif %}">
                     <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-start mb-2">
-                            <div class="flex-grow-1">
-                                <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
-                                    {% if item.is_verified %}
-                                    <span class="trust-badge trust-badge-verified">&#10003; Verified</span>
-                                    {% else %}
-                                    <span class="trust-badge trust-badge-observed">&#128269; Observed</span>
-                                    {% if item.has_score_value %}
-                                    {% include "jobs/partials/has_pips.html" with score=item.has_score_value %}
-                                    {% endif %}
-                                    {% endif %}
-                                </div>
-                                <h5 class="card-title fw-bold mb-1">{{ item.title }}</h5>
-                                <h6 class="text-primary mb-0">
-                                    <i class="bi bi-building me-1"></i>{{ item.company_name }}
-                                </h6>
-                            </div>
-                            {% if item.salary_display %}
-                            <span class="badge bg-success fs-6 ms-2">{{ item.salary_display }}</span>
+                        <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                            {% if item.is_verified %}
+                            <span class="trust-badge trust-badge-verified">&#10003; Verified</span>
+                            {% else %}
+                            <span class="trust-badge trust-badge-observed">&#128269; Observed</span>
+                            {% if item.has_score_value %}
+                            <span class="activity-label">
+                                Active {{ item.has_score_value }}/100
+                            </span>
+                            {% endif %}
                             {% endif %}
                         </div>
 
-                        <p class="card-text text-muted mb-3">
-                            {{ item.description|striptags|truncatewords:30 }}
+                        <h5 class="job-title mb-1">{{ item.title }}</h5>
+                        <h6 class="text-primary mb-1">
+                            <i class="bi bi-building me-1"></i>{{ item.company_name }}
+                        </h6>
+
+                        {% if item.salary_display %}
+                        <div class="salary-display mb-2">
+                            <i class="bi bi-cash-stack me-1"></i>{{ item.salary_display }}
+                        </div>
+                        {% endif %}
+
+                        <p class="card-text text-muted mb-3" style="font-size: 0.9rem;">
+                            {{ item.description|striptags|truncatewords:25 }}
                         </p>
 
                         <div class="d-flex flex-wrap gap-2 mb-3">
                             {% if item.location %}
-                            <span class="badge bg-light text-dark">
+                            <span class="badge badge-location">
                                 <i class="bi bi-geo-alt-fill me-1"></i>{{ item.location }}
                             </span>
                             {% endif %}
                             {% if item.job_type_display %}
-                            <span class="badge bg-info text-dark">
+                            <span class="badge badge-job-type">
                                 <i class="bi bi-briefcase me-1"></i>{{ item.job_type_display }}
                             </span>
                             {% endif %}
                             {% if item.remote_status_display %}
-                            <span class="badge bg-secondary">
+                            <span class="badge badge-remote">
                                 <i class="bi bi-globe me-1"></i>{{ item.remote_status_display }}
                             </span>
                             {% endif %}
                             {% if item.experience_level_display %}
-                            <span class="badge bg-light text-dark">
+                            <span class="badge badge-experience">
                                 <i class="bi bi-bar-chart me-1"></i>{{ item.experience_level_display }}
                             </span>
                             {% endif %}
@@ -388,4 +399,28 @@
         </div>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function toggleMoreFilters() {
+        var row = document.getElementById('moreFiltersRow');
+        var btn = document.getElementById('moreFiltersBtn');
+        row.classList.toggle('show');
+        btn.classList.toggle('active');
+        if (row.classList.contains('show')) {
+            btn.innerHTML = '<i class="bi bi-sliders me-1"></i>Fewer Filters <i class="bi bi-chevron-up ms-1"></i>';
+        } else {
+            btn.innerHTML = '<i class="bi bi-sliders me-1"></i>More Filters <i class="bi bi-chevron-down ms-1"></i>';
+        }
+    }
+
+    // Auto-expand if any advanced filter is active
+    (function() {
+        var hasAdvancedFilter = {% if experience_filter or salary_filter or date_filter or activity_filter %}true{% else %}false{% endif %};
+        if (hasAdvancedFilter) {
+            toggleMoreFilters();
+        }
+    })();
+</script>
 {% endblock %}

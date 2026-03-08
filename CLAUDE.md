@@ -154,6 +154,12 @@ python manage.py shell
 - Job type, experience level, and remote status filters
 - Duplicate job detection with confirmation flow
 - Verification badges on job listings (basic/enhanced/complete levels)
+- **GenZJobs ATS integration** — ingests market-observed listings from GenZJobs shared database
+- **Hiring Activity Score (HAS)** — 0-100 scoring algorithm with 13+ signals (freshness, specificity, company velocity, repost penalty, etc.); publish threshold 65+
+- **Trust UI Kit** — announcement bar, verified/observed banners, HAS badge tooltips, first-visit modal, pip score visualization
+- **Two listing types**: Verified (employer-posted Job model) and Market-Observed (ScrapedJobListing from ATS ingestion)
+- **UnifiedListing** wrapper (`jobs/unified.py`) normalizes both models for templates; verified always sort above observed
+- **Earth-tone design system** — terracotta (#C4714F), warm sage (#7A8C6E), gold/amber (#C49A3C), cream (#FAF7F2) palette; Lora headings + DM Sans body
 
 ## Management Commands
 
@@ -184,7 +190,18 @@ python manage.py expire_stale_jobs --dry-run  # Preview without changes
 - [jobs/models.py](jobs/models.py) - Database models
 - [jobs/forms.py](jobs/forms.py) - Form definitions and validation
 - [jobs/utils.py](jobs/utils.py) - SMS, email, Turnstile helpers
-- [jobs/templates/jobs/base.html](jobs/templates/jobs/base.html) - Base template
+- [jobs/templates/jobs/base.html](jobs/templates/jobs/base.html) - Base template (all CSS lives here inline)
+- [jobs/unified.py](jobs/unified.py) - UnifiedListing wrapper for merging Job + ScrapedJobListing
+- [jobs/scoring/](jobs/scoring/) - HAS scoring engine (config.py, engine.py, signals.py)
+- [jobs/templates/jobs/partials/](jobs/templates/jobs/partials/) - Reusable template partials (has_pips, has_badge_tooltip)
+
+## ATS / Market-Observed Architecture
+
+- **ScrapedJobListing** model stores observed listings; **HiringActivityScore** (OneToOne) stores scoring
+- Score bands: very_active (80-100), likely_active (65-79), uncertain (50-64), low_signal (0-49)
+- Only listings scoring 65+ are published to the board (`published_to_board=True`)
+- `{% ifchanged item.is_verified %}` used in job_list.html for section header transitions (not `{% with %}` — Django scoping limitation)
+- Branch `ATS-implementation` contains all ATS/HAS/Trust UI work before merging to main
 
 ## Setup Checklist for New Features
 
