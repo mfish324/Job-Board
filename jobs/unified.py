@@ -127,23 +127,27 @@ class UnifiedListing:
         now = timezone.now()
         age_days = (now - self.posted_date).total_seconds() / 86400
 
+        # Verified postings always sort above observed in all modes.
+        # We add 100000 to ensure verified never interleaves with observed.
+        verified_boost = 100000 if self._is_verified else 0
+
         if sort_mode == 'newest':
-            # Pure chronological: use timestamp as float (higher = newer)
-            return self.posted_date.timestamp()
+            # Chronological within each group
+            return verified_boost + self.posted_date.timestamp() / 1e10
 
         elif sort_mode == 'activity':
-            # HAS score descending, verified always on top
+            # HAS score descending; verified treated as score=100
             if self._is_verified:
-                return 10000 + (100 - min(age_days, 100))
+                return verified_boost + (100 - min(age_days, 100))
             has = self.has_score_value or 0
             return has
 
         else:
             # "relevant" (default): blended score
-            freshness = max(0, 30 - age_days) * (30 / 30)  # 0-30 pts
+            freshness = max(0, 30 - age_days)  # 0-30 pts
 
             if self._is_verified:
-                return 25 + freshness
+                return verified_boost + freshness
             else:
                 has = self.has_score_value or 0
                 return (has * 0.5) + freshness

@@ -41,7 +41,17 @@ def ratelimited_error(request, exception):
 
 # Your existing views stay the same
 def home(request):
-    recent_jobs = Job.objects.filter(is_active=True).order_by('-posted_date')[:5]
+    from .unified import UnifiedListing
+
+    # Verified postings (employer-posted)
+    verified_jobs = Job.objects.filter(is_active=True).order_by('-posted_date')[:5]
+
+    # Market-observed roles (scored and published)
+    observed_listings = ScrapedJobListing.objects.filter(
+        published_to_board=True, status__in=['active', 'published']
+    ).select_related('activity_score').order_by('-activity_score__total_score', '-date_first_seen')[:6]
+    observed_unified = [UnifiedListing(l) for l in observed_listings]
+
     total_verified = Job.objects.filter(is_active=True).count()
     total_observed = ScrapedJobListing.objects.filter(
         published_to_board=True, status__in=['active', 'published']
@@ -61,7 +71,8 @@ def home(request):
 
     total_seekers = UserProfile.objects.filter(user_type='job_seeker').count()
     context = {
-        'recent_jobs': recent_jobs,
+        'verified_jobs': verified_jobs,
+        'observed_jobs': observed_unified,
         'total_jobs': total_jobs,
         'total_companies': total_companies,
         'total_seekers': total_seekers

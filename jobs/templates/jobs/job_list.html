@@ -242,6 +242,28 @@
     {% if page_obj %}
         <div class="row">
             {% for item in page_obj %}
+
+            {# Section headers — ifchanged fires when is_verified transitions #}
+            {% ifchanged item.is_verified %}
+                {% if item.is_verified %}
+                <div class="col-12 mb-3">
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <span class="trust-badge trust-badge-verified">&#10003; Verified</span>
+                        <h5 class="fw-bold mb-0">Verified Postings</h5>
+                    </div>
+                    <p class="text-muted small mb-0">Posted directly to RJRP by verified employers.</p>
+                </div>
+                {% else %}
+                <div class="col-12 mb-3 {% if not forloop.first %}mt-4 pt-3 border-top{% endif %}">
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <span class="trust-badge trust-badge-observed">&#128269; Observed</span>
+                        <h5 class="fw-bold mb-0">Market-Observed Roles</h5>
+                    </div>
+                    <p class="text-muted small mb-0">Detected through employer hiring systems and scored by our Hiring Activity algorithm.</p>
+                </div>
+                {% endif %}
+            {% endifchanged %}
+
             <div class="col-lg-6 mb-4">
                 <div class="card job-card h-100 {% if item.is_verified %}job-card-verified{% else %}job-card-observed{% endif %}">
                     <div class="card-body">
