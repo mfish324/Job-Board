@@ -1,0 +1,44 @@
+{% comment %}
+HAS Badge with hover tooltip (Component 4).
+Shows the observed badge, pips, and a rich dark tooltip on hover.
+
+Usage:
+    {% include "jobs/partials/has_badge_tooltip.html" with listing=listing has_score=has_score %}
+{% endcomment %}
+{% load has_tags %}
+
+<div class="tooltip-trigger-area" tabindex="0">
+    <span class="trust-badge trust-badge-observed">&#128269; Observed</span>
+    {% include "jobs/partials/has_pips.html" with score=has_score.total_score %}
+
+    {% if has_score %}
+    <div class="has-tooltip">
+        <div class="tooltip-score-row">
+            <div>
+                <div class="tooltip-score-num">{{ has_score.total_score }}</div>
+                <div class="tooltip-score-label">Hiring Activity Score</div>
+            </div>
+            <div class="tooltip-band-badge">{{ has_score.get_score_band_display }}</div>
+        </div>
+        <div class="tooltip-pips">
+            <div class="tooltip-pip {% if has_score.total_score >= 20 %}filled{% endif %}"></div>
+            <div class="tooltip-pip {% if has_score.total_score >= 40 %}filled{% endif %}"></div>
+            <div class="tooltip-pip {% if has_score.total_score >= 60 %}filled{% endif %}"></div>
+            <div class="tooltip-pip {% if has_score.total_score >= 80 %}filled{% endif %}"></div>
+            <div class="tooltip-pip {% if has_score.total_score >= 95 %}filled{% endif %}"></div>
+        </div>
+        {% if has_score.score_breakdown %}
+        <ul class="tooltip-signals">
+            {% for signal, data in has_score.score_breakdown.items %}
+                {% if data.points > 0 %}
+                <li><span class="sig-icon">&#9989;</span> {{ data.explanation }}</li>
+                {% elif data.points < 0 %}
+                <li><span class="sig-icon">&#9888;&#65039;</span> {{ data.explanation }}</li>
+                {% endif %}
+            {% endfor %}
+        </ul>
+        {% endif %}
+        <a href="{% url 'has_info' %}" class="tooltip-learn">How the Hiring Activity Score works &rarr;</a>
+    </div>
+    {% endif %}
+</div>

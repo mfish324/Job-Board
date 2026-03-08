@@ -247,14 +247,14 @@
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-start mb-2">
                             <div class="flex-grow-1">
-                                <div class="d-flex align-items-center gap-2 mb-1">
+                                <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
                                     {% if item.is_verified %}
-                                    <span class="badge bg-success"><i class="bi bi-patch-check-fill me-1"></i>Verified</span>
+                                    <span class="trust-badge trust-badge-verified">&#10003; Verified</span>
                                     {% else %}
-                                    <span class="badge bg-info"><i class="bi bi-eye me-1"></i>Observed</span>
+                                    <span class="trust-badge trust-badge-observed">&#128269; Observed</span>
+                                    {% if item.has_score_value %}
+                                    {% include "jobs/partials/has_pips.html" with score=item.has_score_value %}
                                     {% endif %}
-                                    {% if item.is_observed %}
-                                    {{ item|has_score_pips }}
                                     {% endif %}
                                 </div>
                                 <h5 class="card-title fw-bold mb-1">{{ item.title }}</h5>

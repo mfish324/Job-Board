@@ -14,6 +14,29 @@
         </ol>
     </nav>
 
+    <!-- Market-Observed Banner (Component 2) -->
+    <div class="observed-banner mb-4" id="observedBanner">
+        <div class="observed-banner-icon">&#128269;</div>
+        <div class="observed-banner-body">
+            <div class="observed-banner-title">
+                Market-Observed Role
+                <span class="trust-badge trust-badge-observed">&#128269; Observed</span>
+                {% if has_score %}
+                {% include "jobs/partials/has_pips.html" with score=has_score.total_score %}
+                <strong style="font-size:12px; color:#1d4ed8;">{{ has_score.get_score_band_display }}</strong>
+                {% endif %}
+            </div>
+            <div class="observed-banner-desc">
+                This role was detected through {{ listing.company_name }}'s hiring system and hasn't been verified directly by the employer.
+                {% if has_score %}
+                Our algorithm scored it as <strong>{{ has_score.get_score_band_display }}</strong> based on freshness, specificity, and company patterns.
+                {% endif %}
+                <a href="{% url 'has_info' %}">What does this mean? &rarr;</a>
+            </div>
+        </div>
+        <button class="observed-banner-dismiss" onclick="this.closest('.observed-banner').remove()" title="Dismiss">&times;</button>
+    </div>
+
     <div class="row">
         <!-- Main Content -->
         <div class="col-lg-8">
@@ -25,11 +48,10 @@
                             <h1 class="h2 fw-bold mb-2">{{ listing.title }}</h1>
                             <h5 class="text-primary mb-2">
                                 <i class="bi bi-building me-2"></i>{{ listing.company_name }}
-                                {{ listing|source_badge }}
                             </h5>
                             {% if has_score %}
                             <div class="mt-2">
-                                {% has_indicator listing %}
+                                {% include "jobs/partials/has_badge_tooltip.html" with listing=listing has_score=has_score %}
                             </div>
                             {% endif %}
                         </div>
@@ -59,14 +81,12 @@
                         {% endif %}
                     </div>
 
-                    <!-- Market-Observed Notice -->
-                    <div class="alert alert-info">
+                    {% if can_claim %}
+                    <div class="alert alert-info mb-3">
                         <i class="bi bi-info-circle me-2"></i>
-                        <strong>Market-Observed Listing:</strong> This job was found through automated scanning of employer career pages.
-                        {% if can_claim %}
-                        <a href="{% url 'claim_listing' listing.id %}" class="alert-link">Claim this listing</a> if you're the employer.
-                        {% endif %}
+                        Are you the employer? <a href="{% url 'claim_listing' listing.id %}" class="alert-link">Claim this listing</a> to verify and manage it.
                     </div>
+                    {% endif %}
 
                     <!-- External Apply Button -->
                     <a href="{{ listing.source_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-lg w-100">
@@ -297,6 +317,7 @@
                     <p class="text-muted small mb-0">
                         Higher scores indicate more likely active hiring based on listing freshness,
                         company activity, and other signals.
+                        <a href="{% url 'has_info' %}">Learn more &rarr;</a>
                     </p>
                 </div>
             </div>
@@ -326,4 +347,74 @@
         </div>
     </div>
 </div>
+
+<!-- First-Visit Trust Modal (Component 1) -->
+<div class="trust-modal-overlay" id="trustModal">
+    <div class="trust-modal">
+        <div class="trust-modal-header">
+            <div class="trust-modal-icon-row">
+                <div class="trust-modal-icon verified-icon">&#10003;</div>
+                <span style="font-size: 18px; color: var(--ink-muted);">+</span>
+                <div class="trust-modal-icon observed-icon">&#128269;</div>
+            </div>
+            <h2>We now show two types of job listings</h2>
+            <p class="trust-modal-subtitle">Same commitment to real jobs. More opportunities for you. Here's how it works.</p>
+        </div>
+
+        <div class="trust-modal-body">
+            <div class="source-explainer verified-exp">
+                <div class="source-exp-header">
+                    <span class="trust-badge trust-badge-verified">&#10003; Verified</span>
+                    <span class="source-exp-title">Employer-Verified Posts</span>
+                </div>
+                <p>These jobs were posted directly to RJRP by the employer. The company has been verified through our multi-step process. This is our gold standard &mdash; the employer is real, the job is real, and you can apply with confidence.</p>
+                <div class="highlight-line">&#10003; 100% employer verified</div>
+            </div>
+
+            <div class="source-explainer observed-exp">
+                <div class="source-exp-header">
+                    <span class="trust-badge trust-badge-observed">&#128269; Observed</span>
+                    <span class="source-exp-title">Market-Observed Roles</span>
+                </div>
+                <p>These roles were detected through employer hiring systems like Workday. They haven't been verified by the employer directly, so we score each one using our <strong>Hiring Activity Score</strong> &mdash; an algorithm that analyzes freshness, specificity, company hiring patterns, and more to estimate whether the role is actively being filled.</p>
+                <div class="highlight-line">&#128202; Only high-scoring listings are shown</div>
+            </div>
+
+            <div class="promise-box">
+                <p><strong>Our promise hasn't changed.</strong> We will never show you a listing we can't stand behind. Market-observed roles must pass our scoring threshold before they appear on RJRP. Anything that looks like a ghost job, a talent pipeline, or a dead listing gets filtered out &mdash; you'll never see it.</p>
+            </div>
+        </div>
+
+        <div class="trust-modal-footer">
+            <button class="btn-trust-primary" onclick="closeTrustModal()">Got it &mdash; show me jobs</button>
+            <button class="btn-trust-secondary" onclick="closeTrustModal(); window.location='{% url 'has_info' %}'">Learn more about how scoring works</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // First-visit modal — fires once per user via localStorage
+    (function() {
+        try {
+            if (!localStorage.getItem('rjrp_trust_modal_seen')) {
+                document.getElementById('trustModal').classList.add('active');
+                localStorage.setItem('rjrp_trust_modal_seen', '1');
+            }
+        } catch(e) {}
+    })();
+
+    function closeTrustModal() {
+        document.getElementById('trustModal').classList.remove('active');
+    }
+
+    // Close on overlay click
+    document.getElementById('trustModal').addEventListener('click', function(e) {
+        if (e.target === this) closeTrustModal();
+    });
+
+    // Close on Escape
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeTrustModal();
+    });
+</script>
 {% endblock %}

@@ -314,6 +314,29 @@ def days_ago(date_value):
 
 
 @register.filter
+def has_pip_count(score):
+    """
+    Maps 0-100 HAS score to 1-5 filled pips.
+
+    Usage:
+        {{ score|has_pip_count }}
+    """
+    try:
+        score = int(score)
+    except (TypeError, ValueError):
+        return 1
+    if score >= 80:
+        return 5
+    if score >= 65:
+        return 4
+    if score >= 50:
+        return 3
+    if score >= 35:
+        return 2
+    return 1
+
+
+@register.filter
 def format_salary(listing):
     """
     Format salary range nicely.

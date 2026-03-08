@@ -1184,6 +1184,9 @@ def about(request):
 def employer_guide(request):
     return render(request, 'jobs/employer_guide.html')
 
+def has_info(request):
+    return render(request, 'jobs/has_info.html')
+
 def terms_of_service(request):
     return render(request, 'jobs/terms.html')
 

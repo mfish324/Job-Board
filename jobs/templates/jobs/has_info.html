@@ -1,0 +1,307 @@
+{% extends 'jobs/base.html' %}
+
+{% block title %}How the Hiring Activity Score Works - Real Jobs, Real People{% endblock %}
+{% block meta_description %}Learn how RJRP's Hiring Activity Score algorithm evaluates market-observed job listings for freshness, specificity, and company hiring patterns.{% endblock %}
+
+{% block extra_css %}
+<style>
+    .has-info-page {
+        max-width: 780px;
+        margin: 0 auto;
+    }
+    .has-info-page h1 {
+        font-family: 'Fraunces', serif;
+        font-size: 32px;
+        font-weight: 700;
+        color: var(--ink);
+        margin-bottom: 8px;
+    }
+    .has-info-page h2 {
+        font-family: 'Fraunces', serif;
+        font-size: 22px;
+        font-weight: 700;
+        color: var(--ink);
+        margin-top: 40px;
+        margin-bottom: 16px;
+    }
+    .has-info-page h3 {
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--ink);
+        margin-top: 28px;
+        margin-bottom: 10px;
+    }
+    .has-info-page p, .has-info-page li {
+        font-size: 15px;
+        color: var(--ink-soft);
+        line-height: 1.7;
+    }
+    .has-info-page .lead {
+        font-size: 16.5px;
+        color: var(--ink-muted);
+    }
+    .signal-card {
+        border-radius: 10px;
+        padding: 18px 20px;
+        border: 1px solid var(--border);
+        margin-bottom: 12px;
+        position: relative;
+        overflow: hidden;
+    }
+    .signal-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 3px;
+        height: 100%;
+    }
+    .signal-positive::before { background: var(--green); }
+    .signal-negative::before { background: #ef4444; }
+    .signal-enriched::before { background: var(--accent); }
+    .signal-card .signal-name {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--ink);
+        margin-bottom: 4px;
+    }
+    .signal-card .signal-desc {
+        font-size: 13.5px;
+        color: var(--ink-soft);
+        margin-bottom: 4px;
+    }
+    .signal-card .signal-points {
+        font-size: 12.5px;
+        font-weight: 600;
+        color: var(--ink-muted);
+    }
+    .band-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        border-radius: 8px;
+        margin-bottom: 8px;
+    }
+    .band-row .pips { flex-shrink: 0; }
+    .band-label {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--ink);
+        min-width: 110px;
+    }
+    .band-desc {
+        font-size: 13.5px;
+        color: var(--ink-soft);
+    }
+    .two-types-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin: 24px 0;
+    }
+    @media (max-width: 600px) {
+        .two-types-grid { grid-template-columns: 1fr; }
+    }
+    .type-card {
+        border-radius: 10px;
+        padding: 20px;
+        border: 1px solid var(--border);
+        position: relative;
+        overflow: hidden;
+    }
+    .type-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 3px;
+        height: 100%;
+    }
+    .type-verified::before { background: var(--verified); }
+    .type-observed::before { background: var(--accent); }
+    .type-card h3 {
+        margin-top: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'home' %}">Home</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'job_list' %}">Jobs</a></li>
+            <li class="breadcrumb-item active">How Scoring Works</li>
+        </ol>
+    </nav>
+
+    <div class="has-info-page">
+        <h1>How the Hiring Activity Score Works</h1>
+        <p class="lead mb-4">
+            RJRP uses a multi-signal algorithm to evaluate market-observed job listings and filter out ghost jobs, dead postings, and talent pipelines &mdash; so you only see roles that are actively being filled.
+        </p>
+
+        <!-- Two Types of Listings -->
+        <h2>Two types of job listings</h2>
+        <div class="two-types-grid">
+            <div class="type-card type-verified">
+                <h3>
+                    <span class="trust-badge trust-badge-verified">&#10003; Verified</span>
+                </h3>
+                <p style="font-size:14px; color:var(--ink-soft); line-height:1.6; margin-bottom:8px;">
+                    Posted directly to RJRP by the employer and confirmed through our multi-step verification process. This is our gold standard.
+                </p>
+                <div class="highlight-line">&#10003; 100% employer verified</div>
+            </div>
+            <div class="type-card type-observed">
+                <h3>
+                    <span class="trust-badge trust-badge-observed">&#128269; Observed</span>
+                </h3>
+                <p style="font-size:14px; color:var(--ink-soft); line-height:1.6; margin-bottom:8px;">
+                    Detected through employer hiring systems (Greenhouse, Lever, Workday, etc.). Scored by our algorithm before appearing on RJRP.
+                </p>
+                <div class="highlight-line">&#128202; Must pass scoring threshold</div>
+            </div>
+        </div>
+
+        <!-- Score Bands -->
+        <h2>Score bands</h2>
+        <p>Every observed listing receives a score from 0&ndash;100. Only listings that meet our publish threshold (65+) appear on RJRP.</p>
+
+        <div class="band-row" style="background: var(--green-bg); border: 1px solid var(--green-border);">
+            <span class="pips">
+                <span class="pip filled high-pip"></span>
+                <span class="pip filled high-pip"></span>
+                <span class="pip filled high-pip"></span>
+                <span class="pip filled high-pip"></span>
+                <span class="pip filled high-pip"></span>
+            </span>
+            <span class="band-label">Very Active</span>
+            <span class="band-desc">80&ndash;100 &mdash; Strong signals this role is actively being filled right now.</span>
+        </div>
+        <div class="band-row" style="background: var(--accent-soft); border: 1px solid #bfdbfe;">
+            <span class="pips">
+                <span class="pip filled"></span>
+                <span class="pip filled"></span>
+                <span class="pip filled"></span>
+                <span class="pip filled"></span>
+                <span class="pip"></span>
+            </span>
+            <span class="band-label">Likely Active</span>
+            <span class="band-desc">65&ndash;79 &mdash; Good indicators of active hiring. Published on RJRP.</span>
+        </div>
+        <div class="band-row" style="background: var(--amber-bg); border: 1px solid var(--amber-border);">
+            <span class="pips">
+                <span class="pip filled"></span>
+                <span class="pip filled"></span>
+                <span class="pip filled"></span>
+                <span class="pip"></span>
+                <span class="pip"></span>
+            </span>
+            <span class="band-label">Uncertain</span>
+            <span class="band-desc">50&ndash;64 &mdash; Mixed signals. Not shown on RJRP by default.</span>
+        </div>
+        <div class="band-row" style="background: #f3f4f6; border: 1px solid #d1d5db;">
+            <span class="pips">
+                <span class="pip filled"></span>
+                <span class="pip"></span>
+                <span class="pip"></span>
+                <span class="pip"></span>
+                <span class="pip"></span>
+            </span>
+            <span class="band-label">Low Signal</span>
+            <span class="band-desc">0&ndash;49 &mdash; Insufficient data or negative signals. Filtered out.</span>
+        </div>
+
+        <!-- Positive Signals -->
+        <h2>Positive signals</h2>
+        <p>These increase a listing's score, indicating active hiring:</p>
+
+        <div class="signal-card signal-positive">
+            <div class="signal-name">Freshness</div>
+            <div class="signal-desc">How recently the listing was first seen. Newer postings score higher, with linear decay over 30 days.</div>
+            <div class="signal-points">Up to +15 points</div>
+        </div>
+        <div class="signal-card signal-positive">
+            <div class="signal-name">Specificity</div>
+            <div class="signal-desc">Does the listing include salary info, a specific location, and a quality description (500+ characters)?</div>
+            <div class="signal-points">Up to +10 points</div>
+        </div>
+        <div class="signal-card signal-positive">
+            <div class="signal-name">Company Velocity</div>
+            <div class="signal-desc">Net job movement &mdash; companies that are posting more jobs than they're removing score higher.</div>
+            <div class="signal-points">Up to +10 points</div>
+        </div>
+        <div class="signal-card signal-positive">
+            <div class="signal-name">ATS Behavior</div>
+            <div class="signal-desc">Description updates and similar role closures suggest active pipeline management.</div>
+            <div class="signal-points">Up to +5 points</div>
+        </div>
+        <div class="signal-card signal-positive">
+            <div class="signal-name">Company Reputation</div>
+            <div class="signal-desc">Composite score based on employer reputation indicators.</div>
+            <div class="signal-points">-5 to +7 points</div>
+        </div>
+        <div class="signal-card signal-positive">
+            <div class="signal-name">Publisher Trustworthiness</div>
+            <div class="signal-desc">Listings sourced directly from ATS platforms (Greenhouse, Lever, etc.) earn a trust bonus.</div>
+            <div class="signal-points">Up to +5 points</div>
+        </div>
+
+        <!-- Negative Signals -->
+        <h2>Negative signals</h2>
+        <p>These reduce a listing's score, indicating potential ghost jobs or stale postings:</p>
+
+        <div class="signal-card signal-negative">
+            <div class="signal-name">Repost Penalty</div>
+            <div class="signal-desc">Listings that are repeatedly reposted without being filled receive a penalty for each repost.</div>
+            <div class="signal-points">Up to -15 points</div>
+        </div>
+        <div class="signal-card signal-negative">
+            <div class="signal-name">Evergreen Penalty</div>
+            <div class="signal-desc">Listings open for 90+ days with no changes are likely evergreen/talent pipeline posts.</div>
+            <div class="signal-points">Up to -20 points</div>
+        </div>
+        <div class="signal-card signal-negative">
+            <div class="signal-name">Boilerplate Penalty</div>
+            <div class="signal-desc">High similarity to other listings from the same company suggests templated/generic postings.</div>
+            <div class="signal-points">Up to -10 points</div>
+        </div>
+        <div class="signal-card signal-negative">
+            <div class="signal-name">Stale Penalty</div>
+            <div class="signal-desc">Listings not seen by our scraper in 14+ days may have been removed.</div>
+            <div class="signal-points">Up to -10 points</div>
+        </div>
+
+        <!-- Enriched Signals -->
+        <h2>Data enrichment signals</h2>
+        <p>Additional signals from enriched data sources that improve scoring accuracy:</p>
+
+        <div class="signal-card signal-enriched">
+            <div class="signal-name">Data Completeness</div>
+            <div class="signal-desc">Listings with requirements, benefits, company logo, website, and skills data score higher.</div>
+            <div class="signal-points">Up to +8 points</div>
+        </div>
+        <div class="signal-card signal-enriched">
+            <div class="signal-name">Classification Confidence</div>
+            <div class="signal-desc">ML classification confidence &mdash; high confidence earns a bonus, low confidence earns a penalty.</div>
+            <div class="signal-points">-3 to +3 points</div>
+        </div>
+
+        <!-- Promise -->
+        <div class="promise-box mt-5 mb-4">
+            <p><strong>Our promise:</strong> We will never show you a listing we can't stand behind. Market-observed roles must pass our scoring threshold before they appear on RJRP. Anything that looks like a ghost job, a talent pipeline, or a dead listing gets filtered out &mdash; you'll never see it.</p>
+        </div>
+
+        <div class="text-center mb-4">
+            <a href="{% url 'job_list' %}" class="btn btn-primary btn-lg">
+                <i class="bi bi-search me-2"></i>Browse Jobs
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
