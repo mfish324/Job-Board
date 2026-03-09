@@ -185,6 +185,20 @@ def job_list(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
+    # Directory employer results (only on page 1 with a search query)
+    directory_employers = []
+    directory_match_title = ''
+    if search_query and (not page_number or page_number == '1'):
+        try:
+            from directory.utils import get_directory_results
+            directory_employers, dir_mapping = get_directory_results(
+                search_query, location_filter, limit=6
+            )
+            if dir_mapping:
+                directory_match_title = dir_mapping.canonical_title
+        except Exception:
+            pass  # Directory is optional — don't break search if it fails
+
     # Build filter querystring for pagination links (all GET params except 'page')
     filter_params = request.GET.copy()
     filter_params.pop('page', None)
@@ -206,6 +220,8 @@ def job_list(request):
         'verified_count': verified_count,
         'observed_count': observed_count,
         'filter_querystring': filter_querystring,
+        'directory_employers': directory_employers,
+        'directory_match_title': directory_match_title,
         # Provide choices for filters
         'job_type_choices': Job.JOB_TYPE_CHOICES,
         'experience_level_choices': Job.EXPERIENCE_LEVEL_CHOICES,

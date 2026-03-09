@@ -55,6 +55,20 @@ RJRP/
 │   │       ├── has_pips.html          # Score pip visualization
 │   │       └── has_badge_tooltip.html # HAS hover tooltip
 │   └── static/jobs/        # CSS, JS, images
+├── directory/              # Employer Directory app (deep-link system)
+│   ├── models.py          # FeaturedEmployer, JobTitleMapping, DirectoryClick, etc.
+│   ├── views.py           # Directory index, employer detail, click-tracking redirect
+│   ├── urls.py            # /directory/, /directory/<slug>/, /directory/<slug>/go/
+│   ├── utils.py           # Deep-link construction, title matching engine
+│   ├── admin.py           # Admin with inlines for categories & overrides
+│   ├── management/commands/
+│   │   ├── seed_directory.py        # Seed 24 employers, 13 title mappings, overrides
+│   │   └── update_directory_counts.py # Stub for automated count updates
+│   └── templates/directory/
+│       ├── index.html               # Browse all employers with industry filters
+│       ├── employer_detail.html     # Employer page with category pills & claim CTA
+│       └── partials/
+│           └── spotlight_card.html  # Inline card injected into search results
 ├── templates/              # Project-level templates
 ├── media/                  # User uploads (dev only)
 ├── staticfiles/            # Collected static files
@@ -72,6 +86,11 @@ RJRP/
 - **SavedJob**: Bookmarked jobs for job seekers
 - **ListingFeedback**: User feedback on observed listings
 - **GenzjobsListing**: Unmanaged model (reads from shared GenZJobs DB)
+- **FeaturedEmployer**: Curated directory of major employers with career portal URLs & deep-link patterns
+- **JobTitleMapping**: Canonical title → search alias mapping (e.g., "DevOps" ↔ "sre", "platform engineer")
+- **DirectoryEmployerCategory**: Maps employers to job categories with per-employer search terms
+- **EmployerTitleOverride**: Per-employer role naming overrides (e.g., Google calls DevOps "SRE")
+- **DirectoryClick**: Click-through analytics for directory deep-links
 - **PhoneVerification**: SMS verification codes
 - **EmailVerification**: Email verification tokens
 - **TwoFactorCode**: 2FA codes for login security
@@ -148,6 +167,7 @@ python manage.py collectstatic
 
 # Testing
 python manage.py test jobs
+python manage.py test directory
 
 # Shell
 python manage.py shell
@@ -182,6 +202,11 @@ python manage.py shell
 - **Two listing types**: Verified (employer-posted Job model) and Market-Observed (ScrapedJobListing from ATS ingestion)
 - **UnifiedListing** wrapper (`jobs/unified.py`) normalizes both models for templates; verified always sort above observed
 - **Earth-tone design system** — terracotta (#C4714F), warm sage (#7A8C6E), gold/amber (#C49A3C), cream (#FAF7F2) palette; Lora headings + DM Sans body
+- **Employer Directory** — curated directory of 24 major employers (Google, Goldman Sachs, etc.) with deep-link system to their career portals
+- **Deep-link engine** — constructs URLs with search terms prefilled using per-employer URL patterns and title overrides
+- **Three content tiers in search**: Verified (gold), Market-Observed (sage), Directory spotlight cards (purple #7c3aed)
+- **Title synonym mapping** — 13 canonical categories with search aliases for intelligent query matching
+- **Directory click tracking** — analytics on employer click-throughs for conversion targeting
 
 ## Management Commands
 
@@ -189,6 +214,12 @@ python manage.py shell
 # Expire stale job listings (run via cron daily)
 python manage.py expire_stale_jobs
 python manage.py expire_stale_jobs --dry-run  # Preview without changes
+
+# Employer Directory
+python manage.py seed_directory              # Seed/update 24 employers, 13 title mappings, overrides
+python manage.py update_directory_counts     # Stub for future automated count updates
+python manage.py update_directory_counts --dry-run
+python manage.py update_directory_counts --employer google
 ```
 
 ## Deployment Notes
@@ -218,6 +249,9 @@ python manage.py expire_stale_jobs --dry-run  # Preview without changes
 - [jobs/unified.py](jobs/unified.py) - UnifiedListing wrapper for merging Job + ScrapedJobListing
 - [jobs/scoring/](jobs/scoring/) - HAS scoring engine (config.py, engine.py, signals.py)
 - [jobs/templates/jobs/partials/](jobs/templates/jobs/partials/) - Reusable template partials (has_pips, has_badge_tooltip)
+- [directory/models.py](directory/models.py) - Employer directory models
+- [directory/utils.py](directory/utils.py) - Deep-link construction & title matching
+- [directory/management/commands/seed_directory.py](directory/management/commands/seed_directory.py) - Directory seed data
 
 ## ATS / Market-Observed Architecture
 
@@ -226,6 +260,19 @@ python manage.py expire_stale_jobs --dry-run  # Preview without changes
 - Only listings scoring 65+ are published to the board (`published_to_board=True`)
 - `{% ifchanged item.is_verified %}` used in job_list.html for section header transitions (not `{% with %}` — Django scoping limitation)
 - Branch `ATS-implementation` contains all ATS/HAS/Trust UI work before merging to main
+
+## Employer Directory Architecture
+
+- Separate `directory` Django app with its own models, views, templates, and tests
+- **Three content tiers** in search results: Verified (gold), Market-Observed (sage), Directory (purple)
+- Deep-link URL construction: employer URL pattern → title override lookup → category search term → raw query fallback
+- Title matching: substring match against alias lists, longest match wins for specificity
+- Spotlight card injected after 2nd listing in search results (page 1 only, when query matches a canonical title)
+- Click-through tracking via `/directory/<slug>/go/` redirect endpoint
+- Directory browse at `/directory/` with client-side industry filter chips
+- Employer detail at `/directory/<slug>/` with category pills, deep-link CTA, and claim banner
+- Seed data: 24 employers, 13 canonical title mappings, 110 category assignments, 5 title overrides
+- `seed_directory` is idempotent (uses `update_or_create`)
 
 ## Design System — Earth Tone Palette
 
@@ -239,6 +286,7 @@ All CSS lives inline in `base.html`. No external stylesheets or SCSS.
 **Earth Tone Tokens:**
 - `--verified: #c49a3c` / `--verified-bg: #fdf8ee` — Gold/amber for verified badges & borders
 - `--observed: #7a8c6e` / `--observed-bg: #e8ede4` — Warm sage for observed badges & borders
+- `--directory-color: #7c3aed` / `--directory-bg: #f5f3ff` — Purple for directory cards & badges
 - `--terracotta: #c4714f` — Job type badges (`.badge-job-type`)
 - `--card: #faf7f2` — Soft cream card backgrounds
 - `--ink: #2c2418` — Dark brown-black for text
@@ -255,6 +303,11 @@ All CSS lives inline in `base.html`. No external stylesheets or SCSS.
 - `.salary-display` — Green salary line below company
 - `.activity-label` — "Active X/100" human-readable score
 - `.btn-more-filters` / `.more-filters-row` — Collapsible filter row
+- `.directory-card` / `.directory-spotlight-card` — Directory employer cards
+- `.directory-btn-primary` — Purple CTA buttons for directory
+- `.directory-category-pill` — Clickable category pills on employer detail
+- `.directory-chip` / `.directory-chip.active` — Industry filter chips on directory index
+- `.directory-logo-placeholder` / `.directory-logo-placeholder-sm` — Letter-initial logo fallbacks
 - Job card hover: `translateY(-3px)` + `box-shadow: 0 8px 24px rgba(0,0,0,0.1)`
 
 ## Setup Checklist for New Features

@@ -1,0 +1,127 @@
+{% extends 'jobs/base.html' %}
+
+{% block title %}Company Directory - Real Jobs, Real People{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="fw-bold mb-2" style="font-family: 'Fraunces', serif;">
+                <i class="bi bi-building text-primary me-2"></i>Company Directory
+            </h1>
+            <p class="text-muted mb-0">
+                Major employers with their own career portals. See estimated openings and jump straight to their job listings.
+            </p>
+        </div>
+    </div>
+
+    <!-- Industry Filter Chips -->
+    <div class="row mb-4">
+        <div class="col">
+            <div class="d-flex flex-wrap gap-2">
+                <button class="btn btn-sm directory-chip active" data-industry="all" onclick="filterIndustry('all', this)">
+                    All
+                </button>
+                {% for value, label in industries %}
+                <button class="btn btn-sm directory-chip" data-industry="{{ value }}" onclick="filterIndustry('{{ value }}', this)">
+                    {{ label }}
+                </button>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Employer Grid -->
+    <div class="row" id="employerGrid">
+        {% for employer in employers %}
+        <div class="col-lg-6 mb-4 employer-card-wrapper" data-industry="{{ employer.industry }}">
+            <a href="{% url 'directory:employer_detail' employer.slug %}" class="text-decoration-none">
+                <div class="card h-100 directory-card">
+                    <div class="card-body d-flex align-items-start gap-3">
+                        <!-- Logo / Initial -->
+                        <div class="directory-logo-wrapper">
+                            {% if employer.logo %}
+                            <img src="{{ employer.logo.url }}" alt="{{ employer.name }}" class="directory-logo">
+                            {% else %}
+                            <div class="directory-logo-placeholder">{{ employer.logo_initial }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="flex-grow-1">
+                            <div class="d-flex align-items-center gap-2 mb-1">
+                                <h5 class="mb-0 fw-bold" style="color: var(--ink);">{{ employer.name }}</h5>
+                                {% if employer.verified_employer %}
+                                <span class="trust-badge trust-badge-verified" style="font-size: 0.7rem;">&#10003; Verified</span>
+                                {% endif %}
+                                <i class="bi bi-box-arrow-up-right ms-auto" style="color: var(--directory-color); font-size: 0.85rem;"></i>
+                            </div>
+
+                            <p class="text-muted small mb-2">
+                                {{ employer.get_industry_display }}
+                                {% if employer.headquarters %}&middot; {{ employer.headquarters }}{% endif %}
+                            </p>
+
+                            {% if employer.description %}
+                            <p class="small mb-2" style="color: var(--ink);">{{ employer.description }}</p>
+                            {% endif %}
+
+                            <div class="d-flex flex-wrap gap-2 align-items-center">
+                                {% if employer.estimated_open_roles %}
+                                <span class="badge directory-badge-roles">
+                                    ~{{ employer.estimated_open_roles|floatformat:0 }} open roles
+                                </span>
+                                {% else %}
+                                <span class="badge directory-badge-roles">
+                                    Open roles available
+                                </span>
+                                {% endif %}
+
+                                {% with cat_count=employer.categories.count %}
+                                {% if cat_count %}
+                                <span class="badge directory-badge-cats">
+                                    {{ cat_count }} categor{{ cat_count|pluralize:"y,ies" }}
+                                </span>
+                                {% endif %}
+                                {% endwith %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="bi bi-building text-muted" style="font-size: 3rem;"></i>
+                    <h4 class="mt-3">No employers in the directory yet</h4>
+                    <p class="text-muted">Check back soon!</p>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function filterIndustry(industry, btn) {
+    // Update active chip
+    document.querySelectorAll('.directory-chip').forEach(function(c) {
+        c.classList.remove('active');
+    });
+    btn.classList.add('active');
+
+    // Filter cards
+    document.querySelectorAll('.employer-card-wrapper').forEach(function(card) {
+        if (industry === 'all' || card.dataset.industry === industry) {
+            card.style.display = '';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+}
+</script>
+{% endblock %}

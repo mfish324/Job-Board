@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     'cloudinary_storage',
     'cloudinary',
     'jobs',
+    'directory',
     # Social Authentication
     'allauth',
     'allauth.account',

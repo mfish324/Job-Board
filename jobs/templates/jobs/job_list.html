@@ -252,6 +252,11 @@
         <div class="row">
             {% for item in page_obj %}
 
+            {# Directory spotlight card — inject after 2nd listing on page 1 #}
+            {% if forloop.counter == 3 and directory_employers %}
+            {% include "directory/partials/spotlight_card.html" %}
+            {% endif %}
+
             {# Section headers — ifchanged fires when is_verified transitions #}
             {% ifchanged item.is_verified %}
                 {% if item.is_verified %}

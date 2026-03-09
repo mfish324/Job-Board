@@ -67,6 +67,10 @@
             --terracotta: #c4714f;
             --pip-active: #7a8c6e;
             --pip-inactive: #d5cec4;
+            --directory-color: #7c3aed;
+            --directory-bg: #f5f3ff;
+            --directory-border: #ddd6fe;
+            --directory-soft: #ede9fe;
         }
 
         body {
@@ -169,6 +173,148 @@
         .job-card-observed:hover {
             border-left-color: #5e6d54 !important;
         }
+
+        /* =============================================
+           DIRECTORY STYLES
+           ============================================= */
+        .directory-card {
+            border: 1px solid var(--directory-border);
+            border-radius: 12px;
+            background: var(--card);
+            transition: all 0.3s ease;
+        }
+        .directory-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 24px rgba(124, 58, 237, 0.1);
+            border-color: var(--directory-color);
+        }
+        .directory-spotlight-card {
+            border: 1px solid var(--directory-border);
+            border-radius: 12px;
+            background: var(--directory-bg);
+        }
+        .directory-spotlight-employer {
+            padding: 10px 12px;
+            border-radius: 8px;
+            border: 1px solid var(--directory-border);
+            background: #fff;
+            transition: all 0.2s ease;
+        }
+        .directory-spotlight-employer:hover {
+            border-color: var(--directory-color);
+            box-shadow: 0 2px 8px rgba(124, 58, 237, 0.1);
+        }
+        .directory-logo-wrapper {
+            width: 48px;
+            height: 48px;
+            flex-shrink: 0;
+        }
+        .directory-logo {
+            width: 48px;
+            height: 48px;
+            border-radius: 10px;
+            object-fit: contain;
+            border: 1px solid #e8e6e1;
+        }
+        .directory-logo-placeholder {
+            width: 48px;
+            height: 48px;
+            border-radius: 10px;
+            background: var(--directory-soft);
+            color: var(--directory-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.2rem;
+            font-family: 'Fraunces', serif;
+        }
+        .directory-logo-sm {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            object-fit: contain;
+            border: 1px solid #e8e6e1;
+        }
+        .directory-logo-placeholder-sm {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            background: var(--directory-soft);
+            color: var(--directory-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.8rem;
+        }
+        .directory-badge-roles {
+            background: var(--directory-soft);
+            color: var(--directory-color);
+            font-weight: 600;
+            font-size: 0.75rem;
+        }
+        .directory-badge-cats {
+            background: #f0f0ee;
+            color: var(--ink);
+            font-weight: 500;
+            font-size: 0.75rem;
+        }
+        .directory-badge-external {
+            background: var(--directory-soft);
+            color: var(--directory-color);
+            font-weight: 600;
+            font-size: 0.75rem;
+        }
+        .directory-btn-primary {
+            background: var(--directory-color);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 0.6rem 1.5rem;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        .directory-btn-primary:hover {
+            background: #6d28d9;
+            color: #fff;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+        }
+        .directory-category-pill {
+            background: var(--directory-soft);
+            color: var(--directory-color);
+            border: 1px solid var(--directory-border);
+            border-radius: 50px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .directory-category-pill:hover {
+            background: var(--directory-color);
+            color: #fff;
+            border-color: var(--directory-color);
+        }
+        .directory-chip {
+            background: #f0f0ee;
+            color: var(--ink);
+            border: 1px solid #e8e6e1;
+            border-radius: 50px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            padding: 0.35rem 1rem;
+            transition: all 0.2s;
+        }
+        .directory-chip:hover {
+            border-color: var(--directory-color);
+            color: var(--directory-color);
+        }
+        .directory-chip.active {
+            background: var(--directory-color);
+            color: #fff;
+            border-color: var(--directory-color);
+        }
+        .min-width-0 { min-width: 0; }
 
         .btn-primary {
             background: var(--primary-color);

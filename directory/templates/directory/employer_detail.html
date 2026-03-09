@@ -1,0 +1,161 @@
+{% extends 'jobs/base.html' %}
+
+{% block title %}{{ employer.name }} - Company Directory - Real Jobs, Real People{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'home' %}">Home</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'directory:index' %}">Company Directory</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ employer.name }}</li>
+        </ol>
+    </nav>
+
+    <!-- Company Header -->
+    <div class="row mb-4">
+        <div class="col-lg-8">
+            <div class="card directory-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-start gap-3 mb-3">
+                        <!-- Logo / Initial -->
+                        <div class="directory-logo-wrapper" style="width: 64px; height: 64px;">
+                            {% if employer.logo %}
+                            <img src="{{ employer.logo.url }}" alt="{{ employer.name }}" class="directory-logo" style="width: 64px; height: 64px;">
+                            {% else %}
+                            <div class="directory-logo-placeholder" style="width: 64px; height: 64px; font-size: 1.5rem;">{{ employer.logo_initial }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="flex-grow-1">
+                            <h1 class="fw-bold mb-1" style="font-family: 'Fraunces', serif; font-size: 1.75rem;">
+                                {{ employer.name }}
+                            </h1>
+                            <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+                                <span class="badge directory-badge-external">
+                                    <i class="bi bi-box-arrow-up-right me-1"></i>External Career Portal
+                                </span>
+                                {% if employer.verified_employer %}
+                                <span class="trust-badge trust-badge-verified">&#10003; Verified on RJRP</span>
+                                {% endif %}
+                            </div>
+                            {% if employer.description %}
+                            <p class="mb-0">{{ employer.description }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Stats Row -->
+                    <div class="row g-3 mb-3">
+                        <div class="col-auto">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="bi bi-geo-alt" style="color: var(--directory-color);"></i>
+                                <span class="small">{{ employer.headquarters|default:"Multiple Locations" }}</span>
+                            </div>
+                        </div>
+                        {% if employer.employee_count %}
+                        <div class="col-auto">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="bi bi-people" style="color: var(--directory-color);"></i>
+                                <span class="small">{{ employer.employee_count }}</span>
+                            </div>
+                        </div>
+                        {% endif %}
+                        <div class="col-auto">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="bi bi-briefcase" style="color: var(--directory-color);"></i>
+                                <span class="small">
+                                    {% if employer.estimated_open_roles %}
+                                    ~{{ employer.estimated_open_roles|floatformat:0 }} estimated open roles
+                                    {% else %}
+                                    Open roles available
+                                    {% endif %}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="bi bi-tags" style="color: var(--directory-color);"></i>
+                                <span class="small">{{ employer.get_industry_display }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Primary CTA -->
+                    <a href="{% url 'directory:employer_redirect' employer.slug %}{% if last_search %}?q={{ last_search }}&source=employer_detail{% else %}?q=&source=employer_detail{% endif %}"
+                       target="_blank" rel="noopener noreferrer"
+                       class="btn directory-btn-primary btn-lg">
+                        <i class="bi bi-box-arrow-up-right me-2"></i>Visit {{ employer.name }} Careers
+                    </a>
+                    <p class="text-muted small mt-2 mb-0">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Opens {{ employer.career_domain }}{% if last_search %} with your search prefilled{% endif %}.
+                        You'll apply directly through {{ employer.name }}.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <div class="card directory-card mb-3">
+                <div class="card-body">
+                    <h6 class="fw-bold mb-3">
+                        <i class="bi bi-grid me-1" style="color: var(--directory-color);"></i>
+                        Hiring Categories
+                    </h6>
+                    {% if category_links %}
+                    <div class="d-flex flex-wrap gap-2">
+                        {% for item in category_links %}
+                        <a href="{% url 'directory:employer_redirect' employer.slug %}?q={{ item.category.canonical_category|urlencode }}&source=employer_detail"
+                           target="_blank" rel="noopener noreferrer"
+                           class="btn btn-sm directory-category-pill">
+                            {{ item.category.canonical_category }}
+                            {% if item.category.estimated_count %}
+                            <span class="badge bg-white text-dark ms-1" style="font-size: 0.65rem;">~{{ item.category.estimated_count }}</span>
+                            {% endif %}
+                            <i class="bi bi-box-arrow-up-right ms-1" style="font-size: 0.65rem;"></i>
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted small mb-0">No specific categories listed yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if employer.last_count_update %}
+            <div class="card directory-card">
+                <div class="card-body">
+                    <p class="text-muted small mb-0">
+                        <i class="bi bi-clock me-1"></i>
+                        Role counts last updated {{ employer.last_count_update|timesince }} ago
+                    </p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Claim Banner -->
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card" style="border: 1px dashed var(--directory-color); background: var(--directory-bg);">
+                <div class="card-body text-center py-4">
+                    <h5 class="fw-bold mb-2" style="color: var(--directory-color);">
+                        <i class="bi bi-shield-check me-2"></i>Is this your company?
+                    </h5>
+                    <p class="text-muted mb-3">
+                        Claim your page and verify your listings to earn the &#10003; Verified badge
+                        with priority placement in search results.
+                    </p>
+                    <a href="{% url 'employer_signup' %}" class="btn directory-btn-primary">
+                        Claim & Verify Your Company
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

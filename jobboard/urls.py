@@ -43,6 +43,7 @@ urlpatterns = [
     path('robots.txt', cache_page(60 * 60)(robots_txt), name='robots_txt'),
     path('admin/', admin.site.urls),
     path('accounts/', include('allauth.urls')),  # Social authentication
+    path('directory/', include('directory.urls')),
     path('', include('jobs.urls')),
 ]
 
