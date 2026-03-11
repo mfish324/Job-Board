@@ -185,10 +185,10 @@ def job_list(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
-    # Directory employer results (only on page 1 with a search query)
+    # Directory employer results (sidebar — shown on all pages when search matches)
     directory_employers = []
     directory_match_title = ''
-    if search_query and (not page_number or page_number == '1'):
+    if search_query:
         try:
             from directory.utils import get_directory_results
             directory_employers, dir_mapping = get_directory_results(
@@ -3261,6 +3261,13 @@ def observed_listing_detail(request, listing_id):
         days_since_seen = (timezone.now() - listing.date_last_seen).days
         link_stale = days_since_seen >= 3
 
+    # Workday fallback: Workday direct URLs expire quickly, so always provide
+    # a search-based fallback URL that pre-fills the job title
+    workday_fallback_url = None
+    if listing.source_ats == 'workday':
+        from jobs.utils import build_workday_fallback_url
+        workday_fallback_url = build_workday_fallback_url(listing)
+
     context = {
         'listing': listing,
         'has_score': has_score,
@@ -3269,6 +3276,7 @@ def observed_listing_detail(request, listing_id):
         'genzjobs_data': genzjobs_data,
         'link_dead': link_dead,
         'link_stale': link_stale,
+        'workday_fallback_url': workday_fallback_url,
     }
     return render(request, 'jobs/scraped_listing_detail.html', context)
 

@@ -19,9 +19,9 @@ class EmployerTitleOverrideInline(admin.TabularInline):
 
 @admin.register(FeaturedEmployer)
 class FeaturedEmployerAdmin(admin.ModelAdmin):
-    list_display = ('name', 'industry', 'estimated_open_roles', 'is_active',
-                    'last_count_update', 'display_priority')
-    list_filter = ('industry', 'is_active')
+    list_display = ('name', 'industry', 'estimated_open_roles', 'link_health_display',
+                    'is_active', 'display_priority')
+    list_filter = ('industry', 'is_active', 'link_healthy')
     search_fields = ('name',)
     prepopulated_fields = {'slug': ('name',)}
     list_editable = ('is_active', 'display_priority')
@@ -34,6 +34,10 @@ class FeaturedEmployerAdmin(admin.ModelAdmin):
         ('Career Portal', {
             'fields': ('career_url', 'url_pattern', 'supports_location')
         }),
+        ('Link Health', {
+            'fields': ('link_healthy', 'link_last_checked', 'link_status_code',
+                       'link_consecutive_failures'),
+        }),
         ('Display & Counts', {
             'fields': ('is_active', 'display_priority', 'estimated_open_roles',
                        'last_count_update')
@@ -43,6 +47,15 @@ class FeaturedEmployerAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     )
+    readonly_fields = ('link_last_checked', 'link_status_code', 'link_consecutive_failures')
+
+    @admin.display(description='Link Health', ordering='link_healthy')
+    def link_health_display(self, obj):
+        if obj.link_last_checked is None:
+            return 'Not checked'
+        if obj.link_healthy:
+            return f'Healthy ({obj.link_last_checked:%m/%d})'
+        return f'UNHEALTHY ({obj.link_consecutive_failures} failures)'
 
 
 class EmployerTitleOverrideInlineForMapping(admin.TabularInline):

@@ -49,6 +49,13 @@ class FeaturedEmployer(models.Model):
         help_text='Link to verified employer account if they have claimed this page'
     )
 
+    # Link health monitoring
+    link_last_checked = models.DateTimeField(null=True, blank=True)
+    link_status_code = models.IntegerField(null=True, blank=True)
+    link_consecutive_failures = models.IntegerField(default=0)
+    link_healthy = models.BooleanField(default=True,
+                                       help_text='Auto-updated by check_directory_links command')
+
     date_added = models.DateTimeField(auto_now_add=True)
     date_modified = models.DateTimeField(auto_now=True)
 

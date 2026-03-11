@@ -74,8 +74,8 @@ EMPLOYERS = [
         'headquarters': 'Los Gatos, CA',
         'employee_count': '13,000+ employees',
         'description': 'Streaming entertainment and content production.',
-        'career_url': 'https://jobs.netflix.com/search',
-        'url_pattern': '{base_url}?q={query}',
+        'career_url': 'https://explore.jobs.netflix.net/careers',
+        'url_pattern': '{base_url}?query={query}',
         'supports_location': False,
         'display_priority': 20,
         'estimated_open_roles': 400,
@@ -148,8 +148,8 @@ EMPLOYERS = [
         'headquarters': 'Charlotte, NC',
         'employee_count': '210,000+ employees',
         'description': 'Major US banking and financial services corporation.',
-        'career_url': 'https://careers.bankofamerica.com/en-us/search-results.html',
-        'url_pattern': '{base_url}?query={query}',
+        'career_url': 'https://careers.bankofamerica.com/en-us/job-search.html',
+        'url_pattern': '{base_url}?ref=search&search=getAllJobs&searchstring={query}',
         'supports_location': False,
         'display_priority': 15,
         'estimated_open_roles': 3200,
@@ -172,7 +172,7 @@ EMPLOYERS = [
         'headquarters': 'New York, NY',
         'employee_count': '19,000+ employees',
         'description': "World's largest asset manager, known for iShares ETFs.",
-        'career_url': 'https://careers.blackrock.com/job-search-results/',
+        'career_url': 'https://careers.blackrock.com/search-jobs/',
         'url_pattern': '{base_url}?keyword={query}',
         'supports_location': False,
         'display_priority': 20,
@@ -198,8 +198,8 @@ EMPLOYERS = [
         'headquarters': 'Oakland, CA',
         'employee_count': '300,000+ employees',
         'description': 'Integrated managed care consortium and healthcare provider.',
-        'career_url': 'https://jobs.kaiserpermanente.org/search/',
-        'url_pattern': '{base_url}?q={query}',
+        'career_url': 'https://www.kaiserpermanentejobs.org/search-jobs/',
+        'url_pattern': '{base_url}{query}',
         'supports_location': False,
         'display_priority': 10,
         'estimated_open_roles': 5000,
@@ -315,7 +315,8 @@ TITLE_MAPPINGS = [
         'search_aliases': [
             'software engineer', 'software developer', 'software dev',
             'full stack', 'fullstack', 'frontend', 'backend',
-            'web developer', 'programmer',
+            'web developer', 'programmer', 'developer', 'engineer',
+            'java developer', 'python developer', 'react developer',
         ],
     },
     {
@@ -329,8 +330,9 @@ TITLE_MAPPINGS = [
     {
         'canonical_title': 'Financial Analyst',
         'search_aliases': [
-            'financial analyst', 'finance analyst', 'fp&a',
+            'financial analyst', 'finance analyst', 'analyst', 'fp&a',
             'financial planning', 'investment analyst', 'equity analyst',
+            'business analyst', 'operations analyst', 'research analyst',
         ],
     },
     {
@@ -344,7 +346,8 @@ TITLE_MAPPINGS = [
         'canonical_title': 'Data Scientist',
         'search_aliases': [
             'data scientist', 'data science', 'machine learning engineer',
-            'ml engineer', 'ai engineer', 'data analyst',
+            'ml engineer', 'ai engineer', 'data analyst', 'data engineer',
+            'data', 'analytics', 'machine learning',
         ],
     },
     {
@@ -372,7 +375,8 @@ TITLE_MAPPINGS = [
         'canonical_title': 'UX Designer',
         'search_aliases': [
             'ux designer', 'ui designer', 'ux/ui', 'product designer',
-            'interaction designer', 'user experience',
+            'interaction designer', 'user experience', 'designer',
+            'graphic designer', 'visual designer',
         ],
     },
     {
@@ -393,14 +397,15 @@ TITLE_MAPPINGS = [
         'canonical_title': 'Sales Representative',
         'search_aliases': [
             'sales rep', 'sales representative', 'account executive',
-            'ae', 'business development', 'bdr', 'sdr',
+            'ae', 'business development', 'bdr', 'sdr', 'sales',
+            'account manager', 'customer success',
         ],
     },
     {
         'canonical_title': 'Human Resources',
         'search_aliases': [
             'human resources', 'hr', 'hr manager', 'talent acquisition',
-            'recruiter', 'people operations',
+            'recruiter', 'people operations', 'hiring manager',
         ],
     },
 ]

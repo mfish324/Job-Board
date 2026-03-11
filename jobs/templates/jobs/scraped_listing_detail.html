@@ -117,9 +117,18 @@
                     {% endif %}
 
                     <!-- External Apply Button -->
+                    {% if workday_fallback_url %}
+                    <a href="{{ workday_fallback_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-lg w-100 mb-2">
+                        <i class="bi bi-search me-2"></i>Search for This Role on {{ listing.company_name }}
+                    </a>
+                    <a href="{{ listing.source_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-outline-secondary btn-sm w-100">
+                        <i class="bi bi-box-arrow-up-right me-2"></i>Try Direct Link (may be expired)
+                    </a>
+                    {% else %}
                     <a href="{{ listing.source_url }}" target="_blank" rel="noopener noreferrer" class="btn {% if link_dead %}btn-outline-secondary{% else %}btn-primary{% endif %} btn-lg w-100">
                         <i class="bi bi-box-arrow-up-right me-2"></i>{% if link_dead %}Try Applying on {{ listing.get_source_ats_display }}{% else %}Apply on {{ listing.get_source_ats_display }}{% endif %}
                     </a>
+                    {% endif %}
                 </div>
             </div>
 
@@ -238,9 +247,15 @@
                 </div>
                 <div class="card-body">
                     <div class="d-grid gap-2">
+                        {% if workday_fallback_url %}
+                        <a href="{{ workday_fallback_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
+                            <i class="bi bi-search me-2"></i>Search on {{ listing.company_name }}
+                        </a>
+                        {% else %}
                         <a href="{{ listing.source_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
                             <i class="bi bi-box-arrow-up-right me-2"></i>Apply Externally
                         </a>
+                        {% endif %}
                         {% if can_claim %}
                         <a href="{% url 'claim_listing' listing.id %}" class="btn btn-success">
                             <i class="bi bi-patch-check me-2"></i>Claim This Listing

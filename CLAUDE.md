@@ -63,6 +63,7 @@ RJRP/
 │   ├── admin.py           # Admin with inlines for categories & overrides
 │   ├── management/commands/
 │   │   ├── seed_directory.py        # Seed 24 employers, 13 title mappings, overrides
+│   │   ├── check_directory_links.py # URL health monitoring for career portals
 │   │   └── update_directory_counts.py # Stub for automated count updates
 │   └── templates/directory/
 │       ├── index.html               # Browse all employers with industry filters
@@ -204,9 +205,11 @@ python manage.py shell
 - **Earth-tone design system** — terracotta (#C4714F), warm sage (#7A8C6E), gold/amber (#C49A3C), cream (#FAF7F2) palette; Lora headings + DM Sans body
 - **Employer Directory** — curated directory of 24 major employers (Google, Goldman Sachs, etc.) with deep-link system to their career portals
 - **Deep-link engine** — constructs URLs with search terms prefilled using per-employer URL patterns and title overrides
-- **Three content tiers in search**: Verified (gold), Market-Observed (sage), Directory spotlight cards (purple #7c3aed)
-- **Title synonym mapping** — 13 canonical categories with search aliases for intelligent query matching
+- **Directory sidebar in search** — when a search matches a job category, a sticky sidebar shows major employers hiring for that role with deep-links to their career portals
+- **Title synonym mapping** — 13 canonical categories with broad search aliases (single words like "analyst", "engineer", "sales" match)
 - **Directory click tracking** — analytics on employer click-throughs for conversion targeting
+- **URL health monitoring** — `check_directory_links` command validates career portal URLs, tracks consecutive failures, auto-marks unhealthy employers
+- **Workday fallback URLs** — Workday-sourced listings use search-based fallback URLs instead of stale direct links (Workday URLs are session-based and expire quickly)
 
 ## Management Commands
 
@@ -217,6 +220,9 @@ python manage.py expire_stale_jobs --dry-run  # Preview without changes
 
 # Employer Directory
 python manage.py seed_directory              # Seed/update 24 employers, 13 title mappings, overrides
+python manage.py check_directory_links       # Check career portal URL health
+python manage.py check_directory_links --dry-run
+python manage.py check_directory_links --employer google
 python manage.py update_directory_counts     # Stub for future automated count updates
 python manage.py update_directory_counts --dry-run
 python manage.py update_directory_counts --employer google
@@ -264,15 +270,17 @@ python manage.py update_directory_counts --employer google
 ## Employer Directory Architecture
 
 - Separate `directory` Django app with its own models, views, templates, and tests
-- **Three content tiers** in search results: Verified (gold), Market-Observed (sage), Directory (purple)
+- **Three content tiers** in search results: Verified (gold), Market-Observed (sage), Directory sidebar (purple)
 - Deep-link URL construction: employer URL pattern → title override lookup → category search term → raw query fallback
 - Title matching: substring match against alias lists, longest match wins for specificity
-- Spotlight card injected after 2nd listing in search results (page 1 only, when query matches a canonical title)
-- Click-through tracking via `/directory/<slug>/go/` redirect endpoint
+- **Directory sidebar**: sticky `col-lg-4` panel appears alongside search results when query matches a canonical title; shows up to 6 employers with deep-links; layout shifts to 8/4 columns (full-width when no match)
+- Click-through tracking via `/directory/<slug>/go/` redirect endpoint with source attribution (`search_sidebar`, `directory_page`, `employer_detail`)
 - Directory browse at `/directory/` with client-side industry filter chips
 - Employer detail at `/directory/<slug>/` with category pills, deep-link CTA, and claim banner
 - Seed data: 24 employers, 13 canonical title mappings, 110 category assignments, 5 title overrides
 - `seed_directory` is idempotent (uses `update_or_create`)
+- **URL health monitoring**: `FeaturedEmployer` has `link_healthy`, `link_last_checked`, `link_status_code`, `link_consecutive_failures` fields; `check_directory_links` command checks base URL + sample deep-link; classifies as healthy/degraded/down/inconclusive (bot-blocked SPAs)
+- **Workday fallback**: `build_workday_fallback_url()` in `jobs/utils.py` constructs search URLs from Workday `source_url` domains; primary CTA for Workday-sourced listings uses fallback; direct link shown as secondary option
 
 ## Design System — Earth Tone Palette
 
@@ -304,6 +312,7 @@ All CSS lives inline in `base.html`. No external stylesheets or SCSS.
 - `.activity-label` — "Active X/100" human-readable score
 - `.btn-more-filters` / `.more-filters-row` — Collapsible filter row
 - `.directory-card` / `.directory-spotlight-card` — Directory employer cards
+- `.directory-sidebar-employer` — Sidebar employer row (hover: purple border + lift)
 - `.directory-btn-primary` — Purple CTA buttons for directory
 - `.directory-category-pill` — Clickable category pills on employer detail
 - `.directory-chip` / `.directory-chip.active` — Industry filter chips on directory index

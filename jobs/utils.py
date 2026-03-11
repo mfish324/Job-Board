@@ -324,3 +324,49 @@ def is_valid_phone_number(phone):
     digits = ''.join(filter(str.isdigit, phone))
     # Must be 10 digits (US) or 11 digits (with country code)
     return len(digits) in [10, 11]
+
+
+def build_workday_fallback_url(listing):
+    """
+    Build a fallback search URL for Workday-sourced listings.
+
+    Workday direct job URLs are session-based and expire quickly.
+    This constructs a search URL on the same Workday career portal
+    using the job title, which is much more stable.
+
+    Works for both standard Workday domains (*.myworkdayjobs.com)
+    and custom career portals backed by Workday.
+    """
+    from urllib.parse import urlparse, quote_plus
+
+    source_url = listing.source_url or ''
+    parsed = urlparse(source_url)
+
+    if not parsed.netloc:
+        return None
+
+    # Standard Workday pattern: company.wd5.myworkdayjobs.com/en-US/External/job/...
+    # Fallback search: company.wd5.myworkdayjobs.com/en-US/External?q=<title>
+    if 'myworkdayjobs.com' in parsed.netloc:
+        # Extract the base path up to the career site section (e.g., /en-US/External)
+        path_parts = [p for p in parsed.path.split('/') if p]
+        # Typical structure: ['en-US', 'External', 'job', 'Location', 'Title_JR123']
+        # We want everything up to the career site name (usually 2nd segment)
+        base_parts = []
+        for part in path_parts:
+            if part.lower() in ('job', 'jobs', 'details'):
+                break
+            base_parts.append(part)
+        base_path = '/'.join(base_parts)
+        title_query = quote_plus(listing.title)
+        return f'{parsed.scheme}://{parsed.netloc}/{base_path}?q={title_query}'
+
+    # Custom Workday portal (e.g., careers.company.com backed by Workday)
+    # Try company_careers_url first, fall back to domain root
+    if listing.company_careers_url:
+        base = listing.company_careers_url.rstrip('/')
+    else:
+        base = f'{parsed.scheme}://{parsed.netloc}'
+
+    title_query = quote_plus(listing.title)
+    return f'{base}?q={title_query}'

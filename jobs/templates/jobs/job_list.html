@@ -247,143 +247,203 @@
         </div>
     </div>
 
-    <!-- Job Listings -->
+    <!-- Job Listings + Directory Sidebar -->
     {% if page_obj %}
         <div class="row">
-            {% for item in page_obj %}
+            <!-- Main job listings column -->
+            <div class="{% if directory_employers %}col-lg-8{% else %}col-12{% endif %}">
+                <div class="row">
+                    {% for item in page_obj %}
 
-            {# Directory spotlight card — inject after 2nd listing on page 1 #}
-            {% if forloop.counter == 3 and directory_employers %}
-            {% include "directory/partials/spotlight_card.html" %}
-            {% endif %}
-
-            {# Section headers — ifchanged fires when is_verified transitions #}
-            {% ifchanged item.is_verified %}
-                {% if item.is_verified %}
-                <div class="col-12 mb-3">
-                    <div class="d-flex align-items-center gap-2 mb-1">
-                        <span class="trust-badge trust-badge-verified">&#10003; Verified</span>
-                        <h5 class="fw-bold mb-0">Verified Postings</h5>
-                    </div>
-                    <p class="text-muted small mb-0">Posted directly to RJRP by verified employers.</p>
-                </div>
-                {% else %}
-                <div class="col-12 mb-3 {% if not forloop.first %}mt-4 pt-3 border-top{% endif %}">
-                    <div class="d-flex align-items-center gap-2 mb-1">
-                        <span class="trust-badge trust-badge-observed">&#128269; Observed</span>
-                        <h5 class="fw-bold mb-0">Market-Observed Roles</h5>
-                    </div>
-                    <p class="text-muted small mb-0">Detected through employer hiring systems and scored by our Hiring Activity algorithm.</p>
-                </div>
-                {% endif %}
-            {% endifchanged %}
-
-            <div class="col-lg-6 mb-4">
-                <div class="card job-card h-100 {% if item.is_verified %}job-card-verified{% else %}job-card-observed{% endif %}">
-                    <div class="card-body">
-                        <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
-                            {% if item.is_verified %}
-                            <span class="trust-badge trust-badge-verified">&#10003; Verified</span>
-                            {% else %}
-                            <span class="trust-badge trust-badge-observed">&#128269; Observed</span>
-                            {% if item.has_score_value %}
-                            <span class="activity-label">
-                                Active {{ item.has_score_value }}/100
-                            </span>
-                            {% endif %}
-                            {% endif %}
+                    {# Section headers — ifchanged fires when is_verified transitions #}
+                    {% ifchanged item.is_verified %}
+                        {% if item.is_verified %}
+                        <div class="col-12 mb-3">
+                            <div class="d-flex align-items-center gap-2 mb-1">
+                                <span class="trust-badge trust-badge-verified">&#10003; Verified</span>
+                                <h5 class="fw-bold mb-0">Verified Postings</h5>
+                            </div>
+                            <p class="text-muted small mb-0">Posted directly to RJRP by verified employers.</p>
                         </div>
-
-                        <h5 class="job-title mb-1">{{ item.title }}</h5>
-                        <h6 class="text-primary mb-1">
-                            <i class="bi bi-building me-1"></i>{{ item.company_name }}
-                        </h6>
-
-                        {% if item.salary_display %}
-                        <div class="salary-display mb-2">
-                            <i class="bi bi-cash-stack me-1"></i>{{ item.salary_display }}
+                        {% else %}
+                        <div class="col-12 mb-3 {% if not forloop.first %}mt-4 pt-3 border-top{% endif %}">
+                            <div class="d-flex align-items-center gap-2 mb-1">
+                                <span class="trust-badge trust-badge-observed">&#128269; Observed</span>
+                                <h5 class="fw-bold mb-0">Market-Observed Roles</h5>
+                            </div>
+                            <p class="text-muted small mb-0">Detected through employer hiring systems and scored by our Hiring Activity algorithm.</p>
                         </div>
                         {% endif %}
+                    {% endifchanged %}
 
-                        <p class="card-text text-muted mb-3" style="font-size: 0.9rem;">
-                            {{ item.description|striptags|truncatewords:25 }}
-                        </p>
+                    <div class="{% if directory_employers %}col-12{% else %}col-lg-6{% endif %} mb-4">
+                        <div class="card job-card h-100 {% if item.is_verified %}job-card-verified{% else %}job-card-observed{% endif %}">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                                    {% if item.is_verified %}
+                                    <span class="trust-badge trust-badge-verified">&#10003; Verified</span>
+                                    {% else %}
+                                    <span class="trust-badge trust-badge-observed">&#128269; Observed</span>
+                                    {% if item.has_score_value %}
+                                    <span class="activity-label">
+                                        Active {{ item.has_score_value }}/100
+                                    </span>
+                                    {% endif %}
+                                    {% endif %}
+                                </div>
 
-                        <div class="d-flex flex-wrap gap-2 mb-3">
-                            {% if item.location %}
-                            <span class="badge badge-location">
-                                <i class="bi bi-geo-alt-fill me-1"></i>{{ item.location }}
-                            </span>
-                            {% endif %}
-                            {% if item.job_type_display %}
-                            <span class="badge badge-job-type">
-                                <i class="bi bi-briefcase me-1"></i>{{ item.job_type_display }}
-                            </span>
-                            {% endif %}
-                            {% if item.remote_status_display %}
-                            <span class="badge badge-remote">
-                                <i class="bi bi-globe me-1"></i>{{ item.remote_status_display }}
-                            </span>
-                            {% endif %}
-                            {% if item.experience_level_display %}
-                            <span class="badge badge-experience">
-                                <i class="bi bi-bar-chart me-1"></i>{{ item.experience_level_display }}
-                            </span>
-                            {% endif %}
+                                <h5 class="job-title mb-1">{{ item.title }}</h5>
+                                <h6 class="text-primary mb-1">
+                                    <i class="bi bi-building me-1"></i>{{ item.company_name }}
+                                </h6>
+
+                                {% if item.salary_display %}
+                                <div class="salary-display mb-2">
+                                    <i class="bi bi-cash-stack me-1"></i>{{ item.salary_display }}
+                                </div>
+                                {% endif %}
+
+                                <p class="card-text text-muted mb-3" style="font-size: 0.9rem;">
+                                    {{ item.description|striptags|truncatewords:25 }}
+                                </p>
+
+                                <div class="d-flex flex-wrap gap-2 mb-3">
+                                    {% if item.location %}
+                                    <span class="badge badge-location">
+                                        <i class="bi bi-geo-alt-fill me-1"></i>{{ item.location }}
+                                    </span>
+                                    {% endif %}
+                                    {% if item.job_type_display %}
+                                    <span class="badge badge-job-type">
+                                        <i class="bi bi-briefcase me-1"></i>{{ item.job_type_display }}
+                                    </span>
+                                    {% endif %}
+                                    {% if item.remote_status_display %}
+                                    <span class="badge badge-remote">
+                                        <i class="bi bi-globe me-1"></i>{{ item.remote_status_display }}
+                                    </span>
+                                    {% endif %}
+                                    {% if item.experience_level_display %}
+                                    <span class="badge badge-experience">
+                                        <i class="bi bi-bar-chart me-1"></i>{{ item.experience_level_display }}
+                                    </span>
+                                    {% endif %}
+                                </div>
+
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="text-muted small">
+                                        <i class="bi bi-clock me-1"></i>{{ item.posted_date|timesince }} ago
+                                    </span>
+                                    <a href="{{ item.detail_url }}" class="btn btn-primary btn-sm">
+                                        View Details <i class="bi bi-arrow-right ms-1"></i>
+                                    </a>
+                                </div>
+                            </div>
                         </div>
+                    </div>
+                    {% endfor %}
+                </div>
 
-                        <div class="d-flex justify-content-between align-items-center">
-                            <span class="text-muted small">
-                                <i class="bi bi-clock me-1"></i>{{ item.posted_date|timesince }} ago
-                            </span>
-                            <a href="{{ item.detail_url }}" class="btn btn-primary btn-sm">
-                                View Details <i class="bi bi-arrow-right ms-1"></i>
+                <!-- Pagination -->
+                {% if page_obj.has_other_pages %}
+                <nav aria-label="Job listings pagination" class="mt-4">
+                    <ul class="pagination justify-content-center">
+                        {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if filter_querystring %}&{{ filter_querystring }}{% endif %}">
+                                <i class="bi bi-chevron-left"></i> Previous
                             </a>
+                        </li>
+                        {% endif %}
+
+                        {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                            <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                            {% elif num > page_obj.number|add:"-3" and num < page_obj.number|add:"3" %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}{% if filter_querystring %}&{{ filter_querystring }}{% endif %}">{{ num }}</a>
+                            </li>
+                            {% elif num == 1 or num == page_obj.paginator.num_pages %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}{% if filter_querystring %}&{{ filter_querystring }}{% endif %}">{{ num }}</a>
+                            </li>
+                            {% elif num == 2 or num == page_obj.paginator.num_pages|add:"-1" %}
+                            <li class="page-item disabled"><span class="page-link">...</span></li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if filter_querystring %}&{{ filter_querystring }}{% endif %}">
+                                Next <i class="bi bi-chevron-right"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+            </div>
+
+            <!-- Directory Sidebar (appears when search matches a job category) -->
+            {% if directory_employers %}
+            <div class="col-lg-4">
+                <div class="directory-sidebar">
+                    <div class="card" style="border: 2px solid var(--directory-color); border-radius: 12px; position: sticky; top: 20px;">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center gap-2 mb-3">
+                                <i class="bi bi-building" style="color: var(--directory-color); font-size: 1.3rem;"></i>
+                                <h6 class="mb-0 fw-bold" style="color: var(--directory-color);">
+                                    Companies Hiring {{ directory_match_title }}s
+                                </h6>
+                            </div>
+                            <p class="text-muted small mb-3">
+                                These major employers often hire for "{{ search_query }}" roles. Click to search their career portals directly.
+                            </p>
+
+                            <div class="d-flex flex-column gap-2">
+                                {% for item in directory_employers %}
+                                <a href="{% url 'directory:employer_redirect' item.employer.slug %}?q={{ search_query|urlencode }}&location={{ location_filter|urlencode }}&source=search_sidebar"
+                                   target="_blank" rel="noopener noreferrer"
+                                   class="text-decoration-none">
+                                    <div class="directory-sidebar-employer">
+                                        <div class="d-flex align-items-center gap-3">
+                                            {% if item.employer.logo %}
+                                            <img src="{{ item.employer.logo.url }}" alt="{{ item.employer.name }}" class="directory-logo-sm">
+                                            {% else %}
+                                            <div class="directory-logo-placeholder-sm">{{ item.employer.logo_initial }}</div>
+                                            {% endif %}
+
+                                            <div class="flex-grow-1 min-width-0">
+                                                <div class="fw-semibold text-truncate" style="color: var(--ink); font-size: 0.9rem;">
+                                                    {{ item.employer.name }}
+                                                </div>
+                                                <div class="small" style="color: var(--directory-color);">
+                                                    {% if item.role_count %}
+                                                    ~{{ item.role_count }} open roles
+                                                    {% else %}
+                                                    Open roles available
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+
+                                            <i class="bi bi-box-arrow-up-right" style="color: var(--directory-color); font-size: 0.85rem;"></i>
+                                        </div>
+                                    </div>
+                                </a>
+                                {% endfor %}
+                            </div>
+
+                            <div class="mt-3 pt-2" style="border-top: 1px solid #e8e0f0;">
+                                <a href="{% url 'directory:index' %}" class="small fw-semibold text-decoration-none d-block text-center" style="color: var(--directory-color);">
+                                    Browse all employers <i class="bi bi-arrow-right"></i>
+                                </a>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-            {% endfor %}
+            {% endif %}
         </div>
-
-        <!-- Pagination -->
-        {% if page_obj.has_other_pages %}
-        <nav aria-label="Job listings pagination" class="mt-4">
-            <ul class="pagination justify-content-center">
-                {% if page_obj.has_previous %}
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if filter_querystring %}&{{ filter_querystring }}{% endif %}">
-                        <i class="bi bi-chevron-left"></i> Previous
-                    </a>
-                </li>
-                {% endif %}
-
-                {% for num in page_obj.paginator.page_range %}
-                    {% if page_obj.number == num %}
-                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
-                    {% elif num > page_obj.number|add:"-3" and num < page_obj.number|add:"3" %}
-                    <li class="page-item">
-                        <a class="page-link" href="?page={{ num }}{% if filter_querystring %}&{{ filter_querystring }}{% endif %}">{{ num }}</a>
-                    </li>
-                    {% elif num == 1 or num == page_obj.paginator.num_pages %}
-                    <li class="page-item">
-                        <a class="page-link" href="?page={{ num }}{% if filter_querystring %}&{{ filter_querystring }}{% endif %}">{{ num }}</a>
-                    </li>
-                    {% elif num == 2 or num == page_obj.paginator.num_pages|add:"-1" %}
-                    <li class="page-item disabled"><span class="page-link">...</span></li>
-                    {% endif %}
-                {% endfor %}
-
-                {% if page_obj.has_next %}
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if filter_querystring %}&{{ filter_querystring }}{% endif %}">
-                        Next <i class="bi bi-chevron-right"></i>
-                    </a>
-                </li>
-                {% endif %}
-            </ul>
-        </nav>
-        {% endif %}
     {% else %}
         <div class="row">
             <div class="col-lg-8 mx-auto">
