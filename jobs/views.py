@@ -3292,6 +3292,12 @@ def observed_listing_detail(request, listing_id):
     from jobs.utils import build_google_jobs_fallback_url
     google_fallback_url = build_google_jobs_fallback_url(listing)
 
+    # AI summary: generate on first view, cache in DB
+    description_summary = listing.description_summary
+    if not description_summary and listing.description and len(listing.description) > 500:
+        from jobs.utils import generate_listing_summary
+        description_summary = generate_listing_summary(listing)
+
     context = {
         'listing': listing,
         'has_score': has_score,
@@ -3302,6 +3308,7 @@ def observed_listing_detail(request, listing_id):
         'link_stale': link_stale,
         'workday_fallback_url': workday_fallback_url,
         'google_fallback_url': google_fallback_url,
+        'description_summary': description_summary,
     }
     return render(request, 'jobs/scraped_listing_detail.html', context)
 

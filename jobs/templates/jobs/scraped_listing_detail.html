@@ -147,9 +147,34 @@
                     </h4>
                 </div>
                 <div class="card-body">
+                    {% if description_summary %}
+                    <!-- AI Summary (shown by default) -->
+                    <div id="descriptionSummary">
+                        <div class="mb-3" style="background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 20px;">
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <i class="bi bi-stars" style="color: var(--clay);"></i>
+                                <span style="font-weight: 600; font-size: 0.85rem; color: var(--clay);">AI Summary</span>
+                            </div>
+                            <div style="white-space: pre-line; line-height: 1.7; color: var(--ink);">{{ description_summary }}</div>
+                        </div>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="document.getElementById('descriptionSummary').style.display='none'; document.getElementById('fullDescription').style.display='block';">
+                            <i class="bi bi-chevron-down me-1"></i>Show Full Description
+                        </button>
+                    </div>
+                    <!-- Full Description (hidden by default) -->
+                    <div id="fullDescription" style="display: none;">
+                        <div class="job-description" style="line-height: 1.8;">
+                            {{ listing.description|safe_description }}
+                        </div>
+                        <button class="btn btn-outline-secondary btn-sm mt-3" onclick="document.getElementById('fullDescription').style.display='none'; document.getElementById('descriptionSummary').style.display='block';">
+                            <i class="bi bi-chevron-up me-1"></i>Show Summary
+                        </button>
+                    </div>
+                    {% else %}
                     <div class="job-description" style="line-height: 1.8;">
                         {{ listing.description|safe_description }}
                     </div>
+                    {% endif %}
                 </div>
             </div>
 

@@ -326,6 +326,64 @@ def is_valid_phone_number(phone):
     return len(digits) in [10, 11]
 
 
+def generate_listing_summary(listing):
+    """
+    Generate a concise AI summary of a scraped job listing's description.
+    Uses Claude Haiku for speed and cost-efficiency.
+
+    Returns the summary text, or empty string on failure.
+    Also saves the summary to the listing's description_summary field.
+    """
+    import re
+
+    api_key = getattr(settings, 'ANTHROPIC_API_KEY', None)
+    if not api_key:
+        return ''
+
+    description = listing.description or ''
+    if not description or len(description) < 100:
+        return ''
+
+    # Strip HTML for the prompt
+    plain = re.sub(r'<[^>]+>', ' ', description)
+    plain = re.sub(r'\s+', ' ', plain).strip()
+
+    # Truncate to ~3000 chars to keep costs low
+    if len(plain) > 3000:
+        plain = plain[:3000] + '...'
+
+    try:
+        import anthropic
+        client = anthropic.Anthropic(api_key=api_key)
+
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=300,
+            messages=[{
+                "role": "user",
+                "content": f"""Summarize this job listing in 3-5 bullet points. Each bullet should be one concise line. Cover: what the role does, key requirements, and any notable perks/details. Do not use markdown headers. Use plain bullet points starting with •.
+
+Job Title: {listing.title}
+Company: {listing.company_name}
+
+Description:
+{plain}"""
+            }]
+        )
+
+        summary = response.content[0].text.strip()
+
+        # Save to the listing
+        listing.description_summary = summary
+        listing.save(update_fields=['description_summary'])
+
+        return summary
+
+    except Exception as e:
+        logger.error(f"Failed to generate summary for listing {listing.id}: {e}")
+        return ''
+
+
 def build_workday_fallback_url(listing):
     """
     Build a fallback search URL for Workday-sourced listings.

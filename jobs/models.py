@@ -1167,6 +1167,9 @@ class ScrapedJobListing(models.Model):
         related_name='reposts'
     )
 
+    # AI-generated summary (populated on-demand via Claude Haiku)
+    description_summary = models.TextField(blank=True, help_text='AI-generated concise summary of the job description')
+
     # Raw data storage
     raw_data = models.JSONField(default=dict, blank=True)
 
