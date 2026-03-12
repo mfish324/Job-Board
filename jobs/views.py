@@ -87,7 +87,15 @@ def job_list(request):
     # Read filter params
     search_query = request.GET.get('search', '')
     location_filter = request.GET.get('location', '')
-    country_filter = request.GET.get('country', '')
+    # Default to US only on first visit (no GET params at all);
+    # when form is submitted, the hidden input ensures 'country' is always present
+    if request.GET:
+        # Form was submitted — get the last 'country' value
+        # (checkbox value="us" comes after hidden value="", so getlist picks it up)
+        country_values = request.GET.getlist('country')
+        country_filter = country_values[-1] if country_values else ''
+    else:
+        country_filter = 'us'
     salary_filter = request.GET.get('salary', '')
     date_filter = request.GET.get('date_posted', '')
     job_type_filter = request.GET.get('job_type', '')

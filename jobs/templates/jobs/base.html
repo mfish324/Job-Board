@@ -1085,6 +1085,16 @@
         .more-filters-row.show {
             display: flex;
         }
+        /* US Only toggle switch — earth tone styling */
+        .form-switch .form-check-input:checked {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+        .form-switch .form-check-input:focus {
+            box-shadow: 0 0 0 0.2rem rgba(126, 81, 47, 0.15);
+            border-color: var(--clay);
+        }
+
         .btn-more-filters {
             background: var(--surface);
             border: 1px solid var(--border);

@@ -41,9 +41,24 @@
                             </div>
                         </div>
 
+                        <!-- US Only Toggle -->
+                        <div class="row g-2 mb-3">
+                            <div class="col-auto">
+                                <div class="form-check form-switch" style="padding-top: 4px;">
+                                    <input type="hidden" name="country" value="">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="usOnlyToggle"
+                                           name="country" value="us" {% if country_filter == 'us' %}checked{% endif %}
+                                           onchange="this.form.submit()" style="cursor: pointer; width: 2.5em; height: 1.3em;">
+                                    <label class="form-check-label fw-semibold" for="usOnlyToggle" style="cursor: pointer; font-size: 0.9rem;">
+                                        <i class="bi bi-geo-alt me-1"></i>U.S. Only
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Filters Row 1 -->
                         <div class="row g-3 mb-3">
-                            <div class="col-md-2">
+                            <div class="col-md-3">
                                 <label class="form-label fw-semibold">
                                     <i class="bi bi-funnel me-1"></i>Source
                                 </label>
@@ -58,7 +73,7 @@
                                 </select>
                             </div>
 
-                            <div class="col-md-2">
+                            <div class="col-md-3">
                                 <label class="form-label fw-semibold">
                                     <i class="bi bi-briefcase me-1"></i>Job Type
                                 </label>
@@ -72,7 +87,7 @@
                                 </select>
                             </div>
 
-                            <div class="col-md-2">
+                            <div class="col-md-3">
                                 <label class="form-label fw-semibold">
                                     <i class="bi bi-globe me-1"></i>Work Location
                                 </label>
@@ -83,18 +98,6 @@
                                         {{ label }}
                                     </option>
                                     {% endfor %}
-                                </select>
-                            </div>
-
-                            <div class="col-md-3">
-                                <label class="form-label fw-semibold">
-                                    <i class="bi bi-geo me-1"></i>Country
-                                </label>
-                                <select name="country" class="form-select" onchange="this.form.submit()">
-                                    <option value="">All Countries</option>
-                                    <option value="us" {% if country_filter == 'us' %}selected{% endif %}>
-                                        US Only
-                                    </option>
                                 </select>
                             </div>
 
