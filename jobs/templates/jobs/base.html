@@ -41,7 +41,7 @@
             --clay: #B9834A;               /* Mid accent */
             --secondary-color: #DDA56C;    /* Sand - Secondary */
             --wheat: #E9D7BF;              /* Soft neutral */
-            --light-bg: #F5F0E5;           /* Cream - Background */
+            --light-bg: #EDE6D6;           /* Warm Cream - Background */
             --sage: #7F8F7A;               /* Cool contrast */
             --charcoal: #3B3026;           /* Dark neutral */
 
@@ -53,10 +53,10 @@
             --ink: #3B3026;
             --ink-soft: #4A2F1C;
             --ink-muted: #7F8F7A;
-            --surface: #F5F0E5;
-            --card: #faf7f2;
+            --surface: #EDE6D6;
+            --card: #fff;
             --border: #E9D7BF;
-            --border-light: #F5F0E5;
+            --border-light: #EDE6D6;
             --accent: #7F8F7A;
             --accent-soft: #E9D7BF;
             --green: #7F8F7A;
@@ -86,11 +86,16 @@
             display: flex;
             flex-direction: column;
             background-color: var(--light-bg);
+            color: var(--ink);
+            font-size: 15px;
+            line-height: 1.6;
+            letter-spacing: -0.01em;
+            -webkit-font-smoothing: antialiased;
         }
 
         .navbar {
-            background: linear-gradient(135deg, var(--primary-color) 0%, #9d6a3d 100%);
-            box-shadow: 0 2px 10px rgba(126, 81, 47, 0.2);
+            background: linear-gradient(135deg, var(--espresso) 0%, var(--primary-color) 100%);
+            box-shadow: 0 2px 12px rgba(74, 47, 28, 0.25);
             padding: 1rem 0;
         }
 
@@ -156,8 +161,8 @@
         .job-card {
             border: 1px solid var(--border);
             border-radius: 12px;
-            background: var(--card);
-            box-shadow: 0 1px 4px rgba(44, 36, 24, 0.06);
+            background: #fff;
+            box-shadow: 0 1px 3px rgba(59, 48, 38, 0.06), 0 4px 12px rgba(59, 48, 38, 0.04);
             transition: transform 0.2s ease, box-shadow 0.2s ease;
             margin-bottom: 1.5rem;
             border-left: 4px solid var(--secondary-color);
@@ -165,7 +170,7 @@
 
         .job-card:hover {
             transform: translateY(-3px);
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 8px 24px rgba(59, 48, 38, 0.12);
         }
 
         .job-card-verified {
@@ -361,7 +366,7 @@
         }
 
         footer {
-            background: var(--dark-color);
+            background: var(--espresso);
             color: white;
             padding: 3rem 0 1.5rem;
             margin-top: auto;
@@ -384,24 +389,28 @@
 
         .form-control, .form-select {
             border-radius: 8px;
-            border: 1px solid #e2e8f0;
+            border: 1px solid var(--border);
             padding: 0.75rem;
+            background: #fff;
+            font-size: 0.9rem;
+            color: var(--ink);
         }
 
         .form-control:focus, .form-select:focus {
             border-color: var(--primary-color);
-            box-shadow: 0 0 0 0.2rem rgba(79, 70, 229, 0.1);
+            box-shadow: 0 0 0 0.2rem rgba(126, 81, 47, 0.12);
+            background: #fff;
         }
 
         .card {
             border: 1px solid var(--border);
             border-radius: 12px;
-            background: var(--card);
-            box-shadow: 0 1px 4px rgba(44, 36, 24, 0.06);
+            background: #fff;
+            box-shadow: 0 1px 3px rgba(59, 48, 38, 0.06), 0 4px 12px rgba(59, 48, 38, 0.04);
         }
 
         .card-header {
-            background: white;
+            background: #fff;
             border-bottom: 2px solid var(--light-bg);
         }
 
@@ -975,28 +984,34 @@
         .job-title {
             font-family: 'Lora', serif;
             font-weight: 600;
+            font-size: 1.15rem;
+            letter-spacing: -0.02em;
+            line-height: 1.35;
+            color: var(--charcoal);
         }
 
         /* =============================================
            Earth-Tone Badge Overrides
            ============================================= */
         .badge-job-type {
-            background-color: #c4714f !important;
+            background-color: var(--clay) !important;
             color: #fff !important;
+            font-weight: 600;
         }
         .badge-location {
-            background-color: #f0ebe4 !important;
-            color: var(--ink) !important;
+            background-color: var(--wheat) !important;
+            color: var(--charcoal) !important;
             border: 1px solid var(--border);
         }
         .badge-experience {
-            background-color: #f0ebe4 !important;
-            color: var(--ink) !important;
+            background-color: var(--wheat) !important;
+            color: var(--charcoal) !important;
             border: 1px solid var(--border);
         }
         .badge-remote {
-            background-color: #e2dbd0 !important;
-            color: var(--ink) !important;
+            background-color: var(--sage) !important;
+            color: #fff !important;
+            font-weight: 600;
         }
 
         /* Salary display on cards */
