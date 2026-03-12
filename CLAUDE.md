@@ -286,33 +286,64 @@ python manage.py update_directory_counts --employer google
 
 All CSS lives inline in `base.html`. No external stylesheets or SCSS.
 
-**Brand Colors (CSS vars in `:root`):**
-- `--primary-color: #7e512f` — Dark brown (buttons, CTA — do NOT change)
-- `--secondary-color: #dda56c` — Tan/gold accent
-- `--light-bg: #f5f0e5` — Cream page background
+### Color Palette
 
-**Earth Tone Tokens:**
+**Base Colors:**
+- `#7E512F` — Warm Brown (primary base)
+- `#DDA56C` — Warm Sand / Caramel (highlight)
+- `#F5F0E5` — Soft Cream (background)
+
+**Expanded Palette:**
+
+| Role | Color | Hex |
+|------|-------|-----|
+| Deep accent | Espresso Brown | `#4A2F1C` |
+| Primary base | Warm Brown | `#7E512F` |
+| Mid accent | Clay Tan | `#B9834A` |
+| Highlight | Sand | `#DDA56C` |
+| Soft neutral | Light Wheat | `#E9D7BF` |
+| Background | Cream | `#F5F0E5` |
+| Cool contrast | Muted Sage | `#7F8F7A` |
+| Dark neutral | Charcoal Brown | `#3B3026` |
+
+**How the Palette Works:**
+- **Warm core**: brown → sand → cream gradient
+- **Depth**: espresso and charcoal keep designs grounded
+- **Soft UI layers**: wheat and cream for backgrounds/cards
+- **Contrast accent**: sage green balances the warm tones
+
+**UI Usage:**
+- Background: `#F5F0E5`
+- Primary buttons / headers: `#7E512F`
+- Secondary buttons: `#DDA56C`
+- Cards / sections: `#E9D7BF`
+- Text: `#3B3026`
+- Accent elements: `#7F8F7A`
+
+### CSS Variables (`:root`)
+- `--primary-color: #7E512F` — Warm Brown (buttons, CTA)
+- `--secondary-color: #DDA56C` — Sand (secondary buttons, highlights)
+- `--light-bg: #F5F0E5` — Cream page background
 - `--verified: #c49a3c` / `--verified-bg: #fdf8ee` — Gold/amber for verified badges & borders
-- `--observed: #7a8c6e` / `--observed-bg: #e8ede4` — Warm sage for observed badges & borders
+- `--observed: #7F8F7A` / `--observed-bg: #e8ede4` — Muted Sage for observed badges & borders
 - `--directory-color: #7c3aed` / `--directory-bg: #f5f3ff` — Purple for directory cards & badges
-- `--terracotta: #c4714f` — Job type badges (`.badge-job-type`)
-- `--card: #faf7f2` — Soft cream card backgrounds
-- `--ink: #2c2418` — Dark brown-black for text
+- `--card: #E9D7BF` — Light Wheat card backgrounds
+- `--ink: #3B3026` — Charcoal Brown for text
 
-**Fonts (Google Fonts):**
+### Fonts (Google Fonts)
 - **Lora** (serif) — Job titles only (`.job-title` class)
 - **DM Sans** — Body text, UI elements
 - **Fraunces** — Section headings, modal titles
 
-**Key CSS Classes:**
+### Key CSS Classes
 - `.job-card-verified` / `.job-card-observed` — Card left-border accent
 - `.trust-badge-verified` / `.trust-badge-observed` — Status pills
-- `.badge-job-type` (terracotta), `.badge-location`, `.badge-remote`, `.badge-experience` — Tag badges
-- `.salary-display` — Green salary line below company
+- `.badge-job-type`, `.badge-location`, `.badge-remote`, `.badge-experience` — Tag badges
+- `.salary-display` — Salary line below company
 - `.activity-label` — "Active X/100" human-readable score
 - `.btn-more-filters` / `.more-filters-row` — Collapsible filter row
 - `.directory-card` / `.directory-spotlight-card` — Directory employer cards
-- `.directory-sidebar-employer` — Sidebar employer row (hover: purple border + lift)
+- `.directory-sidebar-employer` — Sidebar employer row
 - `.directory-btn-primary` — Purple CTA buttons for directory
 - `.directory-category-pill` — Clickable category pills on employer detail
 - `.directory-chip` / `.directory-chip.active` — Industry filter chips on directory index
