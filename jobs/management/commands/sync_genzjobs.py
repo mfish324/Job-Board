@@ -20,7 +20,7 @@ from datetime import timedelta
 from django.conf import settings
 from django.core.management.base import BaseCommand
 from django.utils import timezone
-from django.utils.timezone import make_aware, utc
+import datetime as _dt
 
 from jobs.models import (
     Company, GenzjobsListing, ScrapedJobListing, HiringActivityScore,
@@ -245,14 +245,14 @@ class Command(BaseCommand):
         if gj.posted_at:
             dt = gj.posted_at
             if timezone.is_naive(dt):
-                dt = make_aware(dt, utc)
+                dt = dt.replace(tzinfo=_dt.timezone.utc)
             local.date_posted_external = dt
         local.date_last_seen = now
         if was_created and gj.created_at:
             # Preserve original first-seen from genzjobs
             dt = gj.created_at
             if timezone.is_naive(dt):
-                dt = make_aware(dt, utc)
+                dt = dt.replace(tzinfo=_dt.timezone.utc)
             local.date_first_seen = dt
 
         # Status
