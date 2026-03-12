@@ -10,6 +10,8 @@ Usage in templates:
     {% has_tooltip listing %}
 """
 
+import re
+
 from django import template
 from django.utils.safestring import mark_safe
 from django.utils.html import format_html
@@ -47,6 +49,26 @@ def safe_description(value):
         strip=True,
     )
     return mark_safe(cleaned)
+
+
+@register.filter
+def clean_snippet(value):
+    """
+    Strip HTML tags while preserving word boundaries, then collapse whitespace.
+    Unlike Django's striptags, this inserts a space where tags are removed
+    so "First</li><li>Second" becomes "First Second" instead of "FirstSecond".
+
+    Usage:
+        {{ listing.description|clean_snippet|truncatewords:25 }}
+    """
+    if not value:
+        return ''
+    text = str(value)
+    # Insert a space before closing block-level tags and between adjacent tags
+    text = re.sub(r'<[^>]+>', ' ', text)
+    # Collapse multiple whitespace into single spaces
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
 
 
 @register.filter

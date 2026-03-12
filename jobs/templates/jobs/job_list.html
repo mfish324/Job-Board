@@ -303,8 +303,8 @@
                                 </div>
                                 {% endif %}
 
-                                <p class="card-text text-muted mb-3" style="font-size: 0.9rem;">
-                                    {{ item.description|striptags|truncatewords:25 }}
+                                <p class="card-text text-muted mb-3" style="font-size: 0.9rem; line-height: 1.55;">
+                                    {{ item.description|clean_snippet|truncatewords:30 }}
                                 </p>
 
                                 <div class="d-flex flex-wrap gap-2 mb-3">
