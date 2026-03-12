@@ -210,6 +210,8 @@ python manage.py shell
 - **Directory click tracking** — analytics on employer click-throughs for conversion targeting
 - **URL health monitoring** — `check_directory_links` command validates career portal URLs, tracks consecutive failures, auto-marks unhealthy employers
 - **Workday fallback URLs** — Workday-sourced listings use search-based fallback URLs instead of stale direct links (Workday URLs are session-based and expire quickly)
+- **Google search fallback** — all observed listings get a "Search Google for This Role" button as a universal safety net; constructs `"Job Title" "Company" careers apply` query; solves Workday 406 errors and other broken ATS links
+- **US Only filter** — country filter dropdown on job list; matches US state abbreviations, "United States", ", US" patterns
 
 ## Management Commands
 
@@ -281,6 +283,9 @@ python manage.py update_directory_counts --employer google
 - `seed_directory` is idempotent (uses `update_or_create`)
 - **URL health monitoring**: `FeaturedEmployer` has `link_healthy`, `link_last_checked`, `link_status_code`, `link_consecutive_failures` fields; `check_directory_links` command checks base URL + sample deep-link; classifies as healthy/degraded/down/inconclusive (bot-blocked SPAs)
 - **Workday fallback**: `build_workday_fallback_url()` in `jobs/utils.py` constructs search URLs from Workday `source_url` domains; primary CTA for Workday-sourced listings uses fallback; direct link shown as secondary option
+- **Google search fallback**: `build_google_jobs_fallback_url()` in `jobs/utils.py` constructs a Google search query (`"Title" "Company" careers apply`) as universal fallback; shown on all observed listing detail pages; solves Workday 406 errors and other expired ATS links
+- **Apply button hierarchy**: Workday portal search → direct ATS link → Google search fallback; ensures users always have a working path to apply
+- **US Only filter**: `country_filter` in `job_list` view; matches all 50 US states + DC via `location__endswith` and `location__icontains` patterns
 
 ## Design System — Earth Tone Palette
 
@@ -302,7 +307,7 @@ All CSS lives inline in `base.html`. No external stylesheets or SCSS.
 | Mid accent | Clay Tan | `#B9834A` |
 | Highlight | Sand | `#DDA56C` |
 | Soft neutral | Light Wheat | `#E9D7BF` |
-| Background | Cream | `#F5F0E5` |
+| Background | Warm Cream | `#EDE6D6` |
 | Cool contrast | Muted Sage | `#7F8F7A` |
 | Dark neutral | Charcoal Brown | `#3B3026` |
 
@@ -313,7 +318,7 @@ All CSS lives inline in `base.html`. No external stylesheets or SCSS.
 - **Contrast accent**: sage green balances the warm tones
 
 **UI Usage:**
-- Background: `#F5F0E5`
+- Background: `#EDE6D6`
 - Primary buttons / headers: `#7E512F`
 - Secondary buttons: `#DDA56C`
 - Cards / sections: `#E9D7BF`
