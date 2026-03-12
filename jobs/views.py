@@ -87,6 +87,7 @@ def job_list(request):
     # Read filter params
     search_query = request.GET.get('search', '')
     location_filter = request.GET.get('location', '')
+    country_filter = request.GET.get('country', '')
     salary_filter = request.GET.get('salary', '')
     date_filter = request.GET.get('date_posted', '')
     job_type_filter = request.GET.get('job_type', '')
@@ -125,6 +126,24 @@ def job_list(request):
     if location_filter:
         verified_qs = verified_qs.filter(location__icontains=location_filter)
         observed_qs = observed_qs.filter(location__icontains=location_filter)
+
+    if country_filter == 'us':
+        # Match US locations: state abbreviations, "United States", city/state patterns
+        US_STATES = [
+            'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
+            'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
+            'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
+            'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
+            'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY',
+            'DC',
+        ]
+        us_q = Q(location__icontains='United States') | Q(location__icontains=', US')
+        for state in US_STATES:
+            # Match ", CA", ", CA " patterns (state abbrev after comma)
+            us_q |= Q(location__endswith=f', {state}')
+            us_q |= Q(location__icontains=f', {state} ')
+        verified_qs = verified_qs.filter(us_q)
+        observed_qs = observed_qs.filter(us_q)
 
     if salary_filter == 'with_salary':
         verified_qs = verified_qs.exclude(salary='')
@@ -208,6 +227,7 @@ def job_list(request):
         'page_obj': page_obj,
         'search_query': search_query,
         'location_filter': location_filter,
+        'country_filter': country_filter,
         'salary_filter': salary_filter,
         'date_filter': date_filter,
         'job_type_filter': job_type_filter,

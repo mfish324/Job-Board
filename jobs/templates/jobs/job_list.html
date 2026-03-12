@@ -43,7 +43,7 @@
 
                         <!-- Filters Row 1 -->
                         <div class="row g-3 mb-3">
-                            <div class="col-md-3">
+                            <div class="col-md-2">
                                 <label class="form-label fw-semibold">
                                     <i class="bi bi-funnel me-1"></i>Source
                                 </label>
@@ -58,7 +58,7 @@
                                 </select>
                             </div>
 
-                            <div class="col-md-3">
+                            <div class="col-md-2">
                                 <label class="form-label fw-semibold">
                                     <i class="bi bi-briefcase me-1"></i>Job Type
                                 </label>
@@ -72,7 +72,7 @@
                                 </select>
                             </div>
 
-                            <div class="col-md-3">
+                            <div class="col-md-2">
                                 <label class="form-label fw-semibold">
                                     <i class="bi bi-globe me-1"></i>Work Location
                                 </label>
@@ -83,6 +83,18 @@
                                         {{ label }}
                                     </option>
                                     {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">
+                                    <i class="bi bi-geo me-1"></i>Country
+                                </label>
+                                <select name="country" class="form-select" onchange="this.form.submit()">
+                                    <option value="">All Countries</option>
+                                    <option value="us" {% if country_filter == 'us' %}selected{% endif %}>
+                                        US Only
+                                    </option>
                                 </select>
                             </div>
 
@@ -174,7 +186,7 @@
                         {% endif %}
 
                         <!-- Clear Filters -->
-                        {% if search_query or location_filter or salary_filter or date_filter or job_type_filter or experience_filter or remote_filter or source_filter or activity_filter or sort_mode != 'relevant' %}
+                        {% if search_query or location_filter or country_filter or salary_filter or date_filter or job_type_filter or experience_filter or remote_filter or source_filter or activity_filter or sort_mode != 'relevant' %}
                         <div class="row mt-3">
                             <div class="col text-center">
                                 <a href="{% url 'job_list' %}" class="btn btn-outline-secondary">
@@ -190,7 +202,7 @@
     </div>
 
     <!-- Active Filters Display -->
-    {% if search_query or location_filter or salary_filter or date_filter or job_type_filter or experience_filter or remote_filter or source_filter or activity_filter %}
+    {% if search_query or location_filter or country_filter or salary_filter or date_filter or job_type_filter or experience_filter or remote_filter or source_filter or activity_filter %}
     <div class="row mb-3">
         <div class="col">
             <div class="d-flex flex-wrap gap-2 align-items-center">
@@ -202,6 +214,9 @@
                 <span class="badge" style="background-color: {% if source_filter == 'verified' %}#c49a3c{% else %}#7a8c6e{% endif %}; color: #fff;">
                     Source: {{ source_filter|title }}
                 </span>
+                {% endif %}
+                {% if country_filter %}
+                <span class="badge bg-primary">Country: US Only</span>
                 {% endif %}
                 {% if location_filter %}
                 <span class="badge bg-primary">Location: {{ location_filter }}</span>
