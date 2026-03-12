@@ -20,6 +20,7 @@ from datetime import timedelta
 from django.conf import settings
 from django.core.management.base import BaseCommand
 from django.utils import timezone
+from django.utils.timezone import make_aware, utc
 
 from jobs.models import (
     Company, GenzjobsListing, ScrapedJobListing, HiringActivityScore,
@@ -144,28 +145,38 @@ class Command(BaseCommand):
         updated = 0
         errors = 0
 
-        for gj in qs.iterator(chunk_size=batch_size):
-            try:
-                was_created = self._sync_listing(gj)
-                if was_created:
-                    created += 1
-                else:
-                    updated += 1
-            except Exception as e:
-                errors += 1
-                self.stderr.write(self.style.ERROR(
-                    f"Error syncing {gj.id} ({gj.title}): {e}"
-                ))
+        # Fetch all IDs first, then process in batches to avoid
+        # server-side cursor timeout on cross-database connections
+        all_ids = list(qs.values_list('id', flat=True))
+        total = len(all_ids)
+        self.stdout.write(f"Fetched {total} IDs, processing in batches of {batch_size}...")
 
-            if (created + updated) % 100 == 0 and (created + updated) > 0:
-                self.stdout.write(f"  Progress: {created + updated}/{total}")
+        for i in range(0, total, batch_size):
+            batch_ids = all_ids[i:i + batch_size]
+            batch = GenzjobsListing.objects.filter(id__in=batch_ids)
+
+            for gj in batch:
+                try:
+                    was_created = self._sync_listing(gj)
+                    if was_created:
+                        created += 1
+                    else:
+                        updated += 1
+                except Exception as e:
+                    errors += 1
+                    self.stderr.write(self.style.ERROR(
+                        f"Error syncing {gj.id} ({gj.title}): {e}"
+                    ))
+
+            processed = created + updated + errors
+            self.stdout.write(f"  Progress: {processed}/{total}")
 
         self.stdout.write(self.style.SUCCESS(
             f"Sync complete: {created} created, {updated} updated, {errors} errors"
         ))
 
-        # Detect stale/closed listings
-        self._detect_closed(qs)
+        # Detect stale/closed listings (reuse already-fetched IDs)
+        self._detect_closed(all_ids)
 
         # Optionally score
         if score_after:
@@ -230,13 +241,19 @@ class Command(BaseCommand):
         if gj.source_id:
             local.external_requisition_id = gj.source_id[:100]
 
-        # Tracking dates
+        # Tracking dates (genzjobs datetimes may be naive — make aware)
         if gj.posted_at:
-            local.date_posted_external = gj.posted_at
+            dt = gj.posted_at
+            if timezone.is_naive(dt):
+                dt = make_aware(dt, utc)
+            local.date_posted_external = dt
         local.date_last_seen = now
         if was_created and gj.created_at:
             # Preserve original first-seen from genzjobs
-            local.date_first_seen = gj.created_at
+            dt = gj.created_at
+            if timezone.is_naive(dt):
+                dt = make_aware(dt, utc)
+            local.date_first_seen = dt
 
         # Status
         local.status = 'active'
@@ -320,9 +337,9 @@ class Command(BaseCommand):
                 return value
         return 'other'
 
-    def _detect_closed(self, active_qs):
+    def _detect_closed(self, active_ids):
         """Mark local listings as closed if they're no longer active in genzjobs."""
-        active_genzjobs_ids = set(active_qs.values_list('id', flat=True))
+        active_genzjobs_ids = set(active_ids)
 
         # Find local listings with genzjobs_id that are NOT in the active set
         stale_locals = ScrapedJobListing.objects.filter(
