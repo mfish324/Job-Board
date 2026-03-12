@@ -370,3 +370,24 @@ def build_workday_fallback_url(listing):
 
     title_query = quote_plus(listing.title)
     return f'{base}?q={title_query}'
+
+
+def build_google_jobs_fallback_url(listing):
+    """
+    Build a Google search URL as the ultimate fallback for any listing
+    whose direct link or portal search may not work (Workday 406s, expired
+    session URLs, etc.).
+
+    Constructs: google.com/search?q="Job Title" "Company Name" careers apply
+    This reliably surfaces the listing on the employer's actual career portal.
+    """
+    from urllib.parse import quote_plus
+
+    title = listing.title or ''
+    company = getattr(listing, 'company_name', '') or ''
+
+    if not title:
+        return None
+
+    query = f'"{title}" "{company}" careers apply'
+    return f'https://www.google.com/search?q={quote_plus(query)}'

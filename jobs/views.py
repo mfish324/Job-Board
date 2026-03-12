@@ -3288,6 +3288,10 @@ def observed_listing_detail(request, listing_id):
         from jobs.utils import build_workday_fallback_url
         workday_fallback_url = build_workday_fallback_url(listing)
 
+    # Google search fallback: universal safety net for all listings
+    from jobs.utils import build_google_jobs_fallback_url
+    google_fallback_url = build_google_jobs_fallback_url(listing)
+
     context = {
         'listing': listing,
         'has_score': has_score,
@@ -3297,6 +3301,7 @@ def observed_listing_detail(request, listing_id):
         'link_dead': link_dead,
         'link_stale': link_stale,
         'workday_fallback_url': workday_fallback_url,
+        'google_fallback_url': google_fallback_url,
     }
     return render(request, 'jobs/scraped_listing_detail.html', context)
 
