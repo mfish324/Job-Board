@@ -54,7 +54,7 @@
             --ink-soft: #4A2F1C;
             --ink-muted: #7F8F7A;
             --surface: #EDE6D6;
-            --card: #fff;
+            --card: #faf7f2;
             --border: #E9D7BF;
             --border-light: #EDE6D6;
             --accent: #7F8F7A;
@@ -74,10 +74,10 @@
             --terracotta: #B9834A;
             --pip-active: #7F8F7A;
             --pip-inactive: #E9D7BF;
-            --directory-color: #7c3aed;
-            --directory-bg: #f5f3ff;
-            --directory-border: #ddd6fe;
-            --directory-soft: #ede9fe;
+            --directory-color: #7E512F;
+            --directory-bg: #faf5ef;
+            --directory-border: #E9D7BF;
+            --directory-soft: #f5ede2;
         }
 
         body {
@@ -161,7 +161,7 @@
         .job-card {
             border: 1px solid var(--border);
             border-radius: 12px;
-            background: #fff;
+            background: var(--card);
             box-shadow: 0 1px 3px rgba(59, 48, 38, 0.06), 0 4px 12px rgba(59, 48, 38, 0.04);
             transition: transform 0.2s ease, box-shadow 0.2s ease;
             margin-bottom: 1.5rem;
@@ -197,7 +197,7 @@
         }
         .directory-card:hover {
             transform: translateY(-3px);
-            box-shadow: 0 8px 24px rgba(124, 58, 237, 0.1);
+            box-shadow: 0 8px 24px rgba(126, 81, 47, 0.12);
             border-color: var(--directory-color);
         }
         .directory-spotlight-card {
@@ -214,7 +214,7 @@
         }
         .directory-spotlight-employer:hover {
             border-color: var(--directory-color);
-            box-shadow: 0 2px 8px rgba(124, 58, 237, 0.1);
+            box-shadow: 0 2px 8px rgba(126, 81, 47, 0.1);
         }
         /* Directory sidebar on job list */
         .directory-sidebar-employer {
@@ -227,7 +227,7 @@
         .directory-sidebar-employer:hover {
             border-color: var(--directory-color);
             background: var(--directory-bg);
-            box-shadow: 0 2px 8px rgba(124, 58, 237, 0.1);
+            box-shadow: 0 2px 8px rgba(126, 81, 47, 0.1);
             transform: translateY(-1px);
         }
         .directory-logo-wrapper {
@@ -302,10 +302,10 @@
             transition: all 0.3s;
         }
         .directory-btn-primary:hover {
-            background: #6d28d9;
+            background: var(--espresso);
             color: #fff;
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+            box-shadow: 0 4px 12px rgba(126, 81, 47, 0.3);
         }
         .directory-category-pill {
             background: var(--directory-soft);
@@ -391,7 +391,7 @@
             border-radius: 8px;
             border: 1px solid var(--border);
             padding: 0.75rem;
-            background: #fff;
+            background: var(--card);
             font-size: 0.9rem;
             color: var(--ink);
         }
@@ -399,18 +399,18 @@
         .form-control:focus, .form-select:focus {
             border-color: var(--primary-color);
             box-shadow: 0 0 0 0.2rem rgba(126, 81, 47, 0.12);
-            background: #fff;
+            background: var(--card);
         }
 
         .card {
             border: 1px solid var(--border);
             border-radius: 12px;
-            background: #fff;
+            background: var(--card);
             box-shadow: 0 1px 3px rgba(59, 48, 38, 0.06), 0 4px 12px rgba(59, 48, 38, 0.04);
         }
 
         .card-header {
-            background: #fff;
+            background: var(--card);
             border-bottom: 2px solid var(--light-bg);
         }
 

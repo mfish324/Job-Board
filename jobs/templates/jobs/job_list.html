@@ -226,7 +226,7 @@
                 {% if activity_filter %}
                 <span class="badge bg-warning text-dark">Activity: {{ activity_filter|title }}</span>
                 {% endif %}
-                <a href="{% url 'job_list' %}" class="badge bg-danger text-decoration-none">
+                <a href="{% url 'job_list' %}" class="badge text-decoration-none" style="background-color: var(--charcoal); color: #fff;">
                     <i class="bi bi-x me-1"></i>Clear All
                 </a>
             </div>
