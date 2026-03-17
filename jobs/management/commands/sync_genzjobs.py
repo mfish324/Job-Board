@@ -144,6 +144,7 @@ class Command(BaseCommand):
         created = 0
         updated = 0
         errors = 0
+        synced_ids = []  # Track ScrapedJobListing IDs touched this run
 
         # Fetch all IDs first, then process in batches to avoid
         # server-side cursor timeout on cross-database connections
@@ -157,11 +158,12 @@ class Command(BaseCommand):
 
             for gj in batch:
                 try:
-                    was_created = self._sync_listing(gj)
+                    was_created, local_id = self._sync_listing(gj)
                     if was_created:
                         created += 1
                     else:
                         updated += 1
+                    synced_ids.append(local_id)
                 except Exception as e:
                     errors += 1
                     self.stderr.write(self.style.ERROR(
@@ -178,14 +180,14 @@ class Command(BaseCommand):
         # Detect stale/closed listings (reuse already-fetched IDs)
         self._detect_closed(all_ids)
 
-        # Optionally score
-        if score_after:
-            self._score_synced()
+        # Optionally score — only the listings touched this run
+        if score_after and synced_ids:
+            self._score_synced(synced_ids)
 
     def _sync_listing(self, gj):
         """
         Sync a single genzjobs listing to local ScrapedJobListing.
-        Returns True if created, False if updated.
+        Returns (was_created, local_id) tuple.
         """
         now = timezone.now()
 
@@ -281,7 +283,7 @@ class Command(BaseCommand):
         local.raw_data = raw
 
         local.save()
-        return was_created
+        return was_created, local.pk
 
     def _parse_pg_array(self, value):
         """Parse a PostgreSQL text[] array into a Python list."""
@@ -341,52 +343,68 @@ class Command(BaseCommand):
         """Mark local listings as closed if they're no longer active in genzjobs."""
         active_genzjobs_ids = set(active_ids)
 
-        # Find local listings with genzjobs_id that are NOT in the active set
-        stale_locals = ScrapedJobListing.objects.filter(
+        # Process local active listings in batches to avoid huge exclude() query
+        local_active = ScrapedJobListing.objects.filter(
             genzjobs_id__isnull=False,
             status='active',
-        ).exclude(
-            genzjobs_id__in=active_genzjobs_ids
-        )
+        ).values_list('pk', 'genzjobs_id')
 
-        # Check if they're actually inactive in genzjobs
+        # Find candidates not in active set
+        candidates = []
+        for pk, genzjobs_id in local_active.iterator():
+            if genzjobs_id not in active_genzjobs_ids:
+                candidates.append(pk)
+
+        if not candidates:
+            return
+
+        self.stdout.write(f"Checking {len(candidates)} potentially closed listings...")
+
+        # Verify and close in batches
         closed_count = 0
-        for local in stale_locals.iterator():
-            try:
-                gj = GenzjobsListing.objects.get(id=local.genzjobs_id)
-                if not gj.is_active:
+        batch_size = 500
+        now = timezone.now()
+        for i in range(0, len(candidates), batch_size):
+            batch_pks = candidates[i:i + batch_size]
+            for local in ScrapedJobListing.objects.filter(pk__in=batch_pks).iterator():
+                try:
+                    gj = GenzjobsListing.objects.get(id=local.genzjobs_id)
+                    if not gj.is_active:
+                        local.status = 'closed'
+                        local.date_removed = now
+                        local.save(update_fields=['status', 'date_removed'])
+                        closed_count += 1
+                except GenzjobsListing.DoesNotExist:
                     local.status = 'closed'
-                    local.date_removed = timezone.now()
+                    local.date_removed = now
                     local.save(update_fields=['status', 'date_removed'])
                     closed_count += 1
-            except GenzjobsListing.DoesNotExist:
-                # Listing removed from genzjobs entirely
-                local.status = 'closed'
-                local.date_removed = timezone.now()
-                local.save(update_fields=['status', 'date_removed'])
-                closed_count += 1
 
         if closed_count:
             self.stdout.write(f"Marked {closed_count} listings as closed")
 
-    def _score_synced(self):
-        """Run HAS scoring on recently synced listings."""
+    def _score_synced(self, synced_ids):
+        """Run HAS scoring on listings touched during this sync run."""
         from jobs.scoring.engine import HASEngine
 
         engine = HASEngine()
-        recent = ScrapedJobListing.objects.filter(
-            genzjobs_id__isnull=False,
-            status='active',
-        )
-
-        total = recent.count()
+        batch_size = 500
+        total = len(synced_ids)
         self.stdout.write(f"Scoring {total} synced listings...")
 
         scored = 0
-        for processed, total_count, listing in engine.bulk_score(recent):
-            scored = processed
-            if processed % 100 == 0:
-                self.stdout.write(f"  Scored {processed}/{total_count}")
+        # Process in batches to keep memory usage low
+        for i in range(0, total, batch_size):
+            batch_ids = synced_ids[i:i + batch_size]
+            batch_qs = ScrapedJobListing.objects.filter(
+                pk__in=batch_ids,
+                status='active',
+            )
+            for listing in batch_qs.iterator():
+                engine.score_listing(listing, save=True)
+                scored += 1
+                if scored % 100 == 0:
+                    self.stdout.write(f"  Scored {scored}/{total}")
 
         self.stdout.write(self.style.SUCCESS(f"Scored {scored} listings"))
 
