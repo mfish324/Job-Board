@@ -163,7 +163,8 @@ class Command(BaseCommand):
                         created += 1
                     else:
                         updated += 1
-                    synced_ids.append(local_id)
+                    if was_created:
+                        synced_ids.append(local_id)
                 except Exception as e:
                     errors += 1
                     self.stderr.write(self.style.ERROR(
@@ -180,8 +181,9 @@ class Command(BaseCommand):
         # Detect stale/closed listings (reuse already-fetched IDs)
         self._detect_closed(all_ids)
 
-        # Optionally score — only the listings touched this run
+        # Optionally score — only newly created listings
         if score_after and synced_ids:
+            self.stdout.write(f"{len(synced_ids)} new listings to score")
             self._score_synced(synced_ids)
 
     def _sync_listing(self, gj):
