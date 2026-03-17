@@ -303,9 +303,7 @@
                                     {% else %}
                                     <span class="trust-badge trust-badge-observed">&#128269; Observed</span>
                                     {% if item.has_score_value %}
-                                    <span class="activity-label">
-                                        Active {{ item.has_score_value }}/100
-                                    </span>
+                                    {% include "jobs/partials/has_pips.html" with score=item.has_score_value %}
                                     {% endif %}
                                     {% endif %}
                                 </div>
