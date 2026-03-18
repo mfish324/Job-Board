@@ -80,7 +80,7 @@ RJRP/
 
 - **UserProfile**: Extended user model with user_type (job_seeker, employer, recruiter)
 - **Job**: Verified job postings with status, salary, location, job_type, experience_level, remote_status, expiration
-- **ScrapedJobListing**: Market-observed listings ingested from ATS systems (GenZJobs)
+- **ScrapedJobListing**: Market-observed listings ingested from ATS systems (GenZJobs); includes `description_summary` (AI-generated)
 - **HiringActivityScore**: OneToOne to ScrapedJobListing — stores 0-100 score + band
 - **Company** / **CompanyHiringProfile**: Company data and hiring behavior tracking
 - **JobApplication**: Applications linking users to jobs
@@ -202,7 +202,7 @@ python manage.py shell
 - **Trust UI Kit** — announcement bar, verified/observed banners, HAS badge tooltips, first-visit modal, pip score visualization
 - **Two listing types**: Verified (employer-posted Job model) and Market-Observed (ScrapedJobListing from ATS ingestion)
 - **UnifiedListing** wrapper (`jobs/unified.py`) normalizes both models for templates; verified always sort above observed
-- **Earth-tone design system** — terracotta (#C4714F), warm sage (#7A8C6E), gold/amber (#C49A3C), cream (#FAF7F2) palette; Lora headings + DM Sans body
+- **Earth-tone design system** — warm brown/sand/cream palette; Lora job titles, DM Sans body, Fraunces headings
 - **Employer Directory** — curated directory of 24 major employers (Google, Goldman Sachs, etc.) with deep-link system to their career portals
 - **Deep-link engine** — constructs URLs with search terms prefilled using per-employer URL patterns and title overrides
 - **Directory sidebar in search** — when a search matches a job category, a sticky sidebar shows major employers hiring for that role with deep-links to their career portals
@@ -211,7 +211,9 @@ python manage.py shell
 - **URL health monitoring** — `check_directory_links` command validates career portal URLs, tracks consecutive failures, auto-marks unhealthy employers
 - **Workday fallback URLs** — Workday-sourced listings use search-based fallback URLs instead of stale direct links (Workday URLs are session-based and expire quickly)
 - **Google search fallback** — all observed listings get a "Search Google for This Role" button as a universal safety net; constructs `"Job Title" "Company" careers apply` query; solves Workday 406 errors and other broken ATS links
-- **US Only filter** — country filter dropdown on job list; matches US state abbreviations, "United States", ", US" patterns
+- **US Only filter** — toggle switch on job list (default on); matches US state abbreviations, "United States", ", US" patterns
+- **AI job summaries** — Claude Haiku generates plain-English summaries for scraped listings; cached in `description_summary` field on ScrapedJobListing
+- **HAS pip visualization** — job cards show colored pip dots instead of text score; uses `has_pips.html` partial
 
 ## Management Commands
 
@@ -272,7 +274,7 @@ python manage.py update_directory_counts --employer google
 ## Employer Directory Architecture
 
 - Separate `directory` Django app with its own models, views, templates, and tests
-- **Three content tiers** in search results: Verified (gold), Market-Observed (sage), Directory sidebar (purple)
+- **Three content tiers** in search results: Verified (gold), Market-Observed (sage), Directory sidebar (warm brown)
 - Deep-link URL construction: employer URL pattern → title override lookup → category search term → raw query fallback
 - Title matching: substring match against alias lists, longest match wins for specificity
 - **Directory sidebar**: sticky `col-lg-4` panel appears alongside search results when query matches a canonical title; shows up to 6 employers with deep-links; layout shifts to 8/4 columns (full-width when no match)
@@ -285,7 +287,8 @@ python manage.py update_directory_counts --employer google
 - **Workday fallback**: `build_workday_fallback_url()` in `jobs/utils.py` constructs search URLs from Workday `source_url` domains; primary CTA for Workday-sourced listings uses fallback; direct link shown as secondary option
 - **Google search fallback**: `build_google_jobs_fallback_url()` in `jobs/utils.py` constructs a Google search query (`"Title" "Company" careers apply`) as universal fallback; shown on all observed listing detail pages; solves Workday 406 errors and other expired ATS links
 - **Apply button hierarchy**: Workday portal search → direct ATS link → Google search fallback; ensures users always have a working path to apply
-- **US Only filter**: `country_filter` in `job_list` view; matches all 50 US states + DC via `location__endswith` and `location__icontains` patterns
+- **US Only filter**: toggle switch (default on) in `job_list` view; matches all 50 US states + DC via `location__endswith` and `location__icontains` patterns
+- **Scoring optimization**: only newly created listings are scored during `sync_genzjobs`; updates skip scoring to avoid OOM on large syncs
 
 ## Design System — Earth Tone Palette
 
@@ -345,7 +348,7 @@ All CSS lives inline in `base.html`. No external stylesheets or SCSS.
 - `.trust-badge-verified` / `.trust-badge-observed` — Status pills
 - `.badge-job-type`, `.badge-location`, `.badge-remote`, `.badge-experience` — Tag badges
 - `.salary-display` — Salary line below company
-- `.activity-label` — "Active X/100" human-readable score
+- `.has-pips` — Colored pip dots for HAS score visualization
 - `.btn-more-filters` / `.more-filters-row` — Collapsible filter row
 - `.directory-card` / `.directory-spotlight-card` — Directory employer cards
 - `.directory-sidebar-employer` — Sidebar employer row
