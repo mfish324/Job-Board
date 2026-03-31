@@ -152,4 +152,5 @@ urlpatterns = [
 
     # Admin tools
     path('manage/sync-genzjobs/', views.admin_sync_genzjobs, name='admin_sync_genzjobs'),
+    path('manage/traffic/', views.site_traffic_dashboard, name='site_traffic_dashboard'),
 ]

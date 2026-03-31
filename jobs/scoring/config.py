@@ -11,10 +11,10 @@ from django.conf import settings
 # Default configuration - can be overridden in settings.py
 DEFAULT_HAS_CONFIG = {
     # Base score - all listings start here
-    'base_score': 50,
+    'base_score': 35,
 
     # Publishing threshold - minimum score to auto-publish to board
-    'publish_threshold': 65,
+    'publish_threshold': 75,
 
     # Score bands for categorization
     'score_bands': {

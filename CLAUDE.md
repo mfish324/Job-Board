@@ -214,6 +214,7 @@ python manage.py shell
 - **US Only filter** — toggle switch on job list (default on); matches US state abbreviations, "United States", ", US" patterns
 - **AI job summaries** — Claude Haiku generates plain-English summaries for scraped listings; cached in `description_summary` field on ScrapedJobListing
 - **HAS pip visualization** — job cards show colored pip dots instead of text score; uses `has_pips.html` partial
+- **Site Traffic Dashboard** — superuser-only analytics at `/manage/traffic/`; shows pageviews, unique visitors, top pages, referrers, device breakdown, hourly activity, and recent visits; powered by `SiteVisit` model + Chart.js; date range toggle (7d/30d/90d/1y)
 
 ## Management Commands
 
@@ -245,8 +246,11 @@ python manage.py update_directory_counts --employer google
 ## Admin Access
 
 - URL: `/admin/`
+- Site Traffic Dashboard: `/manage/traffic/` (superuser only — pageviews, uniques, top pages, referrers, devices, hourly chart)
+- GenZJobs Sync: `/manage/sync-genzjobs/` (superuser only)
 - Configure Site domain in Django admin for allauth
 - Social Applications configured for Google OAuth
+- **Requires** `TRAFFIC_NOTIFICATION_ENABLED=True` in env for `SiteVisit` records to be created by middleware
 
 ## Important Files to Know
 
@@ -289,6 +293,27 @@ python manage.py update_directory_counts --employer google
 - **Apply button hierarchy**: Workday portal search → direct ATS link → Google search fallback; ensures users always have a working path to apply
 - **US Only filter**: toggle switch (default on) in `job_list` view; matches all 50 US states + DC via `location__endswith` and `location__icontains` patterns
 - **Scoring optimization**: only newly created listings are scored during `sync_genzjobs`; updates skip scoring to avoid OOM on large syncs
+- **Daily HAS rescore**: Render cron job (`RJRP-daily-rescore`) runs `score_listings --force` daily at 6 AM UTC; recalculates all published scores so freshness decay and stale penalties take effect; listings dropping below 65 are auto-unpublished
+
+## SEO & Crawlability
+
+- **robots.txt**: Dynamic view in `jobboard/urls.py`; allows all crawlers, blocks `/admin/`, `/account/`, `/employer/`, `/recruiter/`; references `/sitemap.xml`; cached 1 hour
+- **Sitemap**: `django.contrib.sitemaps` with three sitemap classes in `jobs/sitemaps.py`:
+  - `StaticViewSitemap` — 8 static pages (home, job_list, about, has-info, employer-guide, privacy, terms, contact)
+  - `VerifiedJobSitemap` — all active `Job` objects (priority 0.8, daily changefreq)
+  - `ObservedJobSitemap` — published `ScrapedJobListing` with HAS score >= 65 (priority 0.7)
+- Sitemap served at `/sitemap.xml`, cached 1 hour
+- Both `Job` and `ScrapedJobListing` have `get_absolute_url()` methods
+- **Meta tags**: `base.html` has template blocks for `title`, `meta_description`, `canonical`, `og_title`, `og_description`, `og_url`, `og_image`, `og_type`, `twitter_title`, `twitter_description`, `twitter_image`, `structured_data`
+- **Canonical URLs**: Every page gets `<link rel="canonical">` via `{{ request.build_absolute_uri }}` default; detail pages and static pages override with absolute URLs
+- **Open Graph & Twitter Cards**: Base template includes OG and Twitter Card meta tags with per-page block overrides
+- **JSON-LD Structured Data**:
+  - Homepage: `Organization` + `WebSite` with `SearchAction` (sitelinks search box)
+  - Verified job detail: `JobPosting` schema (title, description, datePosted, validThrough, hiringOrganization, jobLocation, employmentType, salary, directApply:true) + `BreadcrumbList`
+  - Observed listing detail: `JobPosting` schema (only for published listings; validThrough = date_first_seen + 60 days; directApply:false) + `BreadcrumbList`
+  - Remote jobs include `jobLocationType: TELECOMMUTE` + `applicantLocationRequirements`
+- **No noindex/nofollow** directives anywhere; `<meta name="robots" content="index, follow">` in base template
+- **OG image**: Needs a 1200x630 `og-default.png` at `static/jobs/images/` (not yet created)
 
 ## Design System — Earth Tone Palette
 

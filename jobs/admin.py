@@ -10,7 +10,7 @@ from .models import (Job, UserProfile, JobApplication, PhoneVerification, EmailV
                      ApplicationTag, ApplicationTagAssignment, EmailTemplate, Notification,
                      EmailLog, Message, EmployerTeam, TeamMember, TeamInvitation, ActivityLog,
                      Company, ScrapedJobListing, HiringActivityScore, CompanyHiringProfile, ListingFeedback,
-                     GenzjobsListing)
+                     GenzjobsListing, SiteVisit)
 
 
 class CsvImportForm(forms.Form):
@@ -597,3 +597,12 @@ class GenzjobsListingAdmin(admin.ModelAdmin):
     @admin.display(description='Title')
     def title_preview(self, obj):
         return (obj.title or '')[:60]
+
+
+@admin.register(SiteVisit)
+class SiteVisitAdmin(admin.ModelAdmin):
+    list_display = ('visited_at', 'ip_address', 'path', 'user', 'notified')
+    list_filter = ('notified', 'visited_at')
+    search_fields = ('ip_address', 'path', 'user__username')
+    date_hierarchy = 'visited_at'
+    readonly_fields = ('ip_address', 'path', 'user_agent', 'referer', 'user', 'visited_at', 'country', 'city', 'notified')

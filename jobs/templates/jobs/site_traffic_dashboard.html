@@ -1,0 +1,454 @@
+{% extends 'jobs/base.html' %}
+
+{% block title %}Site Traffic Dashboard - Real Jobs, Real People{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stat-card {
+        border-left: 4px solid var(--primary-color);
+        background: var(--card);
+        border-radius: 12px;
+        padding: 1.5rem;
+        transition: transform 0.2s;
+    }
+    .stat-card:hover {
+        transform: translateY(-2px);
+    }
+    .stat-card .stat-value {
+        font-size: 2.2rem;
+        font-weight: 700;
+        color: var(--primary-color);
+        line-height: 1.2;
+    }
+    .stat-card .stat-label {
+        color: var(--ink-muted);
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 0.25rem;
+    }
+    .stat-card .stat-sub {
+        color: var(--ink-muted);
+        font-size: 0.8rem;
+    }
+    .chart-container {
+        position: relative;
+        height: 320px;
+        background: var(--card);
+        border-radius: 12px;
+        padding: 1.25rem;
+        border: 1px solid var(--border);
+    }
+    .dashboard-section {
+        background: var(--card);
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        padding: 1.25rem;
+        margin-bottom: 1.5rem;
+    }
+    .dashboard-section h5 {
+        font-family: 'Fraunces', serif;
+        font-weight: 600;
+        color: var(--ink);
+        margin-bottom: 1rem;
+        font-size: 1.1rem;
+    }
+    .table-traffic {
+        font-size: 0.88rem;
+    }
+    .table-traffic th {
+        background: var(--light-bg);
+        font-weight: 600;
+        border-bottom: 2px solid var(--border);
+        color: var(--ink);
+    }
+    .table-traffic td {
+        border-color: var(--border-light);
+        color: var(--ink);
+        vertical-align: middle;
+    }
+    .path-cell {
+        max-width: 300px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-family: monospace;
+        font-size: 0.82rem;
+    }
+    .referrer-cell {
+        max-width: 350px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 0.82rem;
+    }
+    .count-badge {
+        background: var(--primary-color);
+        color: white;
+        padding: 0.2rem 0.6rem;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.8rem;
+    }
+    .range-btn {
+        border: 1px solid var(--border);
+        background: var(--card);
+        color: var(--ink);
+        padding: 0.35rem 0.9rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        text-decoration: none;
+        transition: all 0.2s;
+    }
+    .range-btn:hover {
+        background: var(--wheat);
+        color: var(--ink);
+    }
+    .range-btn.active {
+        background: var(--primary-color);
+        color: white;
+        border-color: var(--primary-color);
+    }
+    .visit-row td {
+        font-size: 0.82rem;
+        padding: 0.5rem 0.75rem;
+    }
+    .ua-badge {
+        padding: 0.15rem 0.5rem;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+    .ua-desktop { background: #e8ede4; color: #4a6741; }
+    .ua-mobile { background: #fdf8ee; color: #8a6d3b; }
+    .ua-bot { background: #f5e6e6; color: #8b3a3a; }
+    .ua-tablet { background: #e8e4f0; color: #5a4a7a; }
+    .change-up { color: #5a8a50; }
+    .change-down { color: #8b3a3a; }
+    .hour-bar {
+        background: var(--primary-color);
+        border-radius: 3px 3px 0 0;
+        min-width: 1px;
+        transition: height 0.3s;
+    }
+    .hour-label {
+        font-size: 0.65rem;
+        color: var(--ink-muted);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-3">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 style="font-family: 'Fraunces', serif; font-weight: 700; color: var(--ink);">
+                <i class="bi bi-graph-up me-2"></i>Site Traffic
+            </h2>
+            <p class="text-muted mb-0">Pageview analytics from SiteVisit tracking</p>
+        </div>
+        <div class="d-flex gap-2 align-items-center">
+            <a href="?range=7" class="range-btn {% if days == 7 %}active{% endif %}">7d</a>
+            <a href="?range=30" class="range-btn {% if days == 30 %}active{% endif %}">30d</a>
+            <a href="?range=90" class="range-btn {% if days == 90 %}active{% endif %}">90d</a>
+            <a href="?range=365" class="range-btn {% if days == 365 %}active{% endif %}">1y</a>
+        </div>
+    </div>
+
+    <!-- Key Metrics -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-lg-3">
+            <div class="stat-card">
+                <div class="stat-label">Total Pageviews</div>
+                <div class="stat-value">{{ total_views|floatformat:0 }}</div>
+                <div class="stat-sub">Last {{ days }} days</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="stat-card" style="border-left-color: var(--sage);">
+                <div class="stat-label">Unique Visitors</div>
+                <div class="stat-value" style="color: var(--sage);">{{ unique_visitors|floatformat:0 }}</div>
+                <div class="stat-sub">By IP address</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="stat-card" style="border-left-color: var(--clay);">
+                <div class="stat-label">Today</div>
+                <div class="stat-value" style="color: var(--clay);">{{ views_today }}</div>
+                <div class="stat-sub">
+                    {% if views_yesterday > 0 %}
+                        {% widthratio views_today views_yesterday 100 as pct %}
+                        Yesterday: {{ views_yesterday }}
+                    {% else %}
+                        Yesterday: 0
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="stat-card" style="border-left-color: var(--secondary-color);">
+                <div class="stat-label">Logged-in Users</div>
+                <div class="stat-value" style="color: var(--secondary-color);">{{ authenticated_visits }}</div>
+                <div class="stat-sub">Unique authenticated</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pageviews Chart -->
+    <div class="chart-container mb-4">
+        <canvas id="trafficChart"></canvas>
+    </div>
+
+    <div class="row g-4">
+        <!-- Top Pages -->
+        <div class="col-lg-7">
+            <div class="dashboard-section">
+                <h5><i class="bi bi-file-earmark-text me-2"></i>Top Pages</h5>
+                <div class="table-responsive">
+                    <table class="table table-traffic mb-0">
+                        <thead>
+                            <tr>
+                                <th>Path</th>
+                                <th class="text-end">Views</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for page in top_pages %}
+                            <tr>
+                                <td class="path-cell" title="{{ page.path }}">{{ page.path }}</td>
+                                <td class="text-end"><span class="count-badge">{{ page.count }}</span></td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="2" class="text-muted text-center">No data yet</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column -->
+        <div class="col-lg-5">
+            <!-- Device Breakdown -->
+            <div class="dashboard-section">
+                <h5><i class="bi bi-phone me-2"></i>Device Breakdown</h5>
+                <div style="height: 220px; position: relative;">
+                    <canvas id="deviceChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Top Referrers -->
+            <div class="dashboard-section">
+                <h5><i class="bi bi-box-arrow-in-right me-2"></i>Top Referrers</h5>
+                <div class="table-responsive">
+                    <table class="table table-traffic mb-0">
+                        <thead>
+                            <tr>
+                                <th>Referrer</th>
+                                <th class="text-end">Visits</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for ref in top_referrers %}
+                            <tr>
+                                <td class="referrer-cell" title="{{ ref.referer }}">{{ ref.referer }}</td>
+                                <td class="text-end"><span class="count-badge">{{ ref.count }}</span></td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="2" class="text-muted text-center">No referrer data</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hourly Activity -->
+    <div class="dashboard-section">
+        <h5><i class="bi bi-clock me-2"></i>Activity by Hour of Day (UTC)</h5>
+        <div style="height: 160px; position: relative;">
+            <canvas id="hourlyChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Recent Visits -->
+    <div class="dashboard-section">
+        <h5><i class="bi bi-clock-history me-2"></i>Recent Visits</h5>
+        <div class="table-responsive">
+            <table class="table table-traffic mb-0">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Path</th>
+                        <th>IP</th>
+                        <th>User</th>
+                        <th>Referrer</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for visit in recent_visits %}
+                    <tr class="visit-row">
+                        <td style="white-space: nowrap;">{{ visit.visited_at|timesince }} ago</td>
+                        <td class="path-cell" title="{{ visit.path }}">{{ visit.path }}</td>
+                        <td><code style="font-size: 0.78rem;">{{ visit.ip_address }}</code></td>
+                        <td>
+                            {% if visit.user %}
+                                {{ visit.user.username }}
+                            {% else %}
+                                <span class="text-muted">Anonymous</span>
+                            {% endif %}
+                        </td>
+                        <td class="referrer-cell" title="{{ visit.referer|default:'Direct' }}">
+                            {{ visit.referer|default:"Direct" }}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="text-muted text-center">No visits recorded yet</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const brown = '#7E512F';
+    const sage = '#7F8F7A';
+    const sand = '#DDA56C';
+    const clay = '#B9834A';
+    const wheat = '#E9D7BF';
+
+    // ---- Pageviews + Uniques Line Chart ----
+    const ctx = document.getElementById('trafficChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: {{ chart_labels|safe }},
+            datasets: [
+                {
+                    label: 'Pageviews',
+                    data: {{ chart_data|safe }},
+                    borderColor: brown,
+                    backgroundColor: 'rgba(126, 81, 47, 0.08)',
+                    fill: true,
+                    tension: 0.3,
+                    borderWidth: 2.5,
+                    pointRadius: {{ chart_data|safe }}.length > 60 ? 0 : 3,
+                    pointBackgroundColor: brown,
+                },
+                {
+                    label: 'Unique Visitors',
+                    data: {{ chart_uniques|safe }},
+                    borderColor: sage,
+                    backgroundColor: 'rgba(127, 143, 122, 0.06)',
+                    fill: true,
+                    tension: 0.3,
+                    borderWidth: 2,
+                    pointRadius: {{ chart_uniques|safe }}.length > 60 ? 0 : 3,
+                    pointBackgroundColor: sage,
+                    borderDash: [4, 4],
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: { usePointStyle: true, padding: 20, font: { family: 'DM Sans' } }
+                },
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: {
+                        maxTicksLimit: 15,
+                        font: { size: 11, family: 'DM Sans' }
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: { color: 'rgba(0,0,0,0.04)' },
+                    ticks: { font: { size: 11, family: 'DM Sans' } }
+                }
+            },
+            interaction: { intersect: false, mode: 'index' }
+        }
+    });
+
+    // ---- Device Doughnut Chart ----
+    const deviceCtx = document.getElementById('deviceChart').getContext('2d');
+    const deviceColors = {
+        'Desktop': brown,
+        'Mobile': sand,
+        'Tablet': clay,
+        'Bot': wheat,
+    };
+    const deviceLabels = {{ device_labels|safe }};
+    const deviceBg = deviceLabels.map(l => deviceColors[l] || sage);
+    new Chart(deviceCtx, {
+        type: 'doughnut',
+        data: {
+            labels: deviceLabels,
+            datasets: [{
+                data: {{ device_data|safe }},
+                backgroundColor: deviceBg,
+                borderWidth: 2,
+                borderColor: '#faf7f2',
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '55%',
+            plugins: {
+                legend: {
+                    position: 'right',
+                    labels: { usePointStyle: true, padding: 12, font: { family: 'DM Sans', size: 12 } }
+                }
+            }
+        }
+    });
+
+    // ---- Hourly Bar Chart ----
+    const hourlyCtx = document.getElementById('hourlyChart').getContext('2d');
+    const hourLabels = Array.from({length: 24}, (_, i) => i.toString().padStart(2, '0') + ':00');
+    new Chart(hourlyCtx, {
+        type: 'bar',
+        data: {
+            labels: hourLabels,
+            datasets: [{
+                label: 'Visits',
+                data: {{ hour_counts|safe }},
+                backgroundColor: 'rgba(126, 81, 47, 0.6)',
+                borderColor: brown,
+                borderWidth: 1,
+                borderRadius: 3,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { font: { size: 10, family: 'DM Sans' }, maxRotation: 0 }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: { color: 'rgba(0,0,0,0.04)' },
+                    ticks: { font: { size: 10, family: 'DM Sans' } }
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

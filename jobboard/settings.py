@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.sites',  # Required for allauth
+    'django.contrib.sitemaps',
     'django.contrib.postgres',  # For ArrayField (genzjobs integration)
     'cloudinary_storage',
     'cloudinary',
@@ -443,7 +444,7 @@ GOOGLE_CLIENT_SECRET = config('GOOGLE_CLIENT_SECRET', default='')
 # Only specify values you want to change from defaults
 HAS_CONFIG = {
     # Publishing threshold - minimum score to auto-publish scraped listings
-    'publish_threshold': 65,
+    'publish_threshold': 75,
 
     # You can override specific signal weights here if needed
     # Example:

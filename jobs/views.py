@@ -212,14 +212,15 @@ def job_list(request):
     elif source_filter == 'observed':
         verified_qs = verified_qs.none()
 
-    # Get counts before capping
-    verified_count = verified_qs.count()
-    observed_count = observed_qs.count()
-    total_results = verified_count + observed_count
-
     # Cap querysets for performance
-    verified_qs = verified_qs[:2000]
-    observed_qs = observed_qs[:2000]
+    CAP = 2000
+    verified_qs = verified_qs[:CAP]
+    observed_qs = observed_qs[:CAP]
+
+    # Count after capping so displayed count matches actual results
+    verified_count = len(verified_qs)
+    observed_count = len(observed_qs)
+    total_results = verified_count + observed_count
 
     # Merge and sort
     items = UnifiedListing.merge_querysets(verified_qs, observed_qs, sort_mode)
