@@ -1,6 +1,37 @@
 {% extends 'jobs/base.html' %}
 
-{% block title %}Home - Real Jobs, Real People - Find Your Dream Job{% endblock %}
+{% block title %}Real Jobs, Real People | Verified Job Listings — No Ghost Jobs{% endblock %}
+{% block meta_description %}Browse thousands of verified and activity-scored job listings. RJRP eliminates ghost jobs with our Hiring Activity algorithm. Find real opportunities from real employers.{% endblock %}
+{% block canonical %}https://realjobsrealpeople.net/{% endblock %}
+{% block og_title %}Real Jobs, Real People | Verified Job Listings — No Ghost Jobs{% endblock %}
+{% block og_description %}Browse thousands of verified and activity-scored job listings. RJRP eliminates ghost jobs with our Hiring Activity algorithm.{% endblock %}
+{% block og_url %}https://realjobsrealpeople.net/{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "Real Jobs, Real People",
+  "url": "https://realjobsrealpeople.net",
+  "description": "Job board eliminating ghost jobs with hiring activity scoring",
+  "foundingDate": "2025"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "Real Jobs, Real People",
+  "url": "https://realjobsrealpeople.net",
+  "potentialAction": {
+    "@type": "SearchAction",
+    "target": "https://realjobsrealpeople.net/jobs/?q={search_term_string}",
+    "query-input": "required name=search_term_string"
+  }
+}
+</script>
+{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -19,14 +50,20 @@
 <!-- Hero Section -->
 <div class="hero-section text-center">
     <div class="container">
-        <h1 class="display-4 fw-bold mb-4 hero-text" id="heroText">Where Real Opportunities Meet Real People</h1>
-        <div class="d-flex justify-content-center gap-3 mb-4">
-            <a href="{% url 'job_list' %}" class="btn btn-light btn-lg px-5">
-                <i class="bi bi-search me-2"></i>Browse Jobs
-            </a>
+        <h1 class="display-4 fw-bold mb-3 hero-text" id="heroText">Where Real Opportunities Meet Real People</h1>
+        <p class="lead text-white-50 mb-4">{{ total_jobs|default:"5,000+" }} active jobs from {{ total_companies|default:"1,000+" }} companies</p>
+        <form action="{% url 'job_list' %}" method="get" class="mx-auto" style="max-width: 640px;">
+            <div class="input-group input-group-lg shadow-lg">
+                <input type="text" name="search" class="form-control border-0 py-3" placeholder="Job title, company, or keyword..." aria-label="Search jobs" style="font-size: 1.1rem;">
+                <button class="btn btn-light px-4 fw-semibold" type="submit">
+                    <i class="bi bi-search me-1"></i> Search
+                </button>
+            </div>
+        </form>
+        <div class="mt-3">
             {% if not user.is_authenticated %}
-            <a href="{% url 'signup_choice' %}" class="btn btn-outline-light btn-lg px-5">
-                <i class="bi bi-person-plus me-2"></i>Get Started
+            <a href="{% url 'signup_choice' %}" class="btn btn-outline-light px-4">
+                <i class="bi bi-person-plus me-2"></i>Create Free Account
             </a>
             {% endif %}
         </div>
@@ -35,7 +72,7 @@
 
 <!-- Stats Section -->
 <div class="container mb-5">
-    <div class="row g-4">
+    <div class="row g-4 justify-content-center">
         <div class="col-md-4">
             <div class="card text-center h-100">
                 <div class="card-body">
@@ -54,15 +91,18 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card text-center h-100">
-                <div class="card-body">
-                    <i class="bi bi-people-fill text-primary" style="font-size: 3rem;"></i>
-                    <h3 class="mt-3 mb-0 fw-bold">{{ total_seekers }}</h3>
-                    <p class="text-muted mb-0">Job Seekers</p>
-                </div>
-            </div>
-        </div>
+    </div>
+</div>
+
+<!-- Popular Categories -->
+<div class="container mb-5">
+    <h2 class="fw-bold text-center mb-4">Browse by Category</h2>
+    <div class="d-flex flex-wrap justify-content-center gap-2">
+        {% for cat in popular_categories %}
+        <a href="{% url 'job_list' %}?search={{ cat.query|urlencode }}" class="btn btn-outline-primary rounded-pill px-4 py-2" style="font-size: 0.95rem;">
+            <i class="bi {{ cat.icon }} me-1"></i>{{ cat.label }}
+        </a>
+        {% endfor %}
     </div>
 </div>
 
@@ -201,6 +241,49 @@
                 <i class="bi bi-plus-circle me-2"></i>Post Your First Job
             </a>
             {% endif %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- How It Works Section -->
+{% if not user.is_authenticated %}
+<div class="container mb-5">
+    <h2 class="fw-bold text-center mb-2">How It Works</h2>
+    <p class="text-muted text-center mb-4">Three steps to your next opportunity</p>
+    <div class="row g-4">
+        <div class="col-md-4">
+            <div class="card text-center h-100 border-0" style="background: transparent;">
+                <div class="card-body">
+                    <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 72px; height: 72px; background: var(--light-bg);">
+                        <i class="bi bi-search" style="font-size: 1.8rem; color: var(--primary-color);"></i>
+                    </div>
+                    <h5 class="fw-bold">Search &amp; Discover</h5>
+                    <p class="text-muted mb-0">Browse thousands of jobs from verified employers and market-observed roles scored by our Hiring Activity algorithm.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center h-100 border-0" style="background: transparent;">
+                <div class="card-body">
+                    <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 72px; height: 72px; background: var(--light-bg);">
+                        <i class="bi bi-shield-check" style="font-size: 1.8rem; color: var(--primary-color);"></i>
+                    </div>
+                    <h5 class="fw-bold">Trust the Source</h5>
+                    <p class="text-muted mb-0">Every listing is labeled Verified or Market-Observed so you know exactly where it came from and how active the hiring is.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center h-100 border-0" style="background: transparent;">
+                <div class="card-body">
+                    <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 72px; height: 72px; background: var(--light-bg);">
+                        <i class="bi bi-send" style="font-size: 1.8rem; color: var(--primary-color);"></i>
+                    </div>
+                    <h5 class="fw-bold">Apply with Confidence</h5>
+                    <p class="text-muted mb-0">Apply directly through verified postings or follow deep-links to employer career portals for market-observed roles.</p>
+                </div>
+            </div>
         </div>
     </div>
 </div>

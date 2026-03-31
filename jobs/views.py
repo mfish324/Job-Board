@@ -70,12 +70,29 @@ def home(request):
     total_companies = len(verified_companies | observed_companies)
 
     total_seekers = UserProfile.objects.filter(user_type='job_seeker').count()
+
+    popular_categories = [
+        {'label': 'Software Engineering', 'query': 'software engineer', 'icon': 'bi-code-slash'},
+        {'label': 'Data Science', 'query': 'data scientist', 'icon': 'bi-bar-chart-line'},
+        {'label': 'Product Management', 'query': 'product manager', 'icon': 'bi-kanban'},
+        {'label': 'Marketing', 'query': 'marketing', 'icon': 'bi-megaphone'},
+        {'label': 'Sales', 'query': 'sales', 'icon': 'bi-graph-up-arrow'},
+        {'label': 'Finance', 'query': 'financial analyst', 'icon': 'bi-cash-coin'},
+        {'label': 'Design', 'query': 'UX designer', 'icon': 'bi-palette'},
+        {'label': 'Healthcare', 'query': 'nurse', 'icon': 'bi-heart-pulse'},
+        {'label': 'DevOps', 'query': 'devops', 'icon': 'bi-gear'},
+        {'label': 'Project Management', 'query': 'project manager', 'icon': 'bi-clipboard-check'},
+        {'label': 'Human Resources', 'query': 'human resources', 'icon': 'bi-people'},
+        {'label': 'Accounting', 'query': 'accountant', 'icon': 'bi-calculator'},
+    ]
+
     context = {
         'verified_jobs': verified_jobs,
         'observed_jobs': observed_unified,
         'total_jobs': total_jobs,
         'total_companies': total_companies,
-        'total_seekers': total_seekers
+        'total_seekers': total_seekers,
+        'popular_categories': popular_categories,
     }
     return render(request, 'jobs/home.html', context)
 
@@ -3306,6 +3323,10 @@ def observed_listing_detail(request, listing_id):
         from jobs.utils import generate_listing_summary
         description_summary = generate_listing_summary(listing)
 
+    # validThrough for JSON-LD: 60 days from date_first_seen
+    from datetime import timedelta
+    valid_through = listing.date_first_seen + timedelta(days=60)
+
     context = {
         'listing': listing,
         'has_score': has_score,
@@ -3317,6 +3338,7 @@ def observed_listing_detail(request, listing_id):
         'workday_fallback_url': workday_fallback_url,
         'google_fallback_url': google_fallback_url,
         'description_summary': description_summary,
+        'valid_through': valid_through,
     }
     return render(request, 'jobs/scraped_listing_detail.html', context)
 
@@ -3548,3 +3570,132 @@ def admin_sync_genzjobs(request):
         'genzjobs_enabled': genzjobs_enabled,
     }
     return render(request, 'jobs/admin_sync_genzjobs.html', context)
+
+
+# =============================================================================
+# SITE TRAFFIC DASHBOARD (SUPERUSER ONLY)
+# =============================================================================
+
+@login_required
+def site_traffic_dashboard(request):
+    """Admin-only dashboard showing site-wide traffic analytics from SiteVisit."""
+    if not request.user.is_superuser:
+        messages.error(request, 'Access denied. Superuser required.')
+        return redirect('home')
+
+    from django.db.models import Count
+    from django.db.models.functions import TruncDate, TruncHour
+    from datetime import timedelta
+    from collections import Counter
+
+    # Date range filter
+    try:
+        days = int(request.GET.get('range', 30))
+    except (ValueError, TypeError):
+        days = 30
+    days = min(max(days, 1), 365)
+
+    now = timezone.now()
+    start_date = now - timedelta(days=days)
+
+    visits = SiteVisit.objects.filter(visited_at__gte=start_date)
+
+    # ---- Key metrics ----
+    total_views = visits.count()
+    unique_visitors = visits.values('ip_address').distinct().count()
+    authenticated_visits = visits.filter(user__isnull=False).values('user').distinct().count()
+
+    # Today / yesterday comparison
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    yesterday_start = today_start - timedelta(days=1)
+    views_today = visits.filter(visited_at__gte=today_start).count()
+    views_yesterday = visits.filter(visited_at__gte=yesterday_start, visited_at__lt=today_start).count()
+
+    # ---- Daily pageviews for chart ----
+    daily_views = (
+        visits
+        .annotate(date=TruncDate('visited_at'))
+        .values('date')
+        .annotate(count=Count('id'))
+        .order_by('date')
+    )
+    chart_labels = [entry['date'].strftime('%b %d') for entry in daily_views]
+    chart_data = [entry['count'] for entry in daily_views]
+
+    # ---- Daily unique visitors for chart ----
+    daily_uniques = (
+        visits
+        .annotate(date=TruncDate('visited_at'))
+        .values('date')
+        .annotate(count=Count('ip_address', distinct=True))
+        .order_by('date')
+    )
+    chart_uniques = [entry['count'] for entry in daily_uniques]
+
+    # ---- Top pages ----
+    top_pages = (
+        visits
+        .values('path')
+        .annotate(count=Count('id'))
+        .order_by('-count')[:15]
+    )
+
+    # ---- Top referrers ----
+    top_referrers = (
+        visits
+        .exclude(referer__isnull=True)
+        .exclude(referer='')
+        .values('referer')
+        .annotate(count=Count('id'))
+        .order_by('-count')[:10]
+    )
+
+    # ---- Hourly distribution (hour of day) ----
+    hourly_distribution = (
+        visits
+        .annotate(hour=TruncHour('visited_at'))
+        .values('hour')
+        .annotate(count=Count('id'))
+        .order_by('hour')
+    )
+    hour_counts = [0] * 24
+    for entry in hourly_distribution:
+        h = entry['hour'].hour
+        hour_counts[h] += entry['count']
+
+    # ---- User agent breakdown (simplified) ----
+    ua_raw = visits.values_list('user_agent', flat=True)[:5000]
+    device_counts = Counter()
+    for ua in ua_raw:
+        ua_lower = ua.lower() if ua else ''
+        if 'bot' in ua_lower or 'spider' in ua_lower or 'crawl' in ua_lower:
+            device_counts['Bot'] += 1
+        elif 'mobile' in ua_lower or 'android' in ua_lower or 'iphone' in ua_lower:
+            device_counts['Mobile'] += 1
+        elif 'tablet' in ua_lower or 'ipad' in ua_lower:
+            device_counts['Tablet'] += 1
+        else:
+            device_counts['Desktop'] += 1
+
+    # ---- Recent visits ----
+    recent_visits = visits.select_related('user').order_by('-visited_at')[:25]
+
+    context = {
+        'days': days,
+        'total_views': total_views,
+        'unique_visitors': unique_visitors,
+        'authenticated_visits': authenticated_visits,
+        'views_today': views_today,
+        'views_yesterday': views_yesterday,
+        'chart_labels': json.dumps(chart_labels),
+        'chart_data': json.dumps(chart_data),
+        'chart_uniques': json.dumps(chart_uniques),
+        'top_pages': top_pages,
+        'top_referrers': top_referrers,
+        'hour_counts': json.dumps(hour_counts),
+        'device_counts': dict(device_counts),
+        'device_labels': json.dumps(list(device_counts.keys())),
+        'device_data': json.dumps(list(device_counts.values())),
+        'recent_visits': recent_visits,
+    }
+    return render(request, 'jobs/site_traffic_dashboard.html', context)
