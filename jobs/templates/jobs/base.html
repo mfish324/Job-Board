@@ -5,16 +5,26 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="index, follow">
-    <meta name="description" content="{% block meta_description %}Real Jobs, Real People - The only 100% vetted job board. Every employer and job seeker is verified. Find real job opportunities with real companies.{% endblock %}">
-    <meta name="keywords" content="jobs, careers, employment, job board, verified employers, real jobs, hiring">
-    <title>{% block title %}Real Jobs, Real People - Find Your Dream Job{% endblock %}</title>
+    <meta name="description" content="{% block meta_description %}Find verified job listings with no ghost jobs. RJRP scores every posting with our Hiring Activity algorithm so you only see roles that are actively being filled.{% endblock %}">
+    <title>{% block title %}Real Jobs, Real People | Verified Job Listings — No Ghost Jobs{% endblock %}</title>
+    <link rel="canonical" href="{% block canonical %}{{ request.build_absolute_uri }}{% endblock %}">
 
     <!-- Open Graph / Social Media -->
-    <meta property="og:type" content="website">
-    <meta property="og:title" content="{% block og_title %}Real Jobs, Real People{% endblock %}">
-    <meta property="og:description" content="The only 100% vetted job board. Every employer and job seeker is verified.">
-    <meta property="og:url" content="https://realjobsrealpeople.net">
+    <meta property="og:type" content="{% block og_type %}website{% endblock %}">
+    <meta property="og:title" content="{% block og_title %}Real Jobs, Real People | Verified Job Listings{% endblock %}">
+    <meta property="og:description" content="{% block og_description %}Find verified job listings with no ghost jobs. RJRP scores every posting with our Hiring Activity algorithm so you only see roles that are actively being filled.{% endblock %}">
+    <meta property="og:url" content="{% block og_url %}{{ request.build_absolute_uri }}{% endblock %}">
     <meta property="og:site_name" content="Real Jobs, Real People">
+    <meta property="og:image" content="{% block og_image %}https://realjobsrealpeople.net{% static 'jobs/images/og-default.png' %}{% endblock %}">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{% block twitter_title %}Real Jobs, Real People | Verified Job Listings{% endblock %}">
+    <meta name="twitter:description" content="{% block twitter_description %}Find verified job listings with no ghost jobs. RJRP scores every posting with our Hiring Activity algorithm.{% endblock %}">
+    <meta name="twitter:image" content="{% block twitter_image %}https://realjobsrealpeople.net{% static 'jobs/images/og-default.png' %}{% endblock %}">
+
+    <!-- Structured Data -->
+    {% block structured_data %}{% endblock %}
 
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="{% static 'jobs/images/favicon.ico' %}">

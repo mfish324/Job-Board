@@ -56,6 +56,10 @@ class Job(models.Model):
     def __str__(self):
         return f"{self.title} at {self.company}"
 
+    def get_absolute_url(self):
+        from django.urls import reverse
+        return reverse('job_detail', args=[self.pk])
+
     def save(self, *args, **kwargs):
         # Set expiration date on creation if not already set
         if not self.pk and not self.expires_at:
@@ -1204,6 +1208,10 @@ class ScrapedJobListing(models.Model):
 
     def __str__(self):
         return f"{self.title} at {self.company_name} ({self.source_ats})"
+
+    def get_absolute_url(self):
+        from django.urls import reverse
+        return reverse('observed_listing_detail', args=[self.pk])
 
     def save(self, *args, **kwargs):
         import hashlib

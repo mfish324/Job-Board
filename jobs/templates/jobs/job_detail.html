@@ -1,6 +1,71 @@
 {% extends 'jobs/base.html' %}
 
-{% block title %}{{ job.title }} at {{ job.company }} - Real Jobs, Real People{% endblock %}
+{% block title %}{{ job.title }} at {{ job.company }} — {{ job.location }} | RJRP{% endblock %}
+{% block meta_description %}Apply for {{ job.title }} at {{ job.company }} in {{ job.location }}. Verified employer posting on Real Jobs, Real People.{% if job.salary %} Salary: {{ job.salary }}.{% endif %}{% endblock %}
+{% block canonical %}https://realjobsrealpeople.net{{ job.get_absolute_url }}{% endblock %}
+{% block og_title %}{{ job.title }} at {{ job.company }} — {{ job.location }}{% endblock %}
+{% block og_description %}Apply for {{ job.title }} at {{ job.company }} in {{ job.location }}. Verified employer posting.{% if job.salary %} Salary: {{ job.salary }}.{% endif %}{% endblock %}
+{% block og_url %}https://realjobsrealpeople.net{{ job.get_absolute_url }}{% endblock %}
+{% block twitter_title %}{{ job.title }} at {{ job.company }} — {{ job.location }}{% endblock %}
+{% block twitter_description %}Apply for {{ job.title }} at {{ job.company }} in {{ job.location }}. Verified employer posting.{% if job.salary %} Salary: {{ job.salary }}.{% endif %}{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "JobPosting",
+  "title": "{{ job.title|escapejs }}",
+  "description": "{{ job.description|escapejs }}",
+  "datePosted": "{{ job.posted_date|date:'c' }}",
+  {% if job.expires_at %}"validThrough": "{{ job.expires_at|date:'c' }}",{% endif %}
+  "hiringOrganization": {
+    "@type": "Organization",
+    "name": "{{ job.company|escapejs }}"
+  },
+  {% if job.remote_status == 'remote' %}
+  "jobLocationType": "TELECOMMUTE",
+  "applicantLocationRequirements": {
+    "@type": "Country",
+    "name": "US"
+  },
+  {% endif %}
+  {% if job.location %}
+  "jobLocation": {
+    "@type": "Place",
+    "address": "{{ job.location|escapejs }}"
+  },
+  {% endif %}
+  {% if job.salary %}
+  "baseSalary": {
+    "@type": "MonetaryAmount",
+    "currency": "USD",
+    "value": {
+      "@type": "QuantitativeValue",
+      "value": "{{ job.salary|escapejs }}"
+    }
+  },
+  {% endif %}
+  "employmentType": "{% if job.job_type == 'full_time' %}FULL_TIME{% elif job.job_type == 'part_time' %}PART_TIME{% elif job.job_type == 'contract' %}CONTRACTOR{% elif job.job_type == 'temporary' %}TEMPORARY{% elif job.job_type == 'internship' %}INTERN{% else %}OTHER{% endif %}",
+  "identifier": {
+    "@type": "PropertyValue",
+    "name": "RJRP",
+    "value": "{{ job.id }}"
+  },
+  "directApply": true
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {"@type": "ListItem", "position": 1, "name": "Home", "item": "https://realjobsrealpeople.net/"},
+    {"@type": "ListItem", "position": 2, "name": "Jobs", "item": "https://realjobsrealpeople.net/jobs/"},
+    {"@type": "ListItem", "position": 3, "name": "{{ job.title|escapejs }}"}
+  ]
+}
+</script>
+{% endblock %}
 
 {% block content %}
 <div class="container">

@@ -15,11 +15,20 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
+from django.contrib.sitemaps.views import sitemap
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.http import HttpResponse
 from django.views.decorators.cache import cache_page
+
+from jobs.sitemaps import StaticViewSitemap, VerifiedJobSitemap, ObservedJobSitemap
+
+sitemaps = {
+    'static': StaticViewSitemap,
+    'verified-jobs': VerifiedJobSitemap,
+    'observed-jobs': ObservedJobSitemap,
+}
 
 
 def robots_txt(request):
@@ -41,6 +50,7 @@ def robots_txt(request):
 
 urlpatterns = [
     path('robots.txt', cache_page(60 * 60)(robots_txt), name='robots_txt'),
+    path('sitemap.xml', cache_page(60 * 60)(sitemap), {'sitemaps': sitemaps}, name='django.contrib.sitemaps.views.sitemap'),
     path('admin/', admin.site.urls),
     path('accounts/', include('allauth.urls')),  # Social authentication
     path('directory/', include('directory.urls')),

@@ -1,7 +1,9 @@
 {% extends 'jobs/base.html' %}
 {% load has_tags %}
 
-{% block title %}Browse Jobs - Real Jobs, Real People{% endblock %}
+{% block title %}Browse Jobs{% if request.GET.q %} — {{ request.GET.q }}{% endif %}{% if request.GET.location %} in {{ request.GET.location }}{% endif %} | RJRP{% endblock %}
+{% block meta_description %}Browse verified and activity-scored job listings{% if request.GET.q %} for "{{ request.GET.q }}"{% endif %}{% if request.GET.location %} in {{ request.GET.location }}{% endif %}. Every listing is scored by our Hiring Activity algorithm to filter out ghost jobs.{% endblock %}
+{% block canonical %}https://realjobsrealpeople.net/jobs/{% endblock %}
 
 {% block content %}
 <div class="container">

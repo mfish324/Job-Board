@@ -1,7 +1,78 @@
 {% extends 'jobs/base.html' %}
 {% load has_tags %}
 
-{% block title %}{{ listing.title }} at {{ listing.company_name }} - Real Jobs, Real People{% endblock %}
+{% block title %}{{ listing.title }} at {{ listing.company_name }} — {{ listing.location }} | RJRP{% endblock %}
+{% block meta_description %}{{ listing.title }} at {{ listing.company_name }}{% if has_score %} — Activity Score {{ has_score.total_score }}/100{% endif %}.{% if listing.salary_min %} Salary: ${{ listing.salary_min|floatformat:0 }}–${{ listing.salary_max|floatformat:0 }}.{% endif %} Scored by RJRP's Hiring Activity algorithm.{% endblock %}
+{% block canonical %}https://realjobsrealpeople.net{{ listing.get_absolute_url }}{% endblock %}
+{% block og_title %}{{ listing.title }} at {{ listing.company_name }} — {{ listing.location }}{% endblock %}
+{% block og_description %}{{ listing.title }} at {{ listing.company_name }}{% if has_score %} — Activity Score {{ has_score.total_score }}/100{% endif %}. Scored by RJRP's Hiring Activity algorithm.{% endblock %}
+{% block og_url %}https://realjobsrealpeople.net{{ listing.get_absolute_url }}{% endblock %}
+{% block twitter_title %}{{ listing.title }} at {{ listing.company_name }} — {{ listing.location }}{% endblock %}
+{% block twitter_description %}{{ listing.title }} at {{ listing.company_name }}{% if has_score %} — Activity Score {{ has_score.total_score }}/100{% endif %}. Scored by RJRP's Hiring Activity algorithm.{% endblock %}
+
+{% block structured_data %}
+{% if listing.published_to_board %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "JobPosting",
+  "title": "{{ listing.title|escapejs }}",
+  "description": "{{ listing.description|escapejs }}",
+  "datePosted": "{{ listing.date_first_seen|date:'c' }}",
+  "validThrough": "{{ valid_through|date:'c' }}",
+  "hiringOrganization": {
+    "@type": "Organization",
+    "name": "{{ listing.company_name|escapejs }}"
+  },
+  {% if listing.remote_status == 'remote' %}
+  "jobLocationType": "TELECOMMUTE",
+  "applicantLocationRequirements": {
+    "@type": "Country",
+    "name": "US"
+  },
+  {% endif %}
+  {% if listing.location %}
+  "jobLocation": {
+    "@type": "Place",
+    "address": "{{ listing.location|escapejs }}"
+  },
+  {% endif %}
+  {% if listing.salary_min %}
+  "baseSalary": {
+    "@type": "MonetaryAmount",
+    "currency": "{{ listing.salary_currency|default:'USD' }}",
+    "value": {
+      "@type": "QuantitativeValue",
+      {% if listing.salary_max %}"minValue": {{ listing.salary_min }},
+      "maxValue": {{ listing.salary_max }},{% else %}"value": {{ listing.salary_min }},{% endif %}
+      "unitText": "YEAR"
+    }
+  },
+  {% endif %}
+  {% if listing.job_type %}
+  "employmentType": "{% if listing.job_type == 'full_time' or listing.job_type == 'Full-time' %}FULL_TIME{% elif listing.job_type == 'part_time' or listing.job_type == 'Part-time' %}PART_TIME{% elif listing.job_type == 'contract' or listing.job_type == 'Contract' %}CONTRACTOR{% elif listing.job_type == 'temporary' %}TEMPORARY{% elif listing.job_type == 'internship' or listing.job_type == 'Internship' %}INTERN{% else %}OTHER{% endif %}",
+  {% endif %}
+  "identifier": {
+    "@type": "PropertyValue",
+    "name": "RJRP",
+    "value": "{{ listing.id }}"
+  },
+  "directApply": false
+}
+</script>
+{% endif %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {"@type": "ListItem", "position": 1, "name": "Home", "item": "https://realjobsrealpeople.net/"},
+    {"@type": "ListItem", "position": 2, "name": "Jobs", "item": "https://realjobsrealpeople.net/jobs/"},
+    {"@type": "ListItem", "position": 3, "name": "{{ listing.title|escapejs }}"}
+  ]
+}
+</script>
+{% endblock %}
 
 {% block content %}
 <div class="container">
