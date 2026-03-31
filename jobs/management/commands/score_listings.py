@@ -84,7 +84,7 @@ class Command(BaseCommand):
         published = 0
         by_band = {'very_active': 0, 'likely_active': 0, 'uncertain': 0, 'low_signal': 0}
 
-        for listing in queryset.select_related('company'):
+        for listing in queryset.select_related('company').iterator(chunk_size=200):
             score, breakdown = engine.calculate_score(listing)
             band = engine.get_score_band(score)
 
