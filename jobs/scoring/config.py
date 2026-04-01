@@ -11,10 +11,10 @@ from django.conf import settings
 # Default configuration - can be overridden in settings.py
 DEFAULT_HAS_CONFIG = {
     # Base score - all listings start here
-    'base_score': 35,
+    'base_score': 40,
 
     # Publishing threshold - minimum score to auto-publish to board
-    'publish_threshold': 75,
+    'publish_threshold': 65,
 
     # Score bands for categorization
     'score_bands': {
@@ -29,7 +29,7 @@ DEFAULT_HAS_CONFIG = {
     # Freshness: Linear decay over time
     'freshness': {
         'max_points': 15,
-        'decay_days': 30,  # Full decay over 30 days
+        'decay_days': 60,  # Full decay over 60 days (matches job expiration period)
     },
 
     # Specificity: Salary, location, description quality
@@ -98,7 +98,7 @@ DEFAULT_HAS_CONFIG = {
     # Stale Listing Penalty
     'stale_penalty': {
         'min_points': -10,
-        'stale_threshold_days': 14,  # Days since last seen
+        'stale_threshold_days': 21,  # Days since last seen in a sync
     },
 
     # === GENZJOBS-ENRICHED SIGNALS ===

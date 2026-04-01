@@ -444,7 +444,7 @@ GOOGLE_CLIENT_SECRET = config('GOOGLE_CLIENT_SECRET', default='')
 # Only specify values you want to change from defaults
 HAS_CONFIG = {
     # Publishing threshold - minimum score to auto-publish scraped listings
-    'publish_threshold': 75,
+    'publish_threshold': 65,
 
     # You can override specific signal weights here if needed
     # Example:
