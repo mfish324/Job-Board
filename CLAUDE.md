@@ -198,7 +198,7 @@ python manage.py shell
 - Duplicate job detection with confirmation flow
 - Verification badges on job listings (basic/enhanced/complete levels)
 - **GenZJobs ATS integration** — ingests market-observed listings from GenZJobs shared database
-- **Hiring Activity Score (HAS)** — 0-100 scoring algorithm with 13+ signals (freshness, specificity, company velocity, repost penalty, etc.); publish threshold 65+
+- **Hiring Activity Score (HAS)** — 0-100 scoring algorithm with 13+ signals (freshness, specificity, company velocity, repost penalty, etc.); publish threshold 65+; base_score 40, freshness decay 60 days, stale threshold 21 days
 - **Trust UI Kit** — announcement bar, verified/observed banners, HAS badge tooltips, first-visit modal, pip score visualization
 - **Two listing types**: Verified (employer-posted Job model) and Market-Observed (ScrapedJobListing from ATS ingestion)
 - **UnifiedListing** wrapper (`jobs/unified.py`) normalizes both models for templates; verified always sort above observed
@@ -210,11 +210,14 @@ python manage.py shell
 - **Directory click tracking** — analytics on employer click-throughs for conversion targeting
 - **URL health monitoring** — `check_directory_links` command validates career portal URLs, tracks consecutive failures, auto-marks unhealthy employers
 - **Workday fallback URLs** — Workday-sourced listings use search-based fallback URLs instead of stale direct links (Workday URLs are session-based and expire quickly)
-- **Google search fallback** — all observed listings get a "Search Google for This Role" button as a universal safety net; constructs `"Job Title" "Company" careers apply` query; solves Workday 406 errors and other broken ATS links
+- **Google search fallback** — all observed listings get a prominent "Search Google for This Role" button with colorful Google "G" SVG logo; constructs `"Job Title" "Company" careers apply` query; helper text explains ATS links expire; solves Workday 406 errors and other broken ATS links
 - **US Only filter** — toggle switch on job list (default on); matches US state abbreviations, "United States", ", US" patterns
 - **AI job summaries** — Claude Haiku generates plain-English summaries for scraped listings; cached in `description_summary` field on ScrapedJobListing
 - **HAS pip visualization** — job cards show colored pip dots instead of text score; uses `has_pips.html` partial
 - **Site Traffic Dashboard** — superuser-only analytics at `/manage/traffic/`; shows pageviews, unique visitors, top pages, referrers, device breakdown, hourly activity, and recent visits; powered by `SiteVisit` model + Chart.js; date range toggle (7d/30d/90d/1y)
+- **Landing page hero search** — search bar in the hero section lets users search immediately; subtitle shows live job/company counts
+- **Browse by Category** — 12 popular category pills on the home page (Software Engineering, Data Science, Marketing, etc.) linking to filtered search results
+- **How It Works section** — 3-step explainer (Search & Discover, Trust the Source, Apply with Confidence) shown to non-authenticated visitors
 
 ## Management Commands
 
@@ -289,11 +292,12 @@ python manage.py update_directory_counts --employer google
 - `seed_directory` is idempotent (uses `update_or_create`)
 - **URL health monitoring**: `FeaturedEmployer` has `link_healthy`, `link_last_checked`, `link_status_code`, `link_consecutive_failures` fields; `check_directory_links` command checks base URL + sample deep-link; classifies as healthy/degraded/down/inconclusive (bot-blocked SPAs)
 - **Workday fallback**: `build_workday_fallback_url()` in `jobs/utils.py` constructs search URLs from Workday `source_url` domains; primary CTA for Workday-sourced listings uses fallback; direct link shown as secondary option
-- **Google search fallback**: `build_google_jobs_fallback_url()` in `jobs/utils.py` constructs a Google search query (`"Title" "Company" careers apply`) as universal fallback; shown on all observed listing detail pages; solves Workday 406 errors and other expired ATS links
+- **Google search fallback**: `build_google_jobs_fallback_url()` in `jobs/utils.py` constructs a Google search query (`"Title" "Company" careers apply`) as universal fallback; shown prominently on all observed listing detail pages with colorful Google "G" SVG and helper text ("ATS links often expire"); solves Workday 406 errors and other expired ATS links
 - **Apply button hierarchy**: Workday portal search → direct ATS link → Google search fallback; ensures users always have a working path to apply
 - **US Only filter**: toggle switch (default on) in `job_list` view; matches all 50 US states + DC via `location__endswith` and `location__icontains` patterns
 - **Scoring optimization**: only newly created listings are scored during `sync_genzjobs`; updates skip scoring to avoid OOM on large syncs
-- **Daily HAS rescore**: Render cron job (`RJRP-daily-rescore`) runs `score_listings --force` daily at 6 AM UTC; recalculates all published scores so freshness decay and stale penalties take effect; listings dropping below 65 are auto-unpublished
+- **Daily HAS rescore**: Render cron job (`RJRP-daily-rescore`) runs `score_listings --force` daily at 9 AM UTC (after 8 AM sync so `date_last_seen` is fresh); recalculates all scores so freshness decay and stale penalties take effect; listings dropping below 65 are auto-unpublished
+- **HAS tuning (2026-04-01)**: base_score 35→40, publish_threshold 75→65, freshness decay 30→60 days, stale threshold 14→21 days; previous config caused all listings to score below threshold and unpublish
 
 ## SEO & Crawlability
 
