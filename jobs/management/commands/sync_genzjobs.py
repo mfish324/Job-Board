@@ -390,6 +390,7 @@ class Command(BaseCommand):
         from jobs.scoring.engine import HASEngine
 
         engine = HASEngine()
+        engine.prepare_caches()
         batch_size = 500
         total = len(synced_ids)
         self.stdout.write(f"Scoring {total} synced listings...")

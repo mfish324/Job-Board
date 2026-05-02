@@ -80,6 +80,7 @@ class Command(BaseCommand):
             self.stdout.write(f'Scoring {total} listing(s)...')
 
         engine = HASEngine()
+        engine.prepare_caches()
         scored = 0
         published = 0
         by_band = {'very_active': 0, 'likely_active': 0, 'uncertain': 0, 'low_signal': 0}

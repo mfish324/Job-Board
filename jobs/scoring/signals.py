@@ -9,6 +9,30 @@ from datetime import timedelta
 from django.utils import timezone
 
 
+def _normalize_company_name(name):
+    """Normalize a company name for cache lookup. Lowercased, stripped."""
+    if not name:
+        return ''
+    return name.lower().strip()
+
+
+def _age_decay_factor(listing, config):
+    """
+    Linear decay factor [0, 1] based on listing age vs freshness.decay_days.
+    Used to scale company-level bonuses (velocity, reputation) so that an old
+    listing doesn't get full credit for the company's current hiring activity.
+    """
+    decay_days = config.get('freshness', {}).get('decay_days', 60)
+    if decay_days <= 0:
+        return 1.0
+    days_open = listing.days_since_first_seen()
+    if days_open <= 0:
+        return 1.0
+    if days_open >= decay_days:
+        return 0.0
+    return 1 - (days_open / decay_days)
+
+
 def calculate_freshness(listing, config):
     """
     Calculate freshness score based on how recently the listing was posted.
@@ -77,28 +101,53 @@ def calculate_specificity(listing, config):
     return round(points, 1), explanation
 
 
-def calculate_company_velocity(listing, config, profile=None):
+def calculate_company_velocity(listing, config, velocity_map=None):
     """
-    Calculate company velocity score based on net job movement.
-    Positive movement suggests active hiring.
+    Calculate company velocity from new-listing volume in the lookback window.
+    Counts distinct ScrapedJobListing rows for this company_name with
+    date_first_seen within `lookback_days`. Tiers map count → points.
 
-    Returns:
-        tuple: (points, explanation)
+    Args:
+        velocity_map: optional dict[normalized_name -> count] for batch scoring.
+            If None, computes inline (single-listing path).
     """
     cfg = config['company_velocity']
     max_points = cfg['max_points']
+    lookback = cfg.get('lookback_days', 30)
 
-    if not profile:
-        return 0, "No company profile"
+    name = _normalize_company_name(listing.company_name)
+    if not name:
+        return 0, "No company name"
 
-    net_movement = profile.net_job_movement_30d
+    if velocity_map is not None:
+        count = velocity_map.get(name, 0)
+    else:
+        from django.db.models.functions import Lower, Trim
+        from jobs.models import ScrapedJobListing
+        cutoff = timezone.now() - timedelta(days=lookback)
+        count = (
+            ScrapedJobListing.objects
+            .annotate(_norm=Lower(Trim('company_name')))
+            .filter(_norm=name, date_first_seen__gte=cutoff)
+            .count()
+        )
 
-    if net_movement <= 0:
-        return 0, f"Net movement: {net_movement}"
+    if count <= 0:
+        return 0, f"No new listings in {lookback}d"
 
-    points = min(net_movement * cfg['positive_per_job'], max_points)
+    points = 0
+    for threshold, pts in cfg.get('tiers', []):
+        if count >= threshold:
+            points = pts
+            break
+    points = min(points, max_points)
 
-    return round(points, 1), f"Net +{net_movement} jobs in 30d"
+    # Scale by listing age — an old listing doesn't get full credit for
+    # the company's current hiring activity.
+    decay = _age_decay_factor(listing, config)
+    scaled = round(points * decay, 1)
+    age = listing.days_since_first_seen()
+    return scaled, f"{count} new listings in {lookback}d (×{decay:.2f} age {age}d)"
 
 
 def calculate_ats_behavior(listing, config):
@@ -138,35 +187,54 @@ def calculate_ats_behavior(listing, config):
     return round(points, 1), explanation
 
 
-def calculate_company_reputation(listing, config, profile=None):
+def calculate_company_reputation(listing, config, featured_set=None):
     """
-    Calculate company reputation adjustment.
-    Good reputation = positive, bad reputation = negative.
+    Calculate company reputation bonus based on curated lists:
+      - FeaturedEmployer directory entries (loaded into `featured_set`)
+      - `overrides` map in config (lowercased company_name → tier 1 or 2)
 
-    Returns:
-        tuple: (points, explanation)
+    Args:
+        featured_set: optional set of normalized FeaturedEmployer names. If None,
+            queries FeaturedEmployer inline (single-listing path).
     """
     cfg = config['company_reputation']
+    name = _normalize_company_name(listing.company_name)
+    if not name:
+        return 0, "No company name"
 
-    if not profile:
-        return 0, "No company profile"
+    if featured_set is None:
+        try:
+            from directory.models import FeaturedEmployer
+            featured_set = {
+                _normalize_company_name(fe_name)
+                for fe_name in FeaturedEmployer.objects.values_list('name', flat=True)
+            }
+        except Exception:
+            featured_set = set()
 
-    rep_score = profile.reputation_score
+    base_pts = 0
+    label = None
+    if name in featured_set:
+        base_pts = cfg.get('featured_employer_bonus', 8)
+        label = "Featured employer"
+    else:
+        tier = cfg.get('overrides', {}).get(name)
+        if tier == 1:
+            base_pts = cfg.get('tier_1_bonus', 8)
+            label = "Tier 1 reputable"
+        elif tier == 2:
+            base_pts = cfg.get('tier_2_bonus', 4)
+            label = "Tier 2 reputable"
 
-    if rep_score >= cfg['good_reputation_threshold']:
-        # Scale from 0 to max based on how far above threshold
-        excess = rep_score - cfg['good_reputation_threshold']
-        max_excess = 100 - cfg['good_reputation_threshold']
-        points = (excess / max_excess) * cfg['max_points']
-        return round(points, 1), f"Good reputation ({rep_score})"
+    if base_pts <= 0:
+        return 0, "Standard company"
 
-    elif rep_score <= cfg['bad_reputation_threshold']:
-        # Scale from 0 to min based on how far below threshold
-        deficit = cfg['bad_reputation_threshold'] - rep_score
-        points = -(deficit / cfg['bad_reputation_threshold']) * abs(cfg['min_points'])
-        return round(points, 1), f"Poor reputation ({rep_score})"
-
-    return 0, f"Neutral reputation ({rep_score})"
+    # Scale by listing age — reputation reflects the company, but the listing
+    # itself fades in relevance as it ages.
+    decay = _age_decay_factor(listing, config)
+    scaled = round(base_pts * decay, 1)
+    age = listing.days_since_first_seen()
+    return scaled, f"{label} ({listing.company_name}) ×{decay:.2f} age {age}d"
 
 
 def calculate_industry_adjustment(listing, config, profile=None):

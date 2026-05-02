@@ -21,7 +21,7 @@ class HASEngine:
         score, breakdown = engine.calculate_score(listing, profile=profile)
     """
 
-    VERSION = 2  # Increment when algorithm changes significantly
+    VERSION = 3  # Bumped: inline velocity + curated reputation (2026-05-02)
 
     def __init__(self, config=None):
         """
@@ -31,6 +31,44 @@ class HASEngine:
             config: Optional config dict. If None, loads from settings/defaults.
         """
         self.config = config or get_config()
+        self._velocity_map = None
+        self._featured_set = None
+
+    def prepare_caches(self):
+        """
+        Precompute caches for batch scoring so per-listing signal calls don't hit
+        the DB. Builds:
+          - velocity_map: {lower(company_name): new_listings_in_lookback_window}
+          - featured_set: {lower(name) for name in FeaturedEmployer}
+
+        Idempotent — call once before bulk_score / a sequence of score_listing calls.
+        """
+        from datetime import timedelta
+        from django.db.models import Count
+        from django.db.models.functions import Lower, Trim
+        from django.utils import timezone
+        from jobs.models import ScrapedJobListing
+
+        lookback = self.config['company_velocity'].get('lookback_days', 30)
+        cutoff = timezone.now() - timedelta(days=lookback)
+        rows = (
+            ScrapedJobListing.objects
+            .filter(date_first_seen__gte=cutoff)
+            .annotate(_norm=Lower(Trim('company_name')))
+            .values('_norm')
+            .annotate(count=Count('id'))
+        )
+        self._velocity_map = {r['_norm']: r['count'] for r in rows if r['_norm']}
+
+        try:
+            from directory.models import FeaturedEmployer
+            self._featured_set = {
+                (fe_name or '').lower().strip()
+                for fe_name in FeaturedEmployer.objects.values_list('name', flat=True)
+            }
+            self._featured_set.discard('')
+        except Exception:
+            self._featured_set = set()
 
     def calculate_score(self, listing, profile=None):
         """
@@ -74,9 +112,9 @@ class HASEngine:
         total += points
         breakdown['specificity'] = {'points': points, 'explanation': explanation}
 
-        # Company Velocity
+        # Company Velocity (inline; no profile required)
         points, explanation = signals.calculate_company_velocity(
-            listing, self.config, profile
+            listing, self.config, velocity_map=self._velocity_map
         )
         total += points
         breakdown['company_velocity'] = {'points': points, 'explanation': explanation}
@@ -86,9 +124,9 @@ class HASEngine:
         total += points
         breakdown['ats_behavior'] = {'points': points, 'explanation': explanation}
 
-        # Company Reputation
+        # Company Reputation (curated: FeaturedEmployer + config overrides)
         points, explanation = signals.calculate_company_reputation(
-            listing, self.config, profile
+            listing, self.config, featured_set=self._featured_set
         )
         total += points
         breakdown['company_reputation'] = {'points': points, 'explanation': explanation}

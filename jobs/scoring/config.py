@@ -41,10 +41,20 @@ DEFAULT_HAS_CONFIG = {
         'min_description_length': 500,  # Chars for full points
     },
 
-    # Company Velocity: Net positive job movement
+    # Company Velocity: Volume of new listings in lookback window.
+    # Computed inline from ScrapedJobListing aggregates by normalized company_name.
+    # Tiers: list of (min_count, points) — first matching tier wins (descending order).
     'company_velocity': {
         'max_points': 10,
-        'positive_per_job': 2,  # Points per net new job in 30d
+        'lookback_days': 30,
+        'tiers': [
+            (50, 10),
+            (20, 8),
+            (10, 6),
+            (5, 4),
+            (2, 2),
+            (1, 1),
+        ],
     },
 
     # ATS Behavior: Description updates, similar role closures
@@ -54,12 +64,110 @@ DEFAULT_HAS_CONFIG = {
         'similar_role_closed': 2,    # Similar role was closed
     },
 
-    # Company Reputation: From CompanyHiringProfile
+    # Company Reputation: Curated bonus for known reputable employers.
+    # Sources (any match awards points):
+    #   1. FeaturedEmployer directory entries (auto-loaded) → featured_employer_bonus
+    #   2. `overrides` map below: keyed by lowercase normalized company_name → tier (1 or 2)
     'company_reputation': {
-        'min_points': -5,
-        'max_points': 7,
-        'good_reputation_threshold': 70,  # Profile score
-        'bad_reputation_threshold': 30,
+        'min_points': 0,
+        'max_points': 8,
+        'featured_employer_bonus': 8,
+        'tier_1_bonus': 8,
+        'tier_2_bonus': 4,
+        # Names should match listing.company_name lowercased + stripped.
+        # FeaturedEmployer entries are matched separately; only add names NOT in that
+        # directory, or names you want to also score reputable when they appear under
+        # a slightly different listing form.
+        'overrides': {
+            # Banking & financial services
+            'capital one': 1,
+            'visa': 1,
+            'mastercard': 1,
+            'wells fargo': 1,
+            'american express': 1,
+            'fidelity': 1,
+            'fidelity investments': 1,
+            'schwab': 1,
+            'charles schwab': 1,
+            'paypal': 1,
+            'sofi': 1,
+            'affirm': 1,
+            'stripe': 1,
+            'square': 1,
+            'block': 1,
+            'coinbase': 1,
+            # Tech (big brands not already in FeaturedEmployer)
+            'salesforce': 1,
+            'oracle': 1,
+            'ibm': 1,
+            'cisco': 1,
+            'intel': 1,
+            'nvidia': 1,
+            'adobe': 1,
+            'workday': 1,
+            'servicenow': 1,
+            'snowflake': 1,
+            'databricks': 1,
+            'cloudflare': 1,
+            'datadog': 1,
+            'mongodb': 1,
+            'hubspot': 1,
+            'atlassian': 1,
+            'shopify': 1,
+            'airbnb': 1,
+            'doordash': 1,
+            'uber': 1,
+            'lyft': 1,
+            'spotify': 1,
+            'pinterest': 1,
+            'linkedin': 1,
+            'openai': 1,
+            'anthropic': 1,
+            # Retail / consumer
+            'walmart': 1,
+            'target': 1,
+            'costco': 1,
+            'home depot': 1,
+            "lowe's": 1,
+            'best buy': 1,
+            'starbucks': 1,
+            'mcdonald\'s': 1,
+            'mcdonalds': 1,
+            'nike': 1,
+            # Entertainment / media
+            'disney': 1,
+            'walt disney': 1,
+            'walt disney company': 1,
+            'warner bros. discovery': 1,
+            'comcast': 1,
+            'nbcuniversal': 1,
+            # Healthcare / pharma
+            'pfizer': 1,
+            'johnson & johnson': 1,
+            'merck': 1,
+            'moderna': 1,
+            'eli lilly': 1,
+            'abbvie': 1,
+            'unitedhealth group': 1,
+            'cvs health': 1,
+            # Aerospace / defense
+            'raytheon': 1,
+            'rtx': 1,
+            'general dynamics': 1,
+            # Auto / industrial
+            'ford': 1,
+            'general motors': 1,
+            'gm': 1,
+            'caterpillar': 1,
+            'john deere': 1,
+            'deere & company': 1,
+            # Government (federal)
+            'u.s. customs and border protection': 1,
+            'us customs and border protection': 1,
+            'internal revenue service': 1,
+            'department of defense': 1,
+            'nasa': 1,
+        },
     },
 
     # Industry Adjustment
