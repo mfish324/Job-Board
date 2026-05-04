@@ -21,7 +21,7 @@ class HASEngine:
         score, breakdown = engine.calculate_score(listing, profile=profile)
     """
 
-    VERSION = 3  # Bumped: inline velocity + curated reputation (2026-05-02)
+    VERSION = 4  # Bumped: template farm detection via description_hash diversity (2026-05-04)
 
     def __init__(self, config=None):
         """
@@ -33,6 +33,7 @@ class HASEngine:
         self.config = config or get_config()
         self._velocity_map = None
         self._featured_set = None
+        self._diversity_map = None
 
     def prepare_caches(self):
         """
@@ -56,9 +57,19 @@ class HASEngine:
             .filter(date_first_seen__gte=cutoff)
             .annotate(_norm=Lower(Trim('company_name')))
             .values('_norm')
-            .annotate(count=Count('id'))
+            .annotate(
+                count=Count('id'),
+                distinct_hashes=Count('description_hash', distinct=True),
+            )
         )
-        self._velocity_map = {r['_norm']: r['count'] for r in rows if r['_norm']}
+        self._velocity_map = {}
+        self._diversity_map = {}
+        for r in rows:
+            name = r['_norm']
+            if not name:
+                continue
+            self._velocity_map[name] = r['count']
+            self._diversity_map[name] = (r['distinct_hashes'], r['count'])
 
         try:
             from directory.models import FeaturedEmployer
@@ -112,9 +123,11 @@ class HASEngine:
         total += points
         breakdown['specificity'] = {'points': points, 'explanation': explanation}
 
-        # Company Velocity (inline; no profile required)
+        # Company Velocity (inline; no profile required; scaled by diversity)
         points, explanation = signals.calculate_company_velocity(
-            listing, self.config, velocity_map=self._velocity_map
+            listing, self.config,
+            velocity_map=self._velocity_map,
+            diversity_map=self._diversity_map,
         )
         total += points
         breakdown['company_velocity'] = {'points': points, 'explanation': explanation}
@@ -154,6 +167,13 @@ class HASEngine:
         breakdown['publisher_trustworthiness'] = {'points': points, 'explanation': explanation}
 
         # === NEGATIVE SIGNALS ===
+
+        # Template Farm Penalty (very low description-hash diversity)
+        points, explanation = signals.calculate_template_farm_penalty(
+            listing, self.config, diversity_map=self._diversity_map
+        )
+        total += points
+        breakdown['template_farm_penalty'] = {'points': points, 'explanation': explanation}
 
         # Repost Penalty
         points, explanation = signals.calculate_repost_penalty(listing, self.config)

@@ -209,6 +209,20 @@ DEFAULT_HAS_CONFIG = {
         'stale_threshold_days': 21,  # Days since last seen in a sync
     },
 
+    # Template Farm Penalty: detect mass-posters using description_hash diversity.
+    # Ratio = distinct(description_hash) / total_listings within velocity lookback.
+    # Used two ways:
+    #   1) Multiplies company_velocity bonus by min(1, ratio * velocity_scale_factor)
+    #   2) Awards explicit penalty if ratio < explicit_penalty_threshold
+    # Companies with fewer than `min_listings` are skipped (noisy at low volume).
+    'template_farm': {
+        'min_points': -5,
+        'min_listings': 5,
+        'velocity_scale_factor': 1.5,  # ratio >= 0.67 keeps full velocity
+        'explicit_penalty_threshold': 0.2,
+        'explicit_penalty': -5,
+    },
+
     # === GENZJOBS-ENRICHED SIGNALS ===
 
     # Data Completeness: points for rich listing data

@@ -16,6 +16,28 @@ def _normalize_company_name(name):
     return name.lower().strip()
 
 
+def _diversity_factor(listing, config, diversity_map):
+    """
+    Returns (multiplier, ratio_or_none).
+    multiplier scales the velocity bonus: low-diversity (template-farm) companies
+    get a smaller multiplier. ratio is the raw diversity (distinct_hashes/total)
+    or None if the company has too few listings to evaluate.
+    """
+    cfg = config.get('template_farm', {})
+    if diversity_map is None:
+        return 1.0, None
+    name = _normalize_company_name(listing.company_name)
+    entry = diversity_map.get(name)
+    if not entry:
+        return 1.0, None
+    distinct, total = entry
+    if total < cfg.get('min_listings', 5):
+        return 1.0, None
+    ratio = distinct / total if total else 1.0
+    scale = min(1.0, ratio * cfg.get('velocity_scale_factor', 1.5))
+    return scale, ratio
+
+
 def _age_decay_factor(listing, config):
     """
     Linear decay factor [0, 1] based on listing age vs freshness.decay_days.
@@ -101,7 +123,7 @@ def calculate_specificity(listing, config):
     return round(points, 1), explanation
 
 
-def calculate_company_velocity(listing, config, velocity_map=None):
+def calculate_company_velocity(listing, config, velocity_map=None, diversity_map=None):
     """
     Calculate company velocity from new-listing volume in the lookback window.
     Counts distinct ScrapedJobListing rows for this company_name with
@@ -145,8 +167,14 @@ def calculate_company_velocity(listing, config, velocity_map=None):
     # Scale by listing age — an old listing doesn't get full credit for
     # the company's current hiring activity.
     decay = _age_decay_factor(listing, config)
-    scaled = round(points * decay, 1)
+    diversity_scale, ratio = _diversity_factor(listing, config, diversity_map)
+    scaled = round(points * decay * diversity_scale, 1)
     age = listing.days_since_first_seen()
+    if ratio is not None and diversity_scale < 1.0:
+        return scaled, (
+            f"{count} new in {lookback}d (×{decay:.2f} age {age}d, "
+            f"×{diversity_scale:.2f} diversity {ratio:.0%})"
+        )
     return scaled, f"{count} new listings in {lookback}d (×{decay:.2f} age {age}d)"
 
 
@@ -292,6 +320,38 @@ def calculate_repost_penalty(listing, config):
     )
 
     return round(penalty, 1), f"{listing.repost_count} repost(s)"
+
+
+def calculate_template_farm_penalty(listing, config, diversity_map=None):
+    """
+    Explicit penalty when a company's listing pool has very low description-hash
+    diversity (indicating mass-posted templates). This is in addition to the
+    velocity scaling already applied in calculate_company_velocity.
+
+    Args:
+        diversity_map: optional dict[normalized_name -> (distinct_hashes, total)].
+            If None, no penalty (single-listing fallback path skips this signal).
+    """
+    cfg = config.get('template_farm', {})
+    if diversity_map is None:
+        return 0, "No diversity data"
+
+    name = _normalize_company_name(listing.company_name)
+    entry = diversity_map.get(name)
+    if not entry:
+        return 0, "No diversity data"
+
+    distinct, total = entry
+    if total < cfg.get('min_listings', 5):
+        return 0, f"Too few listings ({total}) to evaluate"
+
+    ratio = distinct / total if total else 1.0
+    threshold = cfg.get('explicit_penalty_threshold', 0.2)
+    if ratio >= threshold:
+        return 0, f"Diversity OK ({ratio:.0%})"
+
+    penalty = cfg.get('explicit_penalty', -5)
+    return penalty, f"Template farm: {distinct} unique of {total} listings ({ratio:.0%})"
 
 
 def calculate_evergreen_penalty(listing, config):
