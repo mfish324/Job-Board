@@ -24,7 +24,7 @@
                     <form method="get" action="{% url 'job_list' %}" id="filterForm">
                         <!-- Search Bar -->
                         <div class="row g-3 mb-3">
-                            <div class="col-md-9">
+                            <div class="col-md-5">
                                 <div class="input-group input-group-lg">
                                     <span class="input-group-text bg-white">
                                         <i class="bi bi-search"></i>
@@ -32,8 +32,20 @@
                                     <input type="text"
                                            name="search"
                                            class="form-control form-control-lg border-start-0"
-                                           placeholder="Search jobs, companies, locations..."
+                                           placeholder="Job title, keyword, or company"
                                            value="{{ search_query }}">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="input-group input-group-lg">
+                                    <span class="input-group-text bg-white">
+                                        <i class="bi bi-geo-alt"></i>
+                                    </span>
+                                    <input type="text"
+                                           name="location"
+                                           class="form-control form-control-lg border-start-0"
+                                           placeholder="City or state (e.g. Austin, TX)"
+                                           value="{{ location_filter }}">
                                 </div>
                             </div>
                             <div class="col-md-3">
@@ -93,14 +105,14 @@
                                 <label class="form-label fw-semibold">
                                     <i class="bi bi-globe me-1"></i>Work Location
                                 </label>
-                                <select name="remote" class="form-select" onchange="this.form.submit()">
-                                    <option value="">All</option>
+                                <div class="btn-group work-location-group w-100" role="group" aria-label="Work location">
+                                    <input type="radio" class="btn-check" name="remote" id="remote-all" value="" {% if not remote_filter %}checked{% endif %} onchange="this.form.submit()">
+                                    <label class="btn" for="remote-all">Any</label>
                                     {% for value, label in remote_status_choices %}
-                                    <option value="{{ value }}" {% if remote_filter == value %}selected{% endif %}>
-                                        {{ label }}
-                                    </option>
+                                    <input type="radio" class="btn-check" name="remote" id="remote-{{ value }}" value="{{ value }}" {% if remote_filter == value %}checked{% endif %} onchange="this.form.submit()">
+                                    <label class="btn" for="remote-{{ value }}">{{ label }}</label>
                                     {% endfor %}
-                                </select>
+                                </div>
                             </div>
 
                             <div class="col-md-3">
@@ -184,11 +196,6 @@
                                 </select>
                             </div>
                         </div>
-
-                        <!-- Location filter (text input) -->
-                        {% if location_filter %}
-                        <input type="hidden" name="location" value="{{ location_filter }}">
-                        {% endif %}
 
                         <!-- Clear Filters -->
                         {% if search_query or location_filter or country_filter or salary_filter or date_filter or job_type_filter or experience_filter or remote_filter or source_filter or activity_filter or sort_mode != 'relevant' %}
