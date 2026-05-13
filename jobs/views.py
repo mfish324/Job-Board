@@ -86,6 +86,14 @@ def home(request):
         {'label': 'Accounting', 'query': 'accountant', 'icon': 'bi-calculator'},
     ]
 
+    # Featured tech employers — surfaces the directory on the homepage targeting
+    # our primary audience. Hidden if no tech-tagged employers exist.
+    from directory.models import FeaturedEmployer
+    featured_tech_employers = list(
+        FeaturedEmployer.objects.filter(is_active=True, industry='TECHNOLOGY')
+        .order_by('display_priority', 'name')[:12]
+    )
+
     context = {
         'verified_jobs': verified_jobs,
         'observed_jobs': observed_unified,
@@ -93,6 +101,7 @@ def home(request):
         'total_companies': total_companies,
         'total_seekers': total_seekers,
         'popular_categories': popular_categories,
+        'featured_tech_employers': featured_tech_employers,
     }
     return render(request, 'jobs/home.html', context)
 

@@ -16,17 +16,19 @@
         </div>
     </div>
 
-    <!-- Industry Filter Chips -->
+    <!-- Industry Filter Chips (server-side, ?industry=X) -->
     <div class="row mb-4">
         <div class="col">
             <div class="d-flex flex-wrap gap-2">
-                <button class="btn btn-sm directory-chip active" data-industry="all" onclick="filterIndustry('all', this)">
-                    All
-                </button>
-                {% for value, label in industries %}
-                <button class="btn btn-sm directory-chip" data-industry="{{ value }}" onclick="filterIndustry('{{ value }}', this)">
-                    {{ label }}
-                </button>
+                <a href="?industry=all"
+                   class="btn btn-sm directory-chip{% if current_industry == 'all' %} active{% endif %}">
+                    All ({{ total_count }})
+                </a>
+                {% for chip in chips %}
+                <a href="?industry={{ chip.value }}"
+                   class="btn btn-sm directory-chip{% if current_industry == chip.value %} active{% endif %}">
+                    {{ chip.label }} ({{ chip.count }})
+                </a>
                 {% endfor %}
             </div>
         </div>
@@ -58,7 +60,7 @@
                             </div>
 
                             <p class="text-muted small mb-2">
-                                {{ employer.get_industry_display }}
+                                <span class="directory-industry-tag">{{ employer.get_industry_display }}</span>
                                 {% if employer.headquarters %}&middot; {{ employer.headquarters }}{% endif %}
                             </p>
 
@@ -95,33 +97,13 @@
             <div class="card">
                 <div class="card-body text-center py-5">
                     <i class="bi bi-building text-muted" style="font-size: 3rem;"></i>
-                    <h4 class="mt-3">No employers in the directory yet</h4>
-                    <p class="text-muted">Check back soon!</p>
+                    <h4 class="mt-3">No employers in this industry yet</h4>
+                    <p class="text-muted mb-3">Try a different industry, or view all employers.</p>
+                    <a href="?industry=all" class="btn btn-outline-primary">View all employers</a>
                 </div>
             </div>
         </div>
         {% endfor %}
     </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-function filterIndustry(industry, btn) {
-    // Update active chip
-    document.querySelectorAll('.directory-chip').forEach(function(c) {
-        c.classList.remove('active');
-    });
-    btn.classList.add('active');
-
-    // Filter cards
-    document.querySelectorAll('.employer-card-wrapper').forEach(function(card) {
-        if (industry === 'all' || card.dataset.industry === industry) {
-            card.style.display = '';
-        } else {
-            card.style.display = 'none';
-        }
-    });
-}
-</script>
 {% endblock %}

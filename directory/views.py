@@ -6,12 +6,35 @@ from .utils import build_deep_link, match_title
 
 
 def directory_index(request):
+    # Server-side industry filter. Default to TECHNOLOGY when no param is
+    # present so first-time visitors land on the audience we're optimizing for.
+    # Use 'all' explicitly to see every employer.
+    industry_filter = request.GET.get('industry')
+    if industry_filter is None:
+        industry_filter = 'TECHNOLOGY'
+
     employers = FeaturedEmployer.objects.filter(is_active=True).prefetch_related('categories')
-    industries = FeaturedEmployer.INDUSTRY_CHOICES
+    if industry_filter != 'all':
+        employers = employers.filter(industry=industry_filter)
+
+    # Pre-join counts per industry for chip labels — one aggregate query.
+    from django.db.models import Count
+    counts = dict(
+        FeaturedEmployer.objects.filter(is_active=True)
+        .values_list('industry')
+        .annotate(c=Count('id'))
+        .values_list('industry', 'c')
+    )
+    chips = [
+        {'value': value, 'label': label, 'count': counts.get(value, 0)}
+        for value, label in FeaturedEmployer.INDUSTRY_CHOICES
+    ]
 
     context = {
         'employers': employers,
-        'industries': industries,
+        'chips': chips,
+        'current_industry': industry_filter,
+        'total_count': sum(counts.values()),
     }
     return render(request, 'directory/index.html', context)
 
@@ -54,9 +77,11 @@ def employer_redirect(request, slug):
     mapping, _ = match_title(query)
     url = build_deep_link(employer, query, location, mapping)
 
-    # Log click
+    # Log click. Snapshot employer.industry now so analytics survive later
+    # industry retags.
     DirectoryClick.objects.create(
         employer=employer,
+        industry=employer.industry,
         search_query=query,
         location=location,
         category=mapping,

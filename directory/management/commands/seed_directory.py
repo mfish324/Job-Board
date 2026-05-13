@@ -10,7 +10,7 @@ EMPLOYERS = [
     # Tech
     {
         'name': 'Google',
-        'industry': 'tech',
+        'industry': 'TECHNOLOGY',
         'headquarters': 'Mountain View, CA',
         'employee_count': '180,000+ employees',
         'description': 'Global technology leader in search, cloud computing, and AI.',
@@ -22,7 +22,7 @@ EMPLOYERS = [
     },
     {
         'name': 'Apple',
-        'industry': 'tech',
+        'industry': 'TECHNOLOGY',
         'headquarters': 'Cupertino, CA',
         'employee_count': '160,000+ employees',
         'description': 'Consumer electronics, software, and services company.',
@@ -34,7 +34,7 @@ EMPLOYERS = [
     },
     {
         'name': 'Amazon',
-        'industry': 'tech',
+        'industry': 'TECHNOLOGY',
         'headquarters': 'Seattle, WA',
         'employee_count': '1,500,000+ employees',
         'description': 'E-commerce, cloud computing (AWS), and technology conglomerate.',
@@ -46,7 +46,7 @@ EMPLOYERS = [
     },
     {
         'name': 'Microsoft',
-        'industry': 'tech',
+        'industry': 'TECHNOLOGY',
         'headquarters': 'Redmond, WA',
         'employee_count': '220,000+ employees',
         'description': 'Software, cloud services (Azure), and enterprise solutions.',
@@ -58,7 +58,7 @@ EMPLOYERS = [
     },
     {
         'name': 'Meta',
-        'industry': 'tech',
+        'industry': 'TECHNOLOGY',
         'headquarters': 'Menlo Park, CA',
         'employee_count': '67,000+ employees',
         'description': 'Social media, virtual reality, and advertising technology.',
@@ -70,7 +70,7 @@ EMPLOYERS = [
     },
     {
         'name': 'Netflix',
-        'industry': 'tech',
+        'industry': 'TECHNOLOGY',
         'headquarters': 'Los Gatos, CA',
         'employee_count': '13,000+ employees',
         'description': 'Streaming entertainment and content production.',
@@ -82,7 +82,7 @@ EMPLOYERS = [
     },
     {
         'name': 'Tesla',
-        'industry': 'tech',
+        'industry': 'TECHNOLOGY',
         'headquarters': 'Austin, TX',
         'employee_count': '130,000+ employees',
         'description': 'Electric vehicles, energy storage, and solar technology.',
@@ -94,7 +94,7 @@ EMPLOYERS = [
     },
     {
         'name': 'SpaceX',
-        'industry': 'tech',
+        'industry': 'TECHNOLOGY',
         'headquarters': 'Hawthorne, CA',
         'employee_count': '13,000+ employees',
         'description': 'Aerospace manufacturer and space transportation company.',
@@ -108,7 +108,7 @@ EMPLOYERS = [
     # Finance/Banking
     {
         'name': 'Goldman Sachs',
-        'industry': 'finance',
+        'industry': 'FINANCE_AND_BANKING',
         'headquarters': 'New York, NY',
         'employee_count': '45,000+ employees',
         'description': 'Leading global investment banking and financial services.',
@@ -120,7 +120,7 @@ EMPLOYERS = [
     },
     {
         'name': 'JPMorgan Chase',
-        'industry': 'finance',
+        'industry': 'FINANCE_AND_BANKING',
         'headquarters': 'New York, NY',
         'employee_count': '310,000+ employees',
         'description': 'Largest bank in the US, offering banking, investment, and asset management.',
@@ -132,7 +132,7 @@ EMPLOYERS = [
     },
     {
         'name': 'Morgan Stanley',
-        'industry': 'finance',
+        'industry': 'FINANCE_AND_BANKING',
         'headquarters': 'New York, NY',
         'employee_count': '80,000+ employees',
         'description': 'Global financial services firm in investment banking and wealth management.',
@@ -144,7 +144,7 @@ EMPLOYERS = [
     },
     {
         'name': 'Bank of America',
-        'industry': 'finance',
+        'industry': 'FINANCE_AND_BANKING',
         'headquarters': 'Charlotte, NC',
         'employee_count': '210,000+ employees',
         'description': 'Major US banking and financial services corporation.',
@@ -156,7 +156,7 @@ EMPLOYERS = [
     },
     {
         'name': 'Citi',
-        'industry': 'finance',
+        'industry': 'FINANCE_AND_BANKING',
         'headquarters': 'New York, NY',
         'employee_count': '240,000+ employees',
         'description': 'Global banking and financial services corporation.',
@@ -168,7 +168,7 @@ EMPLOYERS = [
     },
     {
         'name': 'BlackRock',
-        'industry': 'finance',
+        'industry': 'FINANCE_AND_BANKING',
         'headquarters': 'New York, NY',
         'employee_count': '19,000+ employees',
         'description': "World's largest asset manager, known for iShares ETFs.",
@@ -182,7 +182,7 @@ EMPLOYERS = [
     # Healthcare
     {
         'name': 'Mayo Clinic',
-        'industry': 'healthcare',
+        'industry': 'HEALTHCARE',
         'headquarters': 'Rochester, MN',
         'employee_count': '76,000+ employees',
         'description': 'World-renowned nonprofit medical practice and research center.',
@@ -194,7 +194,7 @@ EMPLOYERS = [
     },
     {
         'name': 'Kaiser Permanente',
-        'industry': 'healthcare',
+        'industry': 'HEALTHCARE',
         'headquarters': 'Oakland, CA',
         'employee_count': '300,000+ employees',
         'description': 'Integrated managed care consortium and healthcare provider.',
@@ -206,7 +206,7 @@ EMPLOYERS = [
     },
     {
         'name': 'HCA Healthcare',
-        'industry': 'healthcare',
+        'industry': 'HEALTHCARE',
         'headquarters': 'Nashville, TN',
         'employee_count': '275,000+ employees',
         'description': 'Largest for-profit hospital operator in the United States.',
@@ -220,7 +220,7 @@ EMPLOYERS = [
     # Consulting
     {
         'name': 'McKinsey & Company',
-        'industry': 'consulting',
+        'industry': 'CONSULTING',
         'headquarters': 'New York, NY',
         'employee_count': '45,000+ employees',
         'description': 'Global management consulting firm serving leading businesses.',
@@ -232,7 +232,7 @@ EMPLOYERS = [
     },
     {
         'name': 'Deloitte',
-        'industry': 'consulting',
+        'industry': 'CONSULTING',
         'headquarters': 'New York, NY',
         'employee_count': '415,000+ employees',
         'description': 'Professional services in consulting, audit, tax, and advisory.',
@@ -244,7 +244,7 @@ EMPLOYERS = [
     },
     {
         'name': 'Accenture',
-        'industry': 'consulting',
+        'industry': 'CONSULTING',
         'headquarters': 'Dublin, Ireland',
         'employee_count': '740,000+ employees',
         'description': 'Global professional services and consulting company.',
@@ -258,7 +258,7 @@ EMPLOYERS = [
     # Aerospace/Defense
     {
         'name': 'Lockheed Martin',
-        'industry': 'aerospace',
+        'industry': 'AEROSPACE_AND_DEFENSE',
         'headquarters': 'Bethesda, MD',
         'employee_count': '116,000+ employees',
         'description': 'Aerospace, defense, arms, and security corporation.',
@@ -270,7 +270,7 @@ EMPLOYERS = [
     },
     {
         'name': 'Boeing',
-        'industry': 'aerospace',
+        'industry': 'AEROSPACE_AND_DEFENSE',
         'headquarters': 'Arlington, VA',
         'employee_count': '170,000+ employees',
         'description': 'Aerospace company manufacturing commercial and military aircraft.',
@@ -282,7 +282,7 @@ EMPLOYERS = [
     },
     {
         'name': 'Northrop Grumman',
-        'industry': 'aerospace',
+        'industry': 'AEROSPACE_AND_DEFENSE',
         'headquarters': 'Falls Church, VA',
         'employee_count': '95,000+ employees',
         'description': 'Aerospace and defense technology company.',
@@ -296,7 +296,7 @@ EMPLOYERS = [
     # Government
     {
         'name': 'USAJobs',
-        'industry': 'government',
+        'industry': 'GOVERNMENT',
         'headquarters': 'Washington, DC',
         'employee_count': 'US Federal Government',
         'description': 'Official job site of the United States federal government.',

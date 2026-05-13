@@ -4,17 +4,18 @@ from django.utils.text import slugify
 
 
 class FeaturedEmployer(models.Model):
+    # Aligned with genzjobs CompanyATS.industryCategory enum so directory
+    # filtering and scoring profiles share a vocabulary.
     INDUSTRY_CHOICES = [
-        ('tech', 'Tech'),
-        ('finance', 'Finance/Banking'),
-        ('healthcare', 'Healthcare'),
-        ('aerospace', 'Aerospace/Defense'),
-        ('government', 'Government'),
-        ('consulting', 'Consulting'),
-        ('retail', 'Retail'),
-        ('energy', 'Energy'),
-        ('pharma', 'Pharma'),
-        ('other', 'Other'),
+        ('TECHNOLOGY', 'Technology'),
+        ('FINANCE_AND_BANKING', 'Finance & Banking'),
+        ('HEALTHCARE', 'Healthcare'),
+        ('CONSULTING', 'Consulting'),
+        ('AEROSPACE_AND_DEFENSE', 'Aerospace & Defense'),
+        ('GOVERNMENT', 'Government'),
+        ('RETAIL_AND_ECOMMERCE', 'Retail & E-Commerce'),
+        ('MEDIA_AND_ENTERTAINMENT', 'Media & Entertainment'),
+        ('OTHER', 'Other'),
     ]
 
     name = models.CharField(max_length=200, unique=True)
@@ -25,7 +26,8 @@ class FeaturedEmployer(models.Model):
     headquarters = models.CharField(max_length=200, blank=True)
     employee_count = models.CharField(max_length=50, blank=True,
                                       help_text='e.g. "180,000+ employees"')
-    industry = models.CharField(max_length=20, choices=INDUSTRY_CHOICES, default='other')
+    industry = models.CharField(max_length=30, choices=INDUSTRY_CHOICES, default='OTHER',
+                                db_index=True)
 
     career_url = models.URLField(max_length=500,
                                  help_text='Career portal base URL')
@@ -170,6 +172,9 @@ class DirectoryClick(models.Model):
         FeaturedEmployer, on_delete=models.CASCADE,
         related_name='clicks'
     )
+    # Denormalized snapshot of employer.industry at click time. Lets analytics
+    # filter clicks by industry even if the employer's industry tag changes later.
+    industry = models.CharField(max_length=30, blank=True, db_index=True)
     search_query = models.CharField(max_length=300, blank=True)
     location = models.CharField(max_length=200, blank=True)
     category = models.ForeignKey(
