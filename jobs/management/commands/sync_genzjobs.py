@@ -152,13 +152,29 @@ class Command(BaseCommand):
         total = len(all_ids)
         self.stdout.write(f"Fetched {total} IDs, processing in batches of {batch_size}...")
 
+        industry_lookup_failed = False
+
         for i in range(0, total, batch_size):
             batch_ids = all_ids[i:i + batch_size]
             batch = GenzjobsListing.objects.filter(id__in=batch_ids)
 
+            # Fetch industry_category for this batch via a single join against
+            # genzjobs.company_ats. Tolerant of missing columns so this works
+            # before genzjobs has shipped the industryCategory/companyAtsId
+            # fields to production.
+            industry_map = {}
+            if not industry_lookup_failed:
+                try:
+                    industry_map = self._fetch_industry_map(batch_ids)
+                except Exception as e:
+                    industry_lookup_failed = True
+                    self.stderr.write(self.style.WARNING(
+                        f"Industry lookup unavailable ({e}); listings will sync without industry tag"
+                    ))
+
             for gj in batch:
                 try:
-                    was_created, local_id = self._sync_listing(gj)
+                    was_created, local_id = self._sync_listing(gj, industry_map=industry_map)
                     if was_created:
                         created += 1
                     else:
@@ -186,7 +202,26 @@ class Command(BaseCommand):
             self.stdout.write(f"{len(synced_ids)} new listings to score")
             self._score_synced(synced_ids)
 
-    def _sync_listing(self, gj):
+    def _fetch_industry_map(self, genzjobs_ids):
+        """
+        Return {genzjobs_id: industry_category_string_or_None} for these listings.
+
+        One round-trip per batch — joins job_listings to company_ats via
+        companyAtsId to read the genzjobs IndustryCategory enum. Returns an
+        empty dict if the columns aren't yet present on the genzjobs side.
+        """
+        from django.db import connections
+        sql = '''
+            SELECT jl.id, ca."industryCategory"::text
+            FROM job_listings jl
+            LEFT JOIN company_ats ca ON jl."companyAtsId" = ca.id
+            WHERE jl.id = ANY(%s)
+        '''
+        with connections['genzjobs'].cursor() as cur:
+            cur.execute(sql, [list(genzjobs_ids)])
+            return {row[0]: row[1] for row in cur.fetchall()}
+
+    def _sync_listing(self, gj, industry_map=None):
         """
         Sync a single genzjobs listing to local ScrapedJobListing.
         Returns (was_created, local_id) tuple.
@@ -236,6 +271,10 @@ class Command(BaseCommand):
         local.has_company_website = bool(gj.company_website)
         local.classification_confidence = gj.classification_confidence
         local.publisher = (gj.publisher or '')[:100]
+
+        # Industry tag (drives HAS weight profile selection). None when the
+        # listing has no companyAtsId or the company is untagged.
+        local.industry_category = (industry_map or {}).get(gj.id)
 
         # Skills count
         skills = self._parse_pg_array(gj.skills)

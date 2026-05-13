@@ -1153,6 +1153,14 @@ class ScrapedJobListing(models.Model):
     skills_count = models.PositiveIntegerField(default=0)
     publisher = models.CharField(max_length=100, blank=True, help_text='Original publisher/source from genzjobs')
 
+    # Industry tag synced from genzjobs CompanyATS.industryCategory.
+    # Drives industry-specific weight profile selection in the HAS engine.
+    # Null = untagged → default profile applies.
+    industry_category = models.CharField(
+        max_length=50, blank=True, null=True, db_index=True,
+        help_text='Industry enum from genzjobs CompanyATS.industryCategory (e.g. TECHNOLOGY)'
+    )
+
     # Tracking and signals
     date_first_seen = models.DateTimeField(auto_now_add=True)
     date_last_seen = models.DateTimeField(default=None, null=True, blank=True)
@@ -1281,6 +1289,11 @@ class HiringActivityScore(models.Model):
 
     # Algorithm version for tracking changes
     score_version = models.PositiveSmallIntegerField(default=1)
+
+    # Industry weight profile applied at scoring time. Lets us compare tuning
+    # iterations: e.g. "scores produced under TECHNOLOGY v2 vs v1."
+    weight_profile = models.CharField(max_length=50, default='default')
+    weight_profile_version = models.PositiveSmallIntegerField(default=1)
 
     # Timestamps
     calculated_at = models.DateTimeField(auto_now=True)
@@ -1498,6 +1511,10 @@ class GenzjobsListing(models.Model):
     # RJRP integration fields (writable)
     is_rjrp_verified = models.BooleanField(db_column='isRjrpVerified', default=False)
     rjrp_employer_id = models.TextField(db_column='rjrpEmployerId', blank=True, null=True)
+
+    # ATS attribution (read-only; populated by the genzjobs scraper).
+    # Used by sync_genzjobs to look up CompanyATS.industryCategory.
+    company_ats_id = models.TextField(db_column='companyAtsId', blank=True, null=True)
 
     class Meta:
         managed = False

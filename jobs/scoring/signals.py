@@ -58,7 +58,13 @@ def _age_decay_factor(listing, config):
 def calculate_freshness(listing, config):
     """
     Calculate freshness score based on how recently the listing was posted.
-    Linear decay from max_points to 0 over decay_days.
+
+    Default behavior: linear decay from max_points to 0 over decay_days.
+
+    If `decay_start_day` is set (e.g. tech profile = 14), the score stays flat
+    at max_points until that day, then decays linearly to 0 by `decay_days`.
+    This lets per-industry profiles tighten the curve for industries where
+    untouched listings are stronger ghost-job signals.
 
     Returns:
         tuple: (points, explanation)
@@ -66,17 +72,20 @@ def calculate_freshness(listing, config):
     cfg = config['freshness']
     max_points = cfg['max_points']
     decay_days = cfg['decay_days']
+    decay_start = cfg.get('decay_start_day', 0)
 
     days_open = listing.days_since_first_seen()
 
-    if days_open <= 0:
-        return max_points, "Just posted"
+    if days_open <= decay_start:
+        return max_points, f"Just posted ({days_open}d, flat to {decay_start}d)" if decay_start else "Just posted"
 
     if days_open >= decay_days:
-        return 0, f"Posted {days_open} days ago (fully decayed)"
+        return 0, f"Posted {days_open} days ago (fully decayed at {decay_days}d)"
 
-    # Linear decay
-    points = max_points * (1 - (days_open / decay_days))
+    # Linear decay over the [decay_start, decay_days] window.
+    decay_range = decay_days - decay_start
+    elapsed = days_open - decay_start
+    points = max_points * (1 - (elapsed / decay_range))
     points = round(points, 1)
 
     return points, f"Posted {days_open} days ago"
@@ -116,6 +125,16 @@ def calculate_specificity(listing, config):
         partial = cfg['description_quality'] * (desc_len / min_len)
         points += round(partial, 1)
         details.append(f"partial description ({desc_len} chars)")
+
+    # Tools/stack mentions (industry-profile opt-in; default 0 = no-op).
+    # Tech profile rewards listings that name a real stack (skills_count >= N).
+    tools_pts = cfg.get('tools_stack', 0)
+    if tools_pts:
+        min_tools = cfg.get('min_tools_count', 5)
+        skills_count = getattr(listing, 'skills_count', 0) or 0
+        if skills_count >= min_tools:
+            points += tools_pts
+            details.append(f"named stack ({skills_count} tools)")
 
     points = min(points, cfg['max_points'])
     explanation = ", ".join(details) if details else "minimal info"
@@ -304,7 +323,11 @@ def calculate_industry_adjustment(listing, config, profile=None):
 def calculate_repost_penalty(listing, config):
     """
     Calculate penalty for repeated reposts.
-    Each repost without filling = -5 points.
+    Each repost without filling = -5 points by default.
+
+    A `penalty_multiplier` in the config scales both the per-repost penalty
+    and the floor — used by the tech profile (×1.5) where identical reposting
+    is a stronger ghost-job indicator.
 
     Returns:
         tuple: (points, explanation)
@@ -314,11 +337,14 @@ def calculate_repost_penalty(listing, config):
     if listing.repost_count == 0:
         return 0, "No reposts"
 
-    penalty = max(
-        listing.repost_count * cfg['points_per_repost'],
-        cfg['min_points']
-    )
+    multiplier = cfg.get('penalty_multiplier', 1.0)
+    per_repost = cfg['points_per_repost'] * multiplier
+    floor = cfg['min_points'] * multiplier
 
+    penalty = max(listing.repost_count * per_repost, floor)
+
+    if multiplier != 1.0:
+        return round(penalty, 1), f"{listing.repost_count} repost(s) ×{multiplier} multiplier"
     return round(penalty, 1), f"{listing.repost_count} repost(s)"
 
 

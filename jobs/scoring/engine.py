@@ -4,8 +4,14 @@ Hiring Activity Score (HAS) Engine
 Core scoring engine that combines all signals to produce a final score.
 """
 
-from .config import get_config
+import copy
+import logging
+
+from .config import get_config, _deep_merge
+from .profiles import resolve_profile, DEFAULT_PROFILE_KEY
 from . import signals
+
+logger = logging.getLogger(__name__)
 
 
 class HASEngine:
@@ -21,7 +27,7 @@ class HASEngine:
         score, breakdown = engine.calculate_score(listing, profile=profile)
     """
 
-    VERSION = 4  # Bumped: template farm detection via description_hash diversity (2026-05-04)
+    VERSION = 5  # Bumped: industry weight profile system (2026-05-13)
 
     def __init__(self, config=None):
         """
@@ -34,6 +40,38 @@ class HASEngine:
         self._velocity_map = None
         self._featured_set = None
         self._diversity_map = None
+        # Cache of {profile_key: merged_config}. Built lazily per listing so
+        # bulk_score only pays the deep-merge cost once per industry encountered.
+        self._profile_configs = {}
+        # Track which profiles we've logged at INFO this run.
+        self._logged_profiles = set()
+
+    def _get_config_for_listing(self, listing):
+        """
+        Resolve the effective scoring config for a listing based on its
+        industry_category. Returns (config, profile_key, profile_version).
+
+        For null/unknown industries, falls back to the default profile (which
+        has no overrides — base config applies as-is).
+        """
+        industry = getattr(listing, 'industry_category', None)
+        profile_key, overrides, profile_version = resolve_profile(industry)
+
+        if profile_key not in self._profile_configs:
+            if profile_key == DEFAULT_PROFILE_KEY or not overrides:
+                # No overrides — reuse the base config object directly.
+                self._profile_configs[profile_key] = self.config
+            else:
+                merged = copy.deepcopy(self.config)
+                _deep_merge(merged, overrides)
+                self._profile_configs[profile_key] = merged
+            if profile_key not in self._logged_profiles and profile_key != DEFAULT_PROFILE_KEY:
+                logger.info(
+                    f"HAS: applying industry profile '{profile_key}' v{profile_version}"
+                )
+                self._logged_profiles.add(profile_key)
+
+        return self._profile_configs[profile_key], profile_key, profile_version
 
     def prepare_caches(self):
         """
@@ -92,8 +130,17 @@ class HASEngine:
         Returns:
             tuple: (total_score, breakdown_dict)
                 - total_score: int from 0-100
-                - breakdown_dict: dict with individual signal contributions
+                - breakdown_dict: dict with individual signal contributions.
+                  Includes a `_meta` entry recording the active industry
+                  profile and profile_version.
         """
+        # Resolve per-listing config from the industry weight profile registry.
+        config, profile_key, profile_version = self._get_config_for_listing(listing)
+        logger.debug(
+            f"HAS scoring listing id={listing.pk} company={listing.company_name!r} "
+            f"profile={profile_key} v{profile_version}"
+        )
+
         # Get company hiring profile if not provided
         if profile is None and listing.company:
             from jobs.models import CompanyHiringProfile
@@ -105,27 +152,27 @@ class HASEngine:
         breakdown = {}
 
         # Start with base score
-        total = self.config['base_score']
+        total = config['base_score']
         breakdown['base'] = {
-            'points': self.config['base_score'],
+            'points': config['base_score'],
             'explanation': 'Base score'
         }
 
         # === POSITIVE SIGNALS ===
 
         # Freshness
-        points, explanation = signals.calculate_freshness(listing, self.config)
+        points, explanation = signals.calculate_freshness(listing, config)
         total += points
         breakdown['freshness'] = {'points': points, 'explanation': explanation}
 
         # Specificity
-        points, explanation = signals.calculate_specificity(listing, self.config)
+        points, explanation = signals.calculate_specificity(listing, config)
         total += points
         breakdown['specificity'] = {'points': points, 'explanation': explanation}
 
         # Company Velocity (inline; no profile required; scaled by diversity)
         points, explanation = signals.calculate_company_velocity(
-            listing, self.config,
+            listing, config,
             velocity_map=self._velocity_map,
             diversity_map=self._diversity_map,
         )
@@ -133,36 +180,36 @@ class HASEngine:
         breakdown['company_velocity'] = {'points': points, 'explanation': explanation}
 
         # ATS Behavior
-        points, explanation = signals.calculate_ats_behavior(listing, self.config)
+        points, explanation = signals.calculate_ats_behavior(listing, config)
         total += points
         breakdown['ats_behavior'] = {'points': points, 'explanation': explanation}
 
         # Company Reputation (curated: FeaturedEmployer + config overrides)
         points, explanation = signals.calculate_company_reputation(
-            listing, self.config, featured_set=self._featured_set
+            listing, config, featured_set=self._featured_set
         )
         total += points
         breakdown['company_reputation'] = {'points': points, 'explanation': explanation}
 
         # Industry Adjustment
         points, explanation = signals.calculate_industry_adjustment(
-            listing, self.config, profile
+            listing, config, profile
         )
         total += points
         breakdown['industry_adjustment'] = {'points': points, 'explanation': explanation}
 
         # Data Completeness (genzjobs enriched)
-        points, explanation = signals.calculate_data_completeness(listing, self.config)
+        points, explanation = signals.calculate_data_completeness(listing, config)
         total += points
         breakdown['data_completeness'] = {'points': points, 'explanation': explanation}
 
         # Classification Confidence (genzjobs enriched)
-        points, explanation = signals.calculate_classification_confidence(listing, self.config)
+        points, explanation = signals.calculate_classification_confidence(listing, config)
         total += points
         breakdown['classification_confidence'] = {'points': points, 'explanation': explanation}
 
         # Publisher Trustworthiness (genzjobs enriched)
-        points, explanation = signals.calculate_publisher_trustworthiness(listing, self.config)
+        points, explanation = signals.calculate_publisher_trustworthiness(listing, config)
         total += points
         breakdown['publisher_trustworthiness'] = {'points': points, 'explanation': explanation}
 
@@ -170,36 +217,43 @@ class HASEngine:
 
         # Template Farm Penalty (very low description-hash diversity)
         points, explanation = signals.calculate_template_farm_penalty(
-            listing, self.config, diversity_map=self._diversity_map
+            listing, config, diversity_map=self._diversity_map
         )
         total += points
         breakdown['template_farm_penalty'] = {'points': points, 'explanation': explanation}
 
         # Repost Penalty
-        points, explanation = signals.calculate_repost_penalty(listing, self.config)
+        points, explanation = signals.calculate_repost_penalty(listing, config)
         total += points
         breakdown['repost_penalty'] = {'points': points, 'explanation': explanation}
 
         # Evergreen Penalty
-        points, explanation = signals.calculate_evergreen_penalty(listing, self.config)
+        points, explanation = signals.calculate_evergreen_penalty(listing, config)
         total += points
         breakdown['evergreen_penalty'] = {'points': points, 'explanation': explanation}
 
         # Boilerplate Penalty
         points, explanation = signals.calculate_boilerplate_penalty(
-            listing, self.config, profile
+            listing, config, profile
         )
         total += points
         breakdown['boilerplate_penalty'] = {'points': points, 'explanation': explanation}
 
         # Stale Penalty
-        points, explanation = signals.calculate_stale_penalty(listing, self.config)
+        points, explanation = signals.calculate_stale_penalty(listing, config)
         total += points
         breakdown['stale_penalty'] = {'points': points, 'explanation': explanation}
 
         # Clamp to valid range
-        total = max(self.config['min_score'], min(self.config['max_score'], total))
+        total = max(config['min_score'], min(config['max_score'], total))
         total = round(total)
+
+        # Record which profile produced this score so HiringActivityScore can
+        # persist it for tuning comparisons across iterations.
+        breakdown['_meta'] = {
+            'profile': profile_key,
+            'profile_version': profile_version,
+        }
 
         return total, breakdown
 
@@ -248,6 +302,9 @@ class HASEngine:
 
         score, breakdown = self.calculate_score(listing)
         band = self.get_score_band(score)
+        meta = breakdown.get('_meta', {})
+        profile_key = meta.get('profile', DEFAULT_PROFILE_KEY)
+        profile_version = meta.get('profile_version', 1)
 
         # Get or create the score record
         try:
@@ -256,13 +313,17 @@ class HASEngine:
             has_obj.score_band = band
             has_obj.score_breakdown = breakdown
             has_obj.score_version = self.VERSION
+            has_obj.weight_profile = profile_key
+            has_obj.weight_profile_version = profile_version
         except HiringActivityScore.DoesNotExist:
             has_obj = HiringActivityScore(
                 listing=listing,
                 total_score=score,
                 score_band=band,
                 score_breakdown=breakdown,
-                score_version=self.VERSION
+                score_version=self.VERSION,
+                weight_profile=profile_key,
+                weight_profile_version=profile_version,
             )
 
         if save:
