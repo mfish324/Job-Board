@@ -33,7 +33,36 @@ sitemaps = {
 
 def robots_txt(request):
     """Serve robots.txt to allow search engine indexing"""
-    lines = [
+    # AI training / scraper bots that crawl every detail page aggressively
+    # and have caused OOMs by triggering on-demand Anthropic calls.
+    ai_bots = [
+        "GPTBot",
+        "ChatGPT-User",
+        "OAI-SearchBot",
+        "ClaudeBot",
+        "Claude-Web",
+        "anthropic-ai",
+        "CCBot",
+        "Google-Extended",
+        "PerplexityBot",
+        "Perplexity-User",
+        "Amazonbot",
+        "Bytespider",
+        "Applebot-Extended",
+        "cohere-ai",
+        "Diffbot",
+        "FacebookBot",
+        "Meta-ExternalAgent",
+        "Meta-ExternalFetcher",
+    ]
+
+    lines = []
+    for bot in ai_bots:
+        lines.append(f"User-agent: {bot}")
+        lines.append("Disallow: /")
+        lines.append("")
+
+    lines.extend([
         "User-agent: *",
         "Allow: /",
         "",
@@ -44,7 +73,7 @@ def robots_txt(request):
         "Disallow: /recruiter/",
         "",
         f"Sitemap: https://realjobsrealpeople.net/sitemap.xml",
-    ]
+    ])
     return HttpResponse("\n".join(lines), content_type="text/plain")
 
 

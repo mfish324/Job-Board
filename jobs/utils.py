@@ -354,7 +354,9 @@ def generate_listing_summary(listing):
 
     try:
         import anthropic
-        client = anthropic.Anthropic(api_key=api_key)
+        # 20s socket timeout so a slow/hung Anthropic response can't hold a
+        # gunicorn worker for the full 30s request timeout.
+        client = anthropic.Anthropic(api_key=api_key, timeout=20.0)
 
         response = client.messages.create(
             model="claude-haiku-4-5-20251001",

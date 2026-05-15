@@ -3327,11 +3327,10 @@ def observed_listing_detail(request, listing_id):
     from jobs.utils import build_google_jobs_fallback_url
     google_fallback_url = build_google_jobs_fallback_url(listing)
 
-    # AI summary: generate on first view, cache in DB
+    # AI summary: read from cache only. Generation runs offline via
+    # `manage.py backfill_summaries` so a bot crawl can't trigger thousands
+    # of synchronous Anthropic calls and OOM the worker.
     description_summary = listing.description_summary
-    if not description_summary and listing.description and len(listing.description) > 500:
-        from jobs.utils import generate_listing_summary
-        description_summary = generate_listing_summary(listing)
 
     # validThrough for JSON-LD: 60 days from date_first_seen
     from datetime import timedelta
