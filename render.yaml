@@ -3,7 +3,11 @@ services:
     name: realjobsrealpeople
     runtime: python
     buildCommand: "bash build.sh"
-    startCommand: "gunicorn jobboard.wsgi:application --workers 4 --timeout 120"
+    # 512MB starter plan: 4 workers would OOM. 2 workers gives concurrency so
+    # one slow request can't block the whole site; --max-requests recycles each
+    # worker periodically so RSS can't creep to the 512MB ceiling (Python rarely
+    # returns memory to the OS); --timeout 60 kills runaway requests sooner.
+    startCommand: "gunicorn jobboard.wsgi:application --workers 2 --timeout 60 --max-requests 400 --max-requests-jitter 50"
     healthCheckPath: /
     envVars:
       - key: PYTHON_VERSION

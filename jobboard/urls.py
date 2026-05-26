@@ -33,31 +33,38 @@ sitemaps = {
 
 def robots_txt(request):
     """Serve robots.txt to allow search engine indexing"""
-    # AI training / scraper bots that crawl every detail page aggressively
-    # and have caused OOMs by triggering on-demand Anthropic calls.
+    # AI training / scraper bots to disallow. The 8 crawlers covered by
+    # Cloudflare's managed robots.txt ("Instruct AI bot traffic with robots.txt")
+    # are intentionally NOT listed here to avoid duplicate directives:
+    #   GPTBot, ClaudeBot, CCBot, Google-Extended, Amazonbot, Bytespider,
+    #   Applebot-Extended, Meta-ExternalAgent.
+    # The entries below are AI bots that Cloudflare's managed list does NOT
+    # cover, so we keep blocking them here regardless of the Cloudflare toggle.
     ai_bots = [
-        "GPTBot",
         "ChatGPT-User",
         "OAI-SearchBot",
-        "ClaudeBot",
         "Claude-Web",
         "anthropic-ai",
-        "CCBot",
-        "Google-Extended",
         "PerplexityBot",
         "Perplexity-User",
-        "Amazonbot",
-        "Bytespider",
-        "Applebot-Extended",
         "cohere-ai",
         "Diffbot",
         "FacebookBot",
-        "Meta-ExternalAgent",
         "Meta-ExternalFetcher",
     ]
 
+    # Aggressive SEO / index crawlers that walk every /jobs/observed/ detail
+    # page back-to-back (dozens/min, 24/7) and have driven the web worker to
+    # its 512MB memory ceiling. They add no value to the site, so block fully.
+    aggressive_crawlers = [
+        "meta-webindexer",
+        "AhrefsBot",
+        "SemrushBot",
+        "DotBot",
+    ]
+
     lines = []
-    for bot in ai_bots:
+    for bot in ai_bots + aggressive_crawlers:
         lines.append(f"User-agent: {bot}")
         lines.append("Disallow: /")
         lines.append("")
