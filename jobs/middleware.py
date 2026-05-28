@@ -8,6 +8,38 @@ from django.utils import timezone
 logger = logging.getLogger(__name__)
 
 
+class BlockBadBotsMiddleware:
+    """
+    Short-circuit known abusive crawlers with a cheap 403 before any view, DB
+    query, or template render runs.
+
+    These SEO/index bots crawl every /jobs/observed/ page around the clock and
+    have repeatedly driven the 512MB web worker to its memory ceiling. This is
+    app-level defense-in-depth that works whether or not traffic is routed
+    through Cloudflare's proxy, so keep it FIRST in MIDDLEWARE so a blocked
+    request costs almost nothing.
+
+    Matched case-insensitively as substrings of the User-Agent.
+    """
+
+    BLOCKED_UA_SUBSTRINGS = (
+        'meta-webindexer',
+        'ahrefsbot',
+        'semrushbot',
+        'dotbot',
+    )
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        ua = request.META.get('HTTP_USER_AGENT', '').lower()
+        if ua and any(bot in ua for bot in self.BLOCKED_UA_SUBSTRINGS):
+            from django.http import HttpResponseForbidden
+            return HttpResponseForbidden('Forbidden')
+        return self.get_response(request)
+
+
 class TrafficNotificationMiddleware:
     """
     Middleware to track site visits and notify admin of new traffic.
