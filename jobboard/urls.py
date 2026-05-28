@@ -33,23 +33,30 @@ sitemaps = {
 
 def robots_txt(request):
     """Serve robots.txt to allow search engine indexing"""
-    # AI training / scraper bots to disallow. The 8 crawlers covered by
-    # Cloudflare's managed robots.txt ("Instruct AI bot traffic with robots.txt")
-    # are intentionally NOT listed here to avoid duplicate directives:
-    #   GPTBot, ClaudeBot, CCBot, Google-Extended, Amazonbot, Bytespider,
-    #   Applebot-Extended, Meta-ExternalAgent.
-    # The entries below are AI bots that Cloudflare's managed list does NOT
-    # cover, so we keep blocking them here regardless of the Cloudflare toggle.
+    # AI training / scraper bots to disallow at the origin.
+    # NOTE: an earlier version trimmed several entries here assuming Cloudflare's
+    # "managed robots.txt" feature would cover them — but the production domain
+    # is DNS-only in Cloudflare (resolves directly to Render IPs), so Cloudflare
+    # never sees the request and its managed robots.txt is never prepended.
+    # Keep the full list here so origin-served robots.txt actually blocks them.
     ai_bots = [
+        "GPTBot",
         "ChatGPT-User",
         "OAI-SearchBot",
+        "ClaudeBot",
         "Claude-Web",
         "anthropic-ai",
+        "CCBot",
+        "Google-Extended",
         "PerplexityBot",
         "Perplexity-User",
+        "Amazonbot",
+        "Bytespider",
+        "Applebot-Extended",
         "cohere-ai",
         "Diffbot",
         "FacebookBot",
+        "Meta-ExternalAgent",
         "Meta-ExternalFetcher",
     ]
 

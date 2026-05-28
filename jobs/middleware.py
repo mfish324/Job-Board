@@ -22,11 +22,27 @@ class BlockBadBotsMiddleware:
     Matched case-insensitively as substrings of the User-Agent.
     """
 
+    # Matched case-insensitively as substrings of the User-Agent.
+    # IMPORTANT: 'facebookexternalhit' (Facebook link-preview unfurler) is
+    # intentionally NOT here — we want share previews to work.
     BLOCKED_UA_SUBSTRINGS = (
+        # Meta crawlers
         'meta-webindexer',
+        'meta-externalagent',
+        'meta-externalfetcher',
+        'facebookbot',
+        # SEO / index scrapers with no value to the site
         'ahrefsbot',
         'semrushbot',
         'dotbot',
+        'mj12bot',
+        # Large-scale crawlers / AI training bots
+        'amazonbot',
+        'bytespider',
+        'gptbot',
+        'claudebot',
+        'ccbot',
+        'perplexitybot',
     )
 
     def __init__(self, get_response):
