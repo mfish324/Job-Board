@@ -38,6 +38,7 @@ class BlockBadBotsMiddleware:
         'mj12bot',
         # Large-scale crawlers / AI training bots
         'amazonbot',
+        'amzn-searchbot',  # Amazon's search crawler — distinct UA token from amazonbot
         'bytespider',
         'gptbot',
         'claudebot',
