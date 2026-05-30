@@ -86,6 +86,11 @@ def robots_txt(request):
         "Disallow: /employer/",
         "Disallow: /recruiter/",
         "",
+        "# Don't crawl deep paginated list pages — every ?page=N hit rebuilds the",
+        "# full merged/sorted feed in memory (expensive, no SEO value over page 1).",
+        "Disallow: /*?page=",
+        "Disallow: /*&page=",
+        "",
         f"Sitemap: https://realjobsrealpeople.net/sitemap.xml",
     ])
     return HttpResponse("\n".join(lines), content_type="text/plain")

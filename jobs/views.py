@@ -221,6 +221,16 @@ def job_list(request):
     elif source_filter == 'observed':
         verified_qs = verified_qs.none()
 
+    # Drop heavy columns the card feed never reads before the rows are
+    # materialized into UnifiedListing objects. merge_querysets() pulls up to
+    # CAP rows from each queryset into memory and sorts them in Python, so on a
+    # 512MB worker these unused fields (especially the scraped raw_data JSON
+    # payload) were a major source of transient RSS under crawler load.
+    # NOTE: 'description' is intentionally kept — the card renders a snippet of
+    # it, so deferring it would cause an N+1 on the paginated slice.
+    verified_qs = verified_qs.defer('requirements')
+    observed_qs = observed_qs.defer('description_summary', 'requirements', 'raw_data')
+
     # Cap querysets for performance
     CAP = 2000
     verified_qs = verified_qs[:CAP]
