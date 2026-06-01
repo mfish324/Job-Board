@@ -48,12 +48,23 @@ DEFAULT_HAS_CONFIG = {
         'min_description_length': 500,  # Chars for full points
     },
 
-    # Company Velocity: Volume of new listings in lookback window.
-    # Computed inline from ScrapedJobListing aggregates by normalized company_name.
-    # Tiers: list of (min_count, points) — first matching tier wins (descending order).
+    # Company Velocity: how actively the company is hiring, by listing volume in
+    # the lookback window. Tiers: list of (min_count, points) — first matching
+    # tier wins (descending order).
+    #
+    # activity_field selects which date the lookback counts:
+    #   'date_last_seen'  (default) — listings the daily sync currently confirms
+    #       live. This is the true "is the company hiring now" signal in a
+    #       re-scraped feed.
+    #   'date_first_seen' (legacy) — when RJRP FIRST catalogued the listing. This
+    #       conflated "we started scraping this company recently" with hiring
+    #       activity: the March bulk-import cohort (Stripe/Anthropic/etc., all
+    #       first-seen ~81d ago) scored 0 velocity despite hundreds of live
+    #       listings, while a company first scraped last week (Anduril) maxed out.
     'company_velocity': {
         'max_points': 10,
         'lookback_days': 30,
+        'activity_field': 'date_last_seen',
         'tiers': [
             (50, 10),
             (20, 8),

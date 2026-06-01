@@ -165,11 +165,16 @@ def calculate_company_velocity(listing, config, velocity_map=None, diversity_map
     else:
         from django.db.models.functions import Lower, Trim
         from jobs.models import ScrapedJobListing
+        # activity_field controls whether velocity counts listings recently
+        # CONFIRMED live (date_last_seen, default) vs. first catalogued
+        # (date_first_seen, legacy). See config note. date_last_seen avoids the
+        # import-date artifact where bulk-imported companies read as 0 velocity.
+        activity_field = cfg.get('activity_field', 'date_last_seen')
         cutoff = timezone.now() - timedelta(days=lookback)
         count = (
             ScrapedJobListing.objects
             .annotate(_norm=Lower(Trim('company_name')))
-            .filter(_norm=name, date_first_seen__gte=cutoff)
+            .filter(_norm=name, **{f'{activity_field}__gte': cutoff})
             .count()
         )
 

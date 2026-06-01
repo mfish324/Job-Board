@@ -88,11 +88,15 @@ class HASEngine:
         from django.utils import timezone
         from jobs.models import ScrapedJobListing
 
-        lookback = self.config['company_velocity'].get('lookback_days', 30)
+        vel_cfg = self.config['company_velocity']
+        lookback = vel_cfg.get('lookback_days', 30)
+        # Must match calculate_company_velocity's field choice (default
+        # date_last_seen = listings the sync currently confirms live).
+        activity_field = vel_cfg.get('activity_field', 'date_last_seen')
         cutoff = timezone.now() - timedelta(days=lookback)
         rows = (
             ScrapedJobListing.objects
-            .filter(date_first_seen__gte=cutoff)
+            .filter(**{f'{activity_field}__gte': cutoff})
             .annotate(_norm=Lower(Trim('company_name')))
             .values('_norm')
             .annotate(
