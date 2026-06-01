@@ -41,35 +41,61 @@ def ratelimited_error(request, exception):
 
 # Your existing views stay the same
 def home(request):
+    from django.core.cache import cache
     from .unified import UnifiedListing
 
-    # Verified postings (employer-posted)
-    verified_jobs = Job.objects.filter(is_active=True).order_by('-posted_date')[:5]
+    # The homepage shows the same listings + counts to every visitor, but the
+    # view fired 7 DB queries on every load — including two that pulled every
+    # company name out of the DB to dedupe in Python. On a cold/recycled worker
+    # against the remote Postgres that produced 6-10s p95 spikes. Cache the
+    # expensive data for 5 minutes; the template still renders per-request so
+    # the (per-user) navbar auth state stays correct.
+    CACHE_KEY = 'home_page_data_v1'
+    CACHE_TTL = 300  # 5 minutes
 
-    # Market-observed roles (scored and published)
-    observed_listings = ScrapedJobListing.objects.filter(
-        published_to_board=True, status__in=['active', 'published']
-    ).select_related('activity_score').order_by('-activity_score__total_score', '-date_first_seen')[:6]
-    observed_unified = [UnifiedListing(l) for l in observed_listings]
+    # NOTE: we cache RAW model instances (which pickle cleanly), not
+    # UnifiedListing wrappers — the wrapper's __getattr__ infinitely recurses
+    # under pickle. The wrapping is cheap; it's the DB queries we're caching.
+    data = cache.get(CACHE_KEY)
+    if data is None:
+        # Verified postings (employer-posted)
+        verified_jobs = list(Job.objects.filter(is_active=True).order_by('-posted_date')[:5])
 
-    total_verified = Job.objects.filter(is_active=True).count()
-    total_observed = ScrapedJobListing.objects.filter(
-        published_to_board=True, status__in=['active', 'published']
-    ).count()
-    total_jobs = total_verified + total_observed
-
-    # Merge unique company names from both models
-    verified_companies = set(
-        Job.objects.filter(is_active=True).values_list('company', flat=True).distinct()
-    )
-    observed_companies = set(
-        ScrapedJobListing.objects.filter(
+        # Market-observed roles (scored and published)
+        observed_listings = list(ScrapedJobListing.objects.filter(
             published_to_board=True, status__in=['active', 'published']
-        ).values_list('company_name', flat=True).distinct()
-    )
-    total_companies = len(verified_companies | observed_companies)
+        ).select_related('activity_score').order_by('-activity_score__total_score', '-date_first_seen')[:6])
 
-    total_seekers = UserProfile.objects.filter(user_type='job_seeker').count()
+        total_verified = Job.objects.filter(is_active=True).count()
+        total_observed = ScrapedJobListing.objects.filter(
+            published_to_board=True, status__in=['active', 'published']
+        ).count()
+        total_jobs = total_verified + total_observed
+
+        # Merge unique company names from both models
+        verified_companies = set(
+            Job.objects.filter(is_active=True).values_list('company', flat=True).distinct()
+        )
+        observed_companies = set(
+            ScrapedJobListing.objects.filter(
+                published_to_board=True, status__in=['active', 'published']
+            ).values_list('company_name', flat=True).distinct()
+        )
+        total_companies = len(verified_companies | observed_companies)
+
+        total_seekers = UserProfile.objects.filter(user_type='job_seeker').count()
+
+        data = {
+            'verified_jobs': verified_jobs,
+            'observed_listings': observed_listings,
+            'total_jobs': total_jobs,
+            'total_companies': total_companies,
+            'total_seekers': total_seekers,
+        }
+        cache.set(CACHE_KEY, data, CACHE_TTL)
+
+    # Wrap observed listings per-request (cheap; not cached — see note above)
+    observed_unified = [UnifiedListing(l) for l in data['observed_listings']]
 
     popular_categories = [
         {'label': 'Software Engineering', 'query': 'software engineer', 'icon': 'bi-code-slash'},
@@ -95,11 +121,11 @@ def home(request):
     )
 
     context = {
-        'verified_jobs': verified_jobs,
+        'verified_jobs': data['verified_jobs'],
         'observed_jobs': observed_unified,
-        'total_jobs': total_jobs,
-        'total_companies': total_companies,
-        'total_seekers': total_seekers,
+        'total_jobs': data['total_jobs'],
+        'total_companies': data['total_companies'],
+        'total_seekers': data['total_seekers'],
         'popular_categories': popular_categories,
         'featured_tech_employers': featured_tech_employers,
     }
