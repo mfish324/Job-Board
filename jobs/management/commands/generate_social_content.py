@@ -18,11 +18,20 @@ import datetime
 
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
+from django.db.models import Count, Q
 from django.utils import timezone
 
-from jobs.models import DailyGhostReport, SocialContentDraft
+from jobs.models import DailyGhostReport, ScrapedJobListing, SocialContentDraft
 
 MODEL = 'claude-sonnet-4-6'
+
+# An "industry" backed by too few distinct employers isn't a market trend — it's
+# one or two companies. AEROSPACE_AND_DEFENSE, for example, is ~90% Anduril +
+# Palantir, and a single high-volume employer posting its whole board inflates
+# the industry's metrics. Exclude such industries from content so we never
+# publish a headline like "0% low-activity in aerospace" that's really "Anduril
+# posts a lot of fresh listings."
+MIN_DISTINCT_COMPANIES = 3
 
 SYSTEM_PROMPT = (
     "You are a LinkedIn content writer for RJRP (Real Jobs, Real People), a job "
@@ -62,6 +71,16 @@ class Command(BaseCommand):
                 f'No DailyGhostReport rows for {report_date}. '
                 f'Run generate_daily_report first.'
             )
+
+        # Guardrail: drop industries backed by fewer than MIN_DISTINCT_COMPANIES
+        # employers — their metrics reflect one or two firms, not a market trend.
+        reports = self._filter_single_employer_industries(reports)
+        if not reports:
+            self.stdout.write(self.style.WARNING(
+                f'No industries with >= {MIN_DISTINCT_COMPANIES} distinct employers '
+                f'for {report_date}; skipping content generation.'
+            ))
+            return
 
         findings = self._rank_findings(reports)
         if not findings:
@@ -106,6 +125,43 @@ class Command(BaseCommand):
             f'Created draft post(s) for {report_date}. '
             f'Review in admin or run with --dry-run to preview.'
         ))
+
+    # ------------------------------------------------------------------ #
+    # Guardrails
+    # ------------------------------------------------------------------ #
+
+    def _filter_single_employer_industries(self, reports):
+        """
+        Return only the report rows whose industry is backed by at least
+        MIN_DISTINCT_COMPANIES distinct employers among active/published
+        listings. Logs which industries were excluded (no silent dropping).
+        """
+        industries = [r.industry_category for r in reports]
+        company_counts = {
+            row['industry_category']: row['n_companies']
+            for row in (
+                ScrapedJobListing.objects
+                .filter(status__in=['active', 'published'], industry_category__in=industries)
+                .values('industry_category')
+                .annotate(n_companies=Count('company_name', distinct=True))
+            )
+        }
+
+        kept, dropped = [], []
+        for r in reports:
+            n = company_counts.get(r.industry_category, 0)
+            if n >= MIN_DISTINCT_COMPANIES:
+                kept.append(r)
+            else:
+                dropped.append((r.industry_category, n))
+
+        for industry, n in dropped:
+            self.stdout.write(self.style.WARNING(
+                f'  Excluding {industry}: only {n} distinct employer(s) '
+                f'(< {MIN_DISTINCT_COMPANIES}) — not a market trend.'
+            ))
+
+        return kept
 
     # ------------------------------------------------------------------ #
     # Finding selection
