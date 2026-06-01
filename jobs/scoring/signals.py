@@ -276,12 +276,18 @@ def calculate_company_reputation(listing, config, featured_set=None):
     if base_pts <= 0:
         return 0, "Standard company"
 
-    # Scale by listing age — reputation reflects the company, but the listing
-    # itself fades in relevance as it ages.
-    decay = _age_decay_factor(listing, config)
-    scaled = round(base_pts * decay, 1)
-    age = listing.days_since_first_seen()
-    return scaled, f"{label} ({listing.company_name}) ×{decay:.2f} age {age}d"
+    # Reputation reflects the COMPANY, not the listing's freshness — and listing
+    # age/staleness is already penalized by freshness, evergreen_penalty, and
+    # stale_penalty. Age-scaling here is redundant and (because it keyed off the
+    # import-biased date_first_seen) was zeroing reputable employers' bonus. Off
+    # by default; flip 'age_scaled' to True to restore the legacy behavior.
+    if cfg.get('age_scaled', False):
+        decay = _age_decay_factor(listing, config)
+        scaled = round(base_pts * decay, 1)
+        age = listing.days_since_first_seen()
+        return scaled, f"{label} ({listing.company_name}) ×{decay:.2f} age {age}d"
+
+    return base_pts, f"{label} ({listing.company_name})"
 
 
 def calculate_industry_adjustment(listing, config, profile=None):

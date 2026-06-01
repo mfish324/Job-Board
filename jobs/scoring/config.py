@@ -26,10 +26,17 @@ DEFAULT_HAS_CONFIG = {
 
     # === POSITIVE SIGNALS ===
 
-    # Freshness: Linear decay over time
+    # Freshness: Linear decay over time.
+    # decay_days lengthened 60 -> 120: this is a market-OBSERVED feed that is
+    # re-confirmed live daily (100% of listings seen in the last 2 days), where
+    # listings legitimately stay open for months. The old 60d curve (tuned for
+    # employer-posted jobs expected to fill in ~60d) zeroed freshness for ~79%
+    # of listings purely for being older than the scraper, conflating
+    # "long-open" with "ghost". True abandonment is captured separately by
+    # stale_penalty (date_last_seen) and evergreen_penalty.
     'freshness': {
         'max_points': 15,
-        'decay_days': 60,  # Full decay over 60 days (matches job expiration period)
+        'decay_days': 120,
     },
 
     # Specificity: Salary, location, description quality
@@ -71,6 +78,15 @@ DEFAULT_HAS_CONFIG = {
     'company_reputation': {
         'min_points': 0,
         'max_points': 8,
+        # Reputation is a COMPANY-level signal, not a listing-freshness one. The
+        # engine already captures "this listing is old/dead" via freshness,
+        # evergreen_penalty, and stale_penalty — so age-scaling the reputation
+        # bonus too is redundant double-counting. It also previously keyed off
+        # date_first_seen, which for the ~64% March bulk-import cohort is the
+        # import date, not the real posting date — that zeroed reputable
+        # employers' bonus (Stripe/Anthropic/etc. → 100% "ghost"). Default off.
+        # Set True to restore the old age-scaled behavior.
+        'age_scaled': False,
         'featured_employer_bonus': 8,
         'tier_1_bonus': 8,
         'tier_2_bonus': 4,

@@ -27,7 +27,7 @@ class HASEngine:
         score, breakdown = engine.calculate_score(listing, profile=profile)
     """
 
-    VERSION = 5  # Bumped: industry weight profile system (2026-05-13)
+    VERSION = 6  # Bumped 2026-06-01: reputation no longer age-scaled + freshness decay 60/45->120 (staleness fix)
 
     def __init__(self, config=None):
         """
