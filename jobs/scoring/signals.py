@@ -188,18 +188,28 @@ def calculate_company_velocity(listing, config, velocity_map=None, diversity_map
             break
     points = min(points, max_points)
 
-    # Scale by listing age — an old listing doesn't get full credit for
-    # the company's current hiring activity.
-    decay = _age_decay_factor(listing, config)
+    # Diversity scaling stays (it dampens template-farm mass-posters — a real
+    # quality signal). Age-scaling is opt-in via 'age_scaled': now that velocity
+    # counts date_last_seen (current live volume), multiplying by listing age —
+    # derived from the import-biased date_first_seen — was the last instance of
+    # the staleness artifact, knocking actively-hiring reputable employers
+    # (Stripe: 615 live listings) down from 10 to ~3 pts. Default off.
     diversity_scale, ratio = _diversity_factor(listing, config, diversity_map)
-    scaled = round(points * decay * diversity_scale, 1)
-    age = listing.days_since_first_seen()
+    if cfg.get('age_scaled', False):
+        decay = _age_decay_factor(listing, config)
+        scaled = round(points * decay * diversity_scale, 1)
+        age = listing.days_since_first_seen()
+        if ratio is not None and diversity_scale < 1.0:
+            return scaled, (
+                f"{count} new in {lookback}d (×{decay:.2f} age {age}d, "
+                f"×{diversity_scale:.2f} diversity {ratio:.0%})"
+            )
+        return scaled, f"{count} new listings in {lookback}d (×{decay:.2f} age {age}d)"
+
+    scaled = round(points * diversity_scale, 1)
     if ratio is not None and diversity_scale < 1.0:
-        return scaled, (
-            f"{count} new in {lookback}d (×{decay:.2f} age {age}d, "
-            f"×{diversity_scale:.2f} diversity {ratio:.0%})"
-        )
-    return scaled, f"{count} new listings in {lookback}d (×{decay:.2f} age {age}d)"
+        return scaled, f"{count} new in {lookback}d (×{diversity_scale:.2f} diversity {ratio:.0%})"
+    return scaled, f"{count} new listings in {lookback}d"
 
 
 def calculate_ats_behavior(listing, config):

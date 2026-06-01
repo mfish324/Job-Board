@@ -27,7 +27,7 @@ class HASEngine:
         score, breakdown = engine.calculate_score(listing, profile=profile)
     """
 
-    VERSION = 6  # Bumped 2026-06-01: reputation no longer age-scaled + freshness decay 60/45->120 (staleness fix)
+    VERSION = 7  # Bumped 2026-06-01: velocity no longer age-scaled (final staleness-artifact fix)
 
     def __init__(self, config=None):
         """

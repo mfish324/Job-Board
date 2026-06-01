@@ -65,6 +65,11 @@ DEFAULT_HAS_CONFIG = {
         'max_points': 10,
         'lookback_days': 30,
         'activity_field': 'date_last_seen',
+        # Age-scaling off: velocity already measures CURRENT live volume via
+        # date_last_seen, so multiplying by import-derived listing age was
+        # redundant staleness double-counting (see signals.py). Diversity
+        # scaling is separate and stays on.
+        'age_scaled': False,
         'tiers': [
             (50, 10),
             (20, 8),

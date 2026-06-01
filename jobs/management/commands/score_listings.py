@@ -44,6 +44,21 @@ class Command(BaseCommand):
             default=0,
             help='Only show listings with score at or above this threshold',
         )
+        parser.add_argument(
+            '--stale-version',
+            type=int,
+            default=None,
+            help='Only (re)score listings whose stored score_version is below '
+                 'this value, or have no score. Lets a large rescore resume in '
+                 'chunks after a timeout without redoing already-current rows. '
+                 'Implies re-scoring (no --force needed).',
+        )
+        parser.add_argument(
+            '--limit',
+            type=int,
+            default=None,
+            help='Cap the number of listings processed this run (for chunking).',
+        )
 
     def handle(self, *args, **options):
         dry_run = options['dry_run']
@@ -51,6 +66,8 @@ class Command(BaseCommand):
         verbose = options['verbose']
         force = options['force']
         min_score = options['min_score']
+        stale_version = options['stale_version']
+        limit = options['limit']
 
         # Build queryset
         queryset = ScrapedJobListing.objects.filter(
@@ -60,9 +77,18 @@ class Command(BaseCommand):
         if company_filter:
             queryset = queryset.filter(company_name__icontains=company_filter)
 
-        if not force:
+        if stale_version is not None:
+            # Resume mode: rows with no score OR an out-of-date score_version.
+            queryset = queryset.filter(
+                Q(activity_score__isnull=True)
+                | Q(activity_score__score_version__lt=stale_version)
+            )
+        elif not force:
             # Only score listings without a score
             queryset = queryset.filter(activity_score__isnull=True)
+
+        if limit is not None:
+            queryset = queryset[:limit]
 
         total = queryset.count()
 
