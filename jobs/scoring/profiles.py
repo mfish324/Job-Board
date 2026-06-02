@@ -31,15 +31,13 @@ PROFILES = {
     # naming a stack.
     'TECHNOLOGY': {
         'freshness': {
-            # Flat at max_points for first 14 days, then linear decay to 0.
-            # decay_days lengthened 45 -> 120 (2026-06-01): the old 45d window
-            # zeroed freshness for the ~64% March bulk-import cohort (~84 days
-            # old by date_first_seen), making actively-synced reputable
-            # employers (Stripe/Anthropic/etc.) read as 100% "ghost". Observed
-            # tech reqs stay open for months; staleness is caught by
-            # stale_penalty/evergreen_penalty, not by an aggressive freshness curve.
+            # Flat at max_points for first 14 days, then linear decay to 0 by 60.
+            # Now that freshness keys off the REAL posting date (days_since_posted)
+            # a tight 60d window is honest again — genuinely months-old tech reqs
+            # decay toward 0. The reputable_floor (inherited from default config)
+            # keeps brand-name old-but-live reqs viable.
             'decay_start_day': 14,
-            'decay_days': 120,
+            'decay_days': 60,
             # Metadata baseline for future industry-calibration use.
             'expected_ttf_days': 30,
         },

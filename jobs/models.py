@@ -1246,6 +1246,28 @@ class ScrapedJobListing(models.Model):
         from django.utils import timezone
         return (timezone.now() - self.date_first_seen).days
 
+    def days_since_posted(self):
+        """
+        Days since the listing was REALLY posted, for freshness scoring.
+
+        Prefers date_posted_external (the employer's actual posting date from the
+        source ATS) over date_first_seen (when RJRP first scraped it — which for
+        the ~64% March bulk-import cohort is the import date, not the post date).
+
+        Guards the dirty tail: some source ATS feeds carry absurd posting dates
+        (observed as far back as 2009). Anything before 2025-01-01, or missing,
+        falls back to date_first_seen so a garbage date can't make a listing look
+        years old.
+        """
+        from django.utils import timezone
+        import datetime
+        ext = self.date_posted_external
+        floor = timezone.make_aware(datetime.datetime(2025, 1, 1)) if timezone.is_aware(
+            timezone.now()) else datetime.datetime(2025, 1, 1)
+        if ext is None or ext < floor:
+            ext = self.date_first_seen
+        return (timezone.now() - ext).days
+
     def days_since_last_seen(self):
         """Days since this listing was last confirmed active"""
         from django.utils import timezone

@@ -55,16 +55,22 @@ def _age_decay_factor(listing, config):
     return 1 - (days_open / decay_days)
 
 
-def calculate_freshness(listing, config):
+def calculate_freshness(listing, config, reputable_set=None):
     """
-    Calculate freshness score based on how recently the listing was posted.
+    Calculate freshness score based on how recently the listing was REALLY
+    posted (date_posted_external, clamped — see days_since_posted), so the curve
+    measures employer posting age, not when RJRP first scraped the listing.
 
-    Default behavior: linear decay from max_points to 0 over decay_days.
+    Linear decay from max_points to 0 over decay_days. If `decay_start_day` is
+    set (tech profile), the score stays flat at max_points until that day, then
+    decays linearly to 0 by `decay_days`.
 
-    If `decay_start_day` is set (e.g. tech profile = 14), the score stays flat
-    at max_points until that day, then decays linearly to 0 by `decay_days`.
-    This lets per-industry profiles tighten the curve for industries where
-    untouched listings are stronger ghost-job signals.
+    Reputable exception: a highly-reputable employer's long-open-but-still-live
+    req stays viable on brand strength (a 4-month-old Stripe role that's still
+    accepting applicants is old, but not a ghost). For companies in
+    `reputable_set`, freshness never drops below `reputable_floor`. This is the
+    ONE intentional special case — and it reuses the same reputable set that
+    drives company_reputation, so there's no separate list to maintain.
 
     Returns:
         tuple: (points, explanation)
@@ -74,21 +80,29 @@ def calculate_freshness(listing, config):
     decay_days = cfg['decay_days']
     decay_start = cfg.get('decay_start_day', 0)
 
-    days_open = listing.days_since_first_seen()
+    days_open = listing.days_since_posted()
 
     if days_open <= decay_start:
-        return max_points, f"Just posted ({days_open}d, flat to {decay_start}d)" if decay_start else "Just posted"
+        points = max_points
+        explanation = f"Just posted ({days_open}d, flat to {decay_start}d)" if decay_start else "Just posted"
+    elif days_open >= decay_days:
+        points = 0
+        explanation = f"Posted {days_open} days ago (fully decayed at {decay_days}d)"
+    else:
+        decay_range = decay_days - decay_start
+        elapsed = days_open - decay_start
+        points = round(max_points * (1 - (elapsed / decay_range)), 1)
+        explanation = f"Posted {days_open} days ago"
 
-    if days_open >= decay_days:
-        return 0, f"Posted {days_open} days ago (fully decayed at {decay_days}d)"
+    # Reputable freshness floor: keep old-but-open reqs from reputable employers
+    # viable. Only lifts the score, never lowers it.
+    floor = cfg.get('reputable_floor', 0)
+    if floor and reputable_set is not None:
+        name = _normalize_company_name(listing.company_name)
+        if name in reputable_set and points < floor:
+            return floor, f"{explanation}; reputable floor {floor} (still live, brand-viable)"
 
-    # Linear decay over the [decay_start, decay_days] window.
-    decay_range = decay_days - decay_start
-    elapsed = days_open - decay_start
-    points = max_points * (1 - (elapsed / decay_range))
-    points = round(points, 1)
-
-    return points, f"Posted {days_open} days ago"
+    return points, explanation
 
 
 def calculate_specificity(listing, config):

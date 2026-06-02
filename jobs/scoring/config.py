@@ -26,17 +26,18 @@ DEFAULT_HAS_CONFIG = {
 
     # === POSITIVE SIGNALS ===
 
-    # Freshness: Linear decay over time.
-    # decay_days lengthened 60 -> 120: this is a market-OBSERVED feed that is
-    # re-confirmed live daily (100% of listings seen in the last 2 days), where
-    # listings legitimately stay open for months. The old 60d curve (tuned for
-    # employer-posted jobs expected to fill in ~60d) zeroed freshness for ~79%
-    # of listings purely for being older than the scraper, conflating
-    # "long-open" with "ghost". True abandonment is captured separately by
-    # stale_penalty (date_last_seen) and evergreen_penalty.
+    # Freshness: Linear decay over time, keyed off the REAL posting date
+    # (date_posted_external via listing.days_since_posted(), clamped), not the
+    # scrape date. With an honest date a tight 60d window is meaningful again:
+    # genuinely months-old listings decay toward 0 (the real ghost-job signal).
+    # reputable_floor keeps a highly-reputable employer's long-open-but-still-live
+    # req viable — a 4-month-old Stripe role that's still accepting applicants is
+    # old but brand-viable, not a ghost. Applied only to the reputable set (same
+    # set that earns company_reputation); the one intentional special case.
     'freshness': {
         'max_points': 15,
-        'decay_days': 120,
+        'decay_days': 60,
+        'reputable_floor': 8,
     },
 
     # Specificity: Salary, location, description quality
@@ -62,7 +63,7 @@ DEFAULT_HAS_CONFIG = {
     #       first-seen ~81d ago) scored 0 velocity despite hundreds of live
     #       listings, while a company first scraped last week (Anduril) maxed out.
     'company_velocity': {
-        'max_points': 10,
+        'max_points': 6,
         'lookback_days': 30,
         'activity_field': 'date_last_seen',
         # Age-scaling off: velocity already measures CURRENT live volume via

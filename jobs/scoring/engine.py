@@ -27,7 +27,7 @@ class HASEngine:
         score, breakdown = engine.calculate_score(listing, profile=profile)
     """
 
-    VERSION = 7  # Bumped 2026-06-01: velocity no longer age-scaled (final staleness-artifact fix)
+    VERSION = 8  # Bumped 2026-06-02: freshness on real posting date + reputable floor; velocity cap 6; freshness 60d
 
     def __init__(self, config=None):
         """
@@ -40,6 +40,7 @@ class HASEngine:
         self._velocity_map = None
         self._featured_set = None
         self._diversity_map = None
+        self._reputable_set_cache = None
         # Cache of {profile_key: merged_config}. Built lazily per listing so
         # bulk_score only pays the deep-merge cost once per industry encountered.
         self._profile_configs = {}
@@ -123,6 +124,22 @@ class HASEngine:
         except Exception:
             self._featured_set = set()
 
+    def _reputable_set(self, config):
+        """
+        Union of normalized reputable company names: FeaturedEmployer entries
+        (self._featured_set) plus the config reputation 'overrides' keys. This is
+        exactly the set that earns a company_reputation bonus, reused for the
+        freshness floor so there's a single definition of "reputable". Cached.
+        """
+        if getattr(self, '_reputable_set_cache', None) is not None:
+            return self._reputable_set_cache
+        names = set(self._featured_set or ())
+        overrides = config.get('company_reputation', {}).get('overrides', {})
+        names |= {(k or '').lower().strip() for k in overrides}
+        names.discard('')
+        self._reputable_set_cache = names
+        return names
+
     def calculate_score(self, listing, profile=None):
         """
         Calculate the Hiring Activity Score for a listing.
@@ -164,8 +181,13 @@ class HASEngine:
 
         # === POSITIVE SIGNALS ===
 
-        # Freshness
-        points, explanation = signals.calculate_freshness(listing, config)
+        # Freshness (keyed off real posting date; reputable employers get a floor
+        # so an old-but-still-live brand-name req stays viable). The reputable set
+        # is the union of FeaturedEmployer + config reputation overrides — the same
+        # set that earns a company_reputation bonus, so there's one source of truth.
+        points, explanation = signals.calculate_freshness(
+            listing, config, reputable_set=self._reputable_set(config)
+        )
         total += points
         breakdown['freshness'] = {'points': points, 'explanation': explanation}
 
