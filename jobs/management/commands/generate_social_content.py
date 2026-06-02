@@ -22,8 +22,13 @@ from django.db.models import Count, Q
 from django.utils import timezone
 
 from jobs.models import DailyGhostReport, ScrapedJobListing, SocialContentDraft
+from jobs.management.commands.generate_daily_report import UNTAGGED_KEY
 
 MODEL = 'claude-sonnet-4-6'
+
+# Human-readable label for the UNTAGGED segment so Claude never echoes the raw
+# sentinel "UNTAGGED" as if it were an industry name.
+UNTAGGED_LABEL = 'listings from unidentifiable / unverified employers'
 
 # An "industry" backed by too few distinct employers isn't a market trend — it's
 # one or two companies. AEROSPACE_AND_DEFENSE, for example, is ~90% Anduril +
@@ -60,10 +65,19 @@ class Command(BaseCommand):
             action='store_true',
             help='Print the generated drafts instead of saving them.',
         )
+        parser.add_argument(
+            '--no-deltas',
+            action='store_true',
+            help='Ignore day-over-day swing findings (ghost_rate_swing, '
+                 'threshold_crossings, company_mover). Use after a scoring change: '
+                 "yesterday's scores were computed under the old logic, so deltas "
+                 'are migration artifacts, not real market moves.',
+        )
 
     def handle(self, *args, **options):
         report_date = self._resolve_date(options.get('date'))
         dry_run = options['dry_run']
+        no_deltas = options['no_deltas']
 
         reports = list(DailyGhostReport.objects.filter(date=report_date))
         if not reports:
@@ -82,14 +96,14 @@ class Command(BaseCommand):
             ))
             return
 
-        findings = self._rank_findings(reports)
+        findings = self._rank_findings(reports, no_deltas=no_deltas)
         if not findings:
             self.stdout.write(self.style.WARNING(
                 f'No noteworthy findings for {report_date}; skipping content generation.'
             ))
             return
 
-        data_summary = self._assemble_summary(report_date, reports, findings)
+        data_summary = self._assemble_summary(report_date, reports, findings, no_deltas=no_deltas)
 
         api_key = getattr(settings, 'ANTHROPIC_API_KEY', None)
         if not api_key:
@@ -167,24 +181,39 @@ class Command(BaseCommand):
     # Finding selection
     # ------------------------------------------------------------------ #
 
-    def _rank_findings(self, reports):
+    def _label(self, industry):
+        """Render an industry key for human-facing copy (UNTAGGED -> readable)."""
+        return UNTAGGED_LABEL if industry == UNTAGGED_KEY else industry
+
+    def _rank_findings(self, reports, no_deltas=False):
         """
         Score each report row across several "interesting" dimensions and return
         the 2-3 most newsworthy findings as plain dicts.
+
+        no_deltas suppresses day-over-day findings (used right after a scoring
+        change, when yesterday's numbers were produced under different logic and
+        the "swing" is a migration artifact, not a real market move).
         """
         findings = []
+
+        # --- Top-priority cross-segment finding: tagged (named employers) vs
+        # UNTAGGED (unidentifiable employers). This is the real, differentiated
+        # story — ghost signals concentrate where you can't identify who's hiring.
+        findings.extend(self._contrast_finding(reports))
+
         for r in reports:
             ind = r.industry_category
+            label = self._label(ind)
 
-            # Biggest day-over-day ghost rate swing
-            if r.previous_ghost_rate is not None:
+            # Biggest day-over-day ghost rate swing (skipped under --no-deltas)
+            if not no_deltas and r.previous_ghost_rate is not None:
                 delta = float(r.ghost_rate) - float(r.previous_ghost_rate)
                 if abs(delta) >= 2:
                     findings.append({
                         'kind': 'ghost_rate_swing',
                         'industry': ind,
                         'magnitude': abs(delta),
-                        'detail': f'{ind} low-activity rate moved {delta:+.1f}pts '
+                        'detail': f'{label} low-activity rate moved {delta:+.1f}pts '
                                   f'({r.previous_ghost_rate}% -> {r.ghost_rate}%)',
                     })
 
@@ -194,7 +223,7 @@ class Command(BaseCommand):
                     'kind': 'high_ghost_rate',
                     'industry': ind,
                     'magnitude': float(r.ghost_rate),
-                    'detail': f'{float(r.ghost_rate):.1f}% of {ind} listings are '
+                    'detail': f'{float(r.ghost_rate):.1f}% of {label} are '
                               f'low-activity (below the 65 Hiring Activity Score threshold)',
                 })
 
@@ -204,17 +233,17 @@ class Command(BaseCommand):
                     'kind': 'low_salary_transparency',
                     'industry': ind,
                     'magnitude': 100 - float(r.salary_transparency_rate),
-                    'detail': f'Only {float(r.salary_transparency_rate):.0f}% of {ind} '
-                              f'listings disclose salary',
+                    'detail': f'Only {float(r.salary_transparency_rate):.0f}% of {label} '
+                              f'disclose salary',
                 })
 
-            # Spike in threshold crossings
-            if r.threshold_crossings_down >= 5:
+            # Spike in threshold crossings (skipped under --no-deltas)
+            if not no_deltas and r.threshold_crossings_down >= 5:
                 findings.append({
                     'kind': 'threshold_crossings',
                     'industry': ind,
                     'magnitude': r.threshold_crossings_down,
-                    'detail': f'{r.threshold_crossings_down} {ind} listings dropped below '
+                    'detail': f'{r.threshold_crossings_down} {label} dropped below '
                               f'the activity threshold since yesterday',
                 })
 
@@ -225,35 +254,80 @@ class Command(BaseCommand):
                     'kind': 'weak_new_listings',
                     'industry': ind,
                     'magnitude': 60 - float(r.new_listings_avg_has),
-                    'detail': f"{ind}'s {r.new_listings_today} new listings today average "
+                    'detail': f"{label}: {r.new_listings_today} new listings today average "
                               f"only {float(r.new_listings_avg_has):.0f} Hiring Activity Score",
                 })
 
-            # Dramatic company-level mover
-            down = (r.top_movers or {}).get('down', [])
-            if down:
-                worst = down[0]
-                if abs(worst.get('delta', 0)) >= 5:
-                    findings.append({
-                        'kind': 'company_mover',
-                        'industry': ind,
-                        'magnitude': abs(worst['delta']),
-                        'detail': f"{worst['company']}'s average Hiring Activity Score "
-                                  f"fell {worst['delta']} points in {ind}",
-                    })
+            # Dramatic company-level mover (skipped under --no-deltas)
+            if not no_deltas:
+                down = (r.top_movers or {}).get('down', [])
+                if down:
+                    worst = down[0]
+                    if abs(worst.get('delta', 0)) >= 5:
+                        findings.append({
+                            'kind': 'company_mover',
+                            'industry': ind,
+                            'magnitude': abs(worst['delta']),
+                            'detail': f"{worst['company']}'s average Hiring Activity Score "
+                                      f"fell {worst['delta']} points ({label})",
+                        })
 
-        # Rank by magnitude, keep the top 3.
-        findings.sort(key=lambda f: f['magnitude'], reverse=True)
-        return findings[:3]
+        # Rank by magnitude, keep the top 3 — but the contrast finding (if present)
+        # is the headline, so pin it first.
+        contrast = [f for f in findings if f['kind'] == 'tagged_vs_untagged']
+        rest = [f for f in findings if f['kind'] != 'tagged_vs_untagged']
+        rest.sort(key=lambda f: f['magnitude'], reverse=True)
+        ordered = contrast + rest
+        return ordered[:3]
 
-    def _assemble_summary(self, report_date, reports, findings):
+    def _contrast_finding(self, reports):
+        """
+        Build the tagged-vs-untagged contrast finding: ghost rate among named/
+        identifiable employers vs the UNTAGGED long tail. Returns [] if either
+        side is missing (e.g. no untagged row in an older report).
+        """
+        by_key = {r.industry_category: r for r in reports}
+        untagged = by_key.get(UNTAGGED_KEY)
+        tagged = [r for r in reports if r.industry_category != UNTAGGED_KEY]
+        if untagged is None or not tagged:
+            return []
+
+        # Volume-weighted ghost rate across tagged industries.
+        t_total = sum(r.total_listings for r in tagged)
+        if t_total == 0:
+            return []
+        t_ghost = sum(float(r.ghost_rate) * r.total_listings for r in tagged) / t_total
+        u_ghost = float(untagged.ghost_rate)
+
+        return [{
+            'kind': 'tagged_vs_untagged',
+            'industry': None,
+            'magnitude': abs(u_ghost - t_ghost),
+            'detail': (
+                f'Among NAMED/identifiable employers, only {t_ghost:.0f}% of listings '
+                f'show low hiring-activity signals — but among '
+                f'{untagged.total_listings:,} listings from unidentifiable/unverified '
+                f'employers, {u_ghost:.0f}% do. Who is behind the listing is the '
+                f'single biggest predictor of whether it looks real.'
+            ),
+        }]
+
+    def _assemble_summary(self, report_date, reports, findings, no_deltas=False):
         """Human-readable data block fed to Claude, including yesterday's comparison."""
         lines = [f"Hiring activity data for {report_date}:", ""]
+        if no_deltas:
+            lines.append(
+                "NOTE: Do NOT write about day-over-day changes or 'overnight' moves "
+                "today — yesterday's figures used an earlier scoring method, so any "
+                "swing is a methodology change, not a market shift. Focus on today's "
+                "absolute numbers and the named-vs-unidentifiable contrast.")
+            lines.append("")
         for r in reports:
-            lines.append(f"Industry: {r.industry_category}")
+            label = 'Unidentifiable/unverified employers' if r.industry_category == UNTAGGED_KEY else r.industry_category
+            lines.append(f"Segment: {label}")
             lines.append(f"  Total active listings: {r.total_listings}")
             lines.append(f"  Low-activity rate (below 65): {float(r.ghost_rate):.1f}%")
-            if r.previous_ghost_rate is not None:
+            if r.previous_ghost_rate is not None and not no_deltas:
                 lines.append(f"  Yesterday's low-activity rate: {float(r.previous_ghost_rate):.1f}%")
             lines.append(f"  Average Hiring Activity Score: {float(r.avg_has):.1f}")
             lines.append(f"  Median Hiring Activity Score: {float(r.median_has):.1f}")
@@ -263,7 +337,8 @@ class Command(BaseCommand):
             lines.append(f"  New listings today: {r.new_listings_today}"
                          + (f" (avg HAS {float(r.new_listings_avg_has):.0f})"
                             if r.new_listings_avg_has is not None else ""))
-            lines.append(f"  Dropped below threshold since yesterday: {r.threshold_crossings_down}")
+            if not no_deltas:
+                lines.append(f"  Dropped below threshold since yesterday: {r.threshold_crossings_down}")
             lines.append("")
 
         lines.append("Most newsworthy findings (ranked):")
