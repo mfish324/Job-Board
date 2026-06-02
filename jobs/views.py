@@ -254,8 +254,14 @@ def job_list(request):
     # payload) were a major source of transient RSS under crawler load.
     # NOTE: 'description' is intentionally kept — the card renders a snippet of
     # it, so deferring it would cause an N+1 on the paginated slice.
-    verified_qs = verified_qs.defer('requirements')
-    observed_qs = observed_qs.defer('description_summary', 'requirements', 'raw_data')
+    # Job (verified) has no heavy columns beyond 'description', which the card
+    # snippet needs, so nothing is deferred there. ScrapedJobListing (observed)
+    # carries the bulky AI summary + raw scraped JSON the feed skips.
+    # NOTE: only defer fields that actually exist — 'requirements' is NOT a
+    # ScrapedJobListing field (it's the boolean has_requirements), and Job has no
+    # 'requirements' at all; deferring a nonexistent field raises FieldError and
+    # 500s the whole /jobs/ page.
+    observed_qs = observed_qs.defer('description_summary', 'raw_data')
 
     # Cap querysets for performance
     CAP = 2000
