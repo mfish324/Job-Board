@@ -34,6 +34,14 @@ from jobs.scoring.config import get_config
 
 SNAPSHOT_RETENTION_DAYS = 35
 
+# Sentinel "industry" for listings with no industry_category. These are the
+# unidentifiable/long-tail companies where ghost-job signals concentrate (~90%
+# below threshold vs ~5% for tagged big-name employers). Stored as a normal
+# DailyGhostReport row so the report surfaces the real ghost story, not just the
+# clean tagged industries. Kept out of single-employer-style content guardrails
+# by being explicitly labelled.
+UNTAGGED_KEY = 'UNTAGGED'
+
 
 class Command(BaseCommand):
     help = 'Aggregate stored HAS scores into per-industry DailyGhostReport rows'
@@ -57,13 +65,13 @@ class Command(BaseCommand):
         report_date = self._resolve_date(options.get('date'))
         dry_run = options['dry_run']
 
-        # Active listings that have a stored score and a tagged industry.
+        # All active, scored listings — both industry-tagged AND untagged. The
+        # untagged long tail (unidentifiable companies) is where the ghost-job
+        # signal concentrates, so it gets its own aggregate row (UNTAGGED_KEY).
         # We read the score from the related HiringActivityScore (no recompute).
         listings = (
             ScrapedJobListing.objects
             .filter(Q(status='active') | Q(status='published'))
-            .filter(industry_category__isnull=False)
-            .exclude(industry_category='')
             .filter(activity_score__isnull=False)
             .select_related('activity_score')
             .only(
@@ -73,7 +81,8 @@ class Command(BaseCommand):
             )
         )
 
-        # Bucket listings by industry, collecting only the lightweight fields we need.
+        # Bucket listings by industry (untagged -> UNTAGGED_KEY), collecting only
+        # the lightweight fields we need.
         # rows[industry] = list of per-listing dicts (ints/dates only — tiny memory).
         rows = defaultdict(list)
         now = timezone.now()
@@ -82,7 +91,9 @@ class Command(BaseCommand):
         for lst in listings.iterator(chunk_size=500):
             score = lst.activity_score.total_score
             age_days = (now - lst.date_first_seen).days if lst.date_first_seen else 0
-            rows[lst.industry_category].append({
+            industry = lst.industry_category or ''
+            industry = industry.strip() or UNTAGGED_KEY
+            rows[industry].append({
                 'listing_id': lst.id,
                 'company_name': lst.company_name or '',
                 'score': score,
@@ -94,7 +105,7 @@ class Command(BaseCommand):
 
         if not rows:
             self.stdout.write(self.style.WARNING(
-                'No scored, industry-tagged active listings found. Nothing to report.'
+                'No scored active listings found. Nothing to report.'
             ))
             return
 
@@ -119,8 +130,11 @@ class Command(BaseCommand):
             self._prune_snapshots(report_date)
 
         # --- Build a report row per industry ---
+        # Real industries alphabetically, UNTAGGED last so it reads as its own
+        # segment in the summary.
+        ordered = sorted(rows.items(), key=lambda kv: (kv[0] == UNTAGGED_KEY, kv[0]))
         results = []
-        for industry, items in sorted(rows.items()):
+        for industry, items in ordered:
             metrics = self._compute_metrics(industry, items)
             metrics.update(self._compute_deltas(
                 industry, items,
