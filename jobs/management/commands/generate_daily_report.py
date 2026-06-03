@@ -42,6 +42,15 @@ SNAPSHOT_RETENTION_DAYS = 35
 # by being explicitly labelled.
 UNTAGGED_KEY = 'UNTAGGED'
 
+# The report covers only listings POSTED within this window (by real posting
+# date: date_posted_external, falling back to date_first_seen). All-time
+# aggregates were dominated by the ~64% March bulk-import cohort, which is now
+# 90+ days old and scores low purely on age — making every ghost rate a
+# staleness artifact (untagged read 90%, mostly old). A 30-day window measures
+# CURRENT hiring activity: untagged drops to a believable ~26%, and the
+# tagged-vs-untagged contrast stays honest. Tunable via --recent-days.
+DEFAULT_RECENT_DAYS = 30
+
 
 class Command(BaseCommand):
     help = 'Aggregate stored HAS scores into per-industry DailyGhostReport rows'
@@ -57,6 +66,14 @@ class Command(BaseCommand):
             action='store_true',
             help='Compute and print the report without writing snapshots or report rows.',
         )
+        parser.add_argument(
+            '--recent-days',
+            type=int,
+            default=DEFAULT_RECENT_DAYS,
+            help=f'Only include listings posted within this many days, by real '
+                 f'posting date (default: {DEFAULT_RECENT_DAYS}). Set 0 for all-time '
+                 f'(not recommended — old bulk-import cohort skews ghost rates).',
+        )
 
     def handle(self, *args, **options):
         config = get_config()
@@ -64,6 +81,10 @@ class Command(BaseCommand):
 
         report_date = self._resolve_date(options.get('date'))
         dry_run = options['dry_run']
+        recent_days = options['recent_days']
+
+        now = timezone.now()
+        new_cutoff = now - datetime.timedelta(hours=24)
 
         # All active, scored listings — both industry-tagged AND untagged. The
         # untagged long tail (unidentifiable companies) is where the ghost-job
@@ -76,17 +97,33 @@ class Command(BaseCommand):
             .select_related('activity_score')
             .only(
                 'id', 'company_name', 'industry_category', 'repost_count',
-                'salary_min', 'salary_max', 'date_first_seen',
+                'salary_min', 'salary_max', 'date_first_seen', 'date_posted_external',
                 'activity_score__total_score',
             )
         )
+
+        # Recency filter: only listings POSTED within recent_days, by real posting
+        # date. Mirrors the scoring clamp (days_since_posted): use
+        # date_posted_external when it's sane (>= 2025), else date_first_seen.
+        # Done at the DB layer so we don't pull the whole stale corpus into memory.
+        if recent_days and recent_days > 0:
+            cutoff = now - datetime.timedelta(days=recent_days)
+            ext_floor = timezone.make_aware(datetime.datetime(2025, 1, 1)) \
+                if timezone.is_aware(now) else datetime.datetime(2025, 1, 1)
+            listings = listings.filter(
+                # external date is sane AND within window …
+                Q(date_posted_external__gte=cutoff)
+                # … or external date is missing/garbage, so fall back to first_seen
+                | (
+                    (Q(date_posted_external__isnull=True) | Q(date_posted_external__lt=ext_floor))
+                    & Q(date_first_seen__gte=cutoff)
+                )
+            )
 
         # Bucket listings by industry (untagged -> UNTAGGED_KEY), collecting only
         # the lightweight fields we need.
         # rows[industry] = list of per-listing dicts (ints/dates only — tiny memory).
         rows = defaultdict(list)
-        now = timezone.now()
-        new_cutoff = now - datetime.timedelta(hours=24)
 
         for lst in listings.iterator(chunk_size=500):
             score = lst.activity_score.total_score
@@ -104,8 +141,9 @@ class Command(BaseCommand):
             })
 
         if not rows:
+            window = f'posted in last {recent_days}d' if recent_days else 'all-time'
             self.stdout.write(self.style.WARNING(
-                'No scored active listings found. Nothing to report.'
+                f'No scored active listings found ({window}). Nothing to report.'
             ))
             return
 
@@ -151,7 +189,7 @@ class Command(BaseCommand):
                     defaults=metrics,
                 )
 
-        self._print_summary(report_date, results, dry_run)
+        self._print_summary(report_date, results, dry_run, recent_days)
 
     # ------------------------------------------------------------------ #
     # Metric computation
@@ -286,11 +324,12 @@ class Command(BaseCommand):
         except ValueError:
             raise CommandError(f'Invalid --date {date_str!r}; expected YYYY-MM-DD')
 
-    def _print_summary(self, report_date, results, dry_run):
+    def _print_summary(self, report_date, results, dry_run, recent_days=None):
         prefix = '[DRY RUN] ' if dry_run else ''
+        window = f' (posted last {recent_days}d)' if recent_days else ' (all-time)'
         self.stdout.write('')
         self.stdout.write(self.style.SUCCESS(
-            f'{prefix}Daily Ghost Job Report - {report_date}'
+            f'{prefix}Daily Ghost Job Report - {report_date}{window}'
         ))
         line = '-' * 72
         self.stdout.write(line)
