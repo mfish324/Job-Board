@@ -7,7 +7,11 @@ services:
     # one slow request can't block the whole site; --max-requests recycles each
     # worker periodically so RSS can't creep to the 512MB ceiling (Python rarely
     # returns memory to the OS); --timeout 60 kills runaway requests sooner.
-    startCommand: "gunicorn jobboard.wsgi:application --workers 2 --timeout 60 --max-requests 400 --max-requests-jitter 50"
+    # --max-requests lowered 400 -> 150 (2026-06-03): at 400, under low traffic a
+    # worker took hours to recycle and RSS crept to ~91% (486MB), triggering a
+    # disruptive recycle that 502'd a user. 150 recycles ~2.5x sooner so RSS
+    # plateaus well below the ceiling and each recycle stays small.
+    startCommand: "gunicorn jobboard.wsgi:application --workers 2 --timeout 60 --max-requests 150 --max-requests-jitter 50"
     healthCheckPath: /
     envVars:
       - key: PYTHON_VERSION

@@ -263,8 +263,14 @@ def job_list(request):
     # 500s the whole /jobs/ page.
     observed_qs = observed_qs.defer('description_summary', 'raw_data')
 
-    # Cap querysets for performance
-    CAP = 2000
+    # Cap querysets for performance. merge_querysets() pulls these into memory and
+    # builds + sorts UnifiedListing objects in Python on EVERY /jobs/ request
+    # (regardless of page), so CAP directly drives per-request CPU/RSS. At 2000 the
+    # worst case was ~4000 objects/request, slow enough to trip the 60s gunicorn
+    # timeout under load. 500 caps it at ~1000 objects (~4x cheaper). Deep pages
+    # beyond this aren't reachable, which is fine: real users don't page that far
+    # and robots.txt already blocks crawlers from ?page=N.
+    CAP = 500
     verified_qs = verified_qs[:CAP]
     observed_qs = observed_qs[:CAP]
 
