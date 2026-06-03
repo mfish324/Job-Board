@@ -3380,9 +3380,15 @@ def observed_listing_detail(request, listing_id):
     # of synchronous Anthropic calls and OOM the worker.
     description_summary = listing.description_summary
 
-    # validThrough for JSON-LD: 60 days from date_first_seen
+    # validThrough for JSON-LD JobPosting. Base it on date_last_seen (when the
+    # sync last confirmed the listing live), NOT date_first_seen: with
+    # first_seen+60d, ~50% of published listings had an already-PAST validThrough
+    # because of the old bulk-import cohort, and Google for Jobs drops any posting
+    # whose validThrough is in the past. last_seen+30d stays in the future for all
+    # actively-synced listings, so they remain eligible for the jobs widget.
     from datetime import timedelta
-    valid_through = listing.date_first_seen + timedelta(days=60)
+    base_seen = listing.date_last_seen or listing.date_first_seen or timezone.now()
+    valid_through = base_seen + timedelta(days=30)
 
     context = {
         'listing': listing,

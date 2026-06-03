@@ -29,10 +29,13 @@
     "name": "US"
   },
   {% endif %}
-  {% if job.location %}
+  {% if job.location and job.remote_status != 'remote' %}
   "jobLocation": {
     "@type": "Place",
-    "address": "{{ job.location|escapejs }}"
+    "address": {
+      "@type": "PostalAddress",
+      "streetAddress": "{{ job.location|escapejs }}"
+    }
   },
   {% endif %}
   {% if job.salary %}
