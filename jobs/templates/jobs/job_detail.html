@@ -38,13 +38,15 @@
     }
   },
   {% endif %}
-  {% if job.salary %}
+  {% if salary_jsonld %}
   "baseSalary": {
     "@type": "MonetaryAmount",
     "currency": "USD",
     "value": {
       "@type": "QuantitativeValue",
-      "value": "{{ job.salary|escapejs }}"
+      {% if salary_jsonld.value %}"value": {{ salary_jsonld.value }},{% else %}"minValue": {{ salary_jsonld.min }},
+      "maxValue": {{ salary_jsonld.max }},{% endif %}
+      "unitText": "YEAR"
     }
   },
   {% endif %}

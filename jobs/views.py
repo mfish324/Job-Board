@@ -15,6 +15,7 @@ import json
 import logging
 import csv
 import io
+import re
 
 logger = logging.getLogger(__name__)
 from .models import (Job, UserProfile, JobApplication, PhoneVerification, EmailVerification, SavedJob,
@@ -333,6 +334,35 @@ def job_list(request):
     }
     return render(request, 'jobs/job_list.html', context)
 
+def _parse_salary_jsonld(salary):
+    """Extract a numeric base salary from Job.salary (freeform text) for JSON-LD.
+
+    Google for Jobs requires baseSalary.value to be a NUMBER; a freeform string
+    like "Volunteer" / "Competitive" / "DOE" produces an invalid QuantitativeValue.
+    Returns {'value': n} or {'min': lo, 'max': hi} when the text contains plausible
+    salary figures, else None (so the template omits baseSalary entirely).
+    """
+    if not salary:
+        return None
+    nums = []
+    for m in re.finditer(r'(\d[\d,]*\.?\d*)\s*([kK])?', salary):
+        raw = m.group(1).replace(',', '')
+        try:
+            val = float(raw)
+        except ValueError:
+            continue
+        if m.group(2):  # "120k" -> 120000
+            val *= 1000
+        nums.append(val)
+    # Keep only figures large enough to be a salary (drops "3-5 hours" style noise)
+    nums = [n for n in nums if n >= 1000]
+    if not nums:
+        return None
+    if len(nums) == 1:
+        return {'value': nums[0]}
+    return {'min': min(nums), 'max': max(nums)}
+
+
 def job_detail(request, job_id):
     job = get_object_or_404(Job, id=job_id)
     user_has_applied = False
@@ -351,7 +381,8 @@ def job_detail(request, job_id):
     context = {
         'job': job,
         'user_has_applied': user_has_applied,
-        'job_is_saved': job_is_saved
+        'job_is_saved': job_is_saved,
+        'salary_jsonld': _parse_salary_jsonld(job.salary),
     }
     return render(request, 'jobs/job_detail.html', context)
 
