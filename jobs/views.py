@@ -177,10 +177,20 @@ def job_list(request):
             Q(description__icontains=search_query) |
             Q(location__icontains=search_query)
         )
+        # IMPORTANT: do NOT ILIKE the observed `description` column. It's a large
+        # free-text field on a ~67k-row table with no trigram index, so
+        # `description ILIKE '%term%'` forces a sequential substring scan over
+        # every published row. Measured on prod: searching title/company/location
+        # takes ~3.9s, but ADDING description pushes the SAME query to ~20.8s — and
+        # under concurrent load that's what tripped the 60s gunicorn timeout (a bot
+        # firing broad /jobs/?search= queries 500'd repeatedly, 2026-06-04). Title +
+        # company + location covers the searches users actually run. To restore
+        # description search cheaply, add a pg_trgm GIN index on description and put
+        # it back (see follow-up). Verified (Job) is tiny, so its description ILIKE
+        # above is free and stays.
         observed_qs = observed_qs.filter(
             Q(title__icontains=search_query) |
             Q(company_name__icontains=search_query) |
-            Q(description__icontains=search_query) |
             Q(location__icontains=search_query)
         )
 
