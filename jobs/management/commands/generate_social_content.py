@@ -46,7 +46,10 @@ SYSTEM_PROMPT = (
 )
 
 POST_INSTRUCTIONS = """Write 2 LinkedIn post options. Requirements:
-- Lead with one specific, surprising stat
+- LEAD with finding #1 in the ranked "Most newsworthy findings" list below — it is
+  the designated headline (usually the named-vs-unidentifiable employer contrast).
+  Do NOT open with a day-over-day "overnight"/"since yesterday" swing even if one
+  looks flashier; use lower-ranked findings only as supporting color in the body.
 - Keep each post under 200 words
 - Reference "Hiring Activity Score" by name at least once
 - End with a subtle mention of the tool (e.g., "We built a scoring system that catches this" or "This is what our algorithm flagged today") — not a hard sell
