@@ -38,6 +38,15 @@ UNTAGGED_LABEL = 'listings from unidentifiable / unverified employers'
 # posts a lot of fresh listings."
 MIN_DISTINCT_COMPANIES = 3
 
+# A salary_transparency_rate of exactly 0% is a DATA-CAPTURE artifact, not employer
+# behavior: RJRP doesn't parse salary_min/salary_max from the tagged ATS feeds at
+# all, so those segments read a literal 0 — verified on prod (tagged industries:
+# 0.00% populated across ~8k listings; untagged: 7.5%). Publishing "0% disclose
+# salary" would conflate "we didn't capture it" with "they withheld it". Only treat
+# salary transparency as a real, postable signal when SOME disclosure exists, i.e.
+# the rate is strictly above this floor.
+SALARY_DISCLOSURE_FLOOR = 0.0
+
 SYSTEM_PROMPT = (
     "You are a LinkedIn content writer for RJRP (Real Jobs, Real People), a job "
     "board that scores listings for hiring activity signals. Write data-driven "
@@ -241,8 +250,10 @@ class Command(BaseCommand):
                               f'low-activity (below the 65 Hiring Activity Score threshold)',
                 })
 
-            # Low salary transparency
-            if float(r.salary_transparency_rate) <= 40:
+            # Low salary transparency — but skip the all-zero artifact (see
+            # SALARY_DISCLOSURE_FLOOR): a literal 0% means salary was never captured
+            # for the segment, not that employers withheld it.
+            if SALARY_DISCLOSURE_FLOOR < float(r.salary_transparency_rate) <= 40:
                 findings.append({
                     'kind': 'low_salary_transparency',
                     'industry': ind,
