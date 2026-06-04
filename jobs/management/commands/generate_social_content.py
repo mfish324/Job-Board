@@ -166,6 +166,17 @@ class Command(BaseCommand):
 
         kept, dropped = [], []
         for r in reports:
+            # UNTAGGED is the unidentifiable long-tail pool (tens of thousands of
+            # listings across thousands of distinct company_names) — by definition
+            # never a single firm. Its listings are stored with a BLANK
+            # industry_category and bucketed under the sentinel in generate_daily_report,
+            # so the literal `industry_category='UNTAGGED'` company count above is
+            # always 0. Without this exemption the guardrail silently drops UNTAGGED
+            # every run, which removes the tagged-vs-untagged contrast — the headline
+            # finding. Always keep it.
+            if r.industry_category == UNTAGGED_KEY:
+                kept.append(r)
+                continue
             n = company_counts.get(r.industry_category, 0)
             if n >= MIN_DISTINCT_COMPANIES:
                 kept.append(r)
