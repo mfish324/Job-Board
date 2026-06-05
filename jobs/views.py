@@ -52,7 +52,9 @@ def home(request):
     # expensive data for 5 minutes; the template still renders per-request so
     # the (per-user) navbar auth state stays correct.
     CACHE_KEY = 'home_page_data_v1'
-    CACHE_TTL = 300  # 5 minutes
+    CACHE_TTL = 1800  # 30 minutes — longer TTL means the expensive rebuild fires
+    # rarely, so it's far less likely to land inside the daily 09:00 rescore window
+    # (when the DB is saturated and a rebuild would otherwise hit the 60s timeout).
 
     # NOTE: we cache RAW model instances (which pickle cleanly), not
     # UnifiedListing wrappers — the wrapper's __getattr__ infinitely recurses
@@ -73,16 +75,24 @@ def home(request):
         ).count()
         total_jobs = total_verified + total_observed
 
-        # Merge unique company names from both models
-        verified_companies = set(
-            Job.objects.filter(is_active=True).values_list('company', flat=True).distinct()
+        # Distinct company count. Computed DB-side per table (one aggregate each)
+        # rather than pulling every company name into Python to union — the old
+        # approach scanned + transferred ~9k names from the 67k-row observed table,
+        # which is what timed out (60s+) when this rebuilt during the 09:00 rescore.
+        # Summing the two per-table distinct counts can double-count a company that
+        # appears in BOTH tables, but the verified table is tiny (a handful of active
+        # postings) and its companies don't overlap the observed feed, so the
+        # overcount is negligible for a homepage stat — worth it to avoid the scan.
+        verified_companies = (
+            Job.objects.filter(is_active=True)
+            .values('company').distinct().count()
         )
-        observed_companies = set(
+        observed_companies = (
             ScrapedJobListing.objects.filter(
                 published_to_board=True, status__in=['active', 'published']
-            ).values_list('company_name', flat=True).distinct()
+            ).values('company_name').distinct().count()
         )
-        total_companies = len(verified_companies | observed_companies)
+        total_companies = verified_companies + observed_companies
 
         total_seekers = UserProfile.objects.filter(user_type='job_seeker').count()
 
