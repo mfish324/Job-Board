@@ -64,10 +64,19 @@ def home(request):
         # Verified postings (employer-posted)
         verified_jobs = list(Job.objects.filter(is_active=True).order_by('-posted_date')[:5])
 
-        # Market-observed roles (scored and published)
-        observed_listings = list(ScrapedJobListing.objects.filter(
-            published_to_board=True, status__in=['active', 'published']
-        ).select_related('activity_score').order_by('-activity_score__total_score', '-date_first_seen')[:6])
+        # Market-observed roles (scored and published). Query FROM HiringActivityScore
+        # (not ScrapedJobListing) so Postgres can drive off the indexed total_score
+        # column directly instead of joining ~21k listings out to their scores just to
+        # sort and take 6 — the old direction (select_related('activity_score') off
+        # ScrapedJobListing) is a LEFT JOIN the planner can't reorder around an index,
+        # and measured ~12s even with total_score indexed. This form measured ~220ms.
+        top_scores = list(HiringActivityScore.objects.filter(
+            published_to_board=True, listing__status__in=['active', 'published']
+        ).select_related('listing').order_by('-total_score', '-listing__date_first_seen')[:6])
+        observed_listings = []
+        for score in top_scores:
+            score.listing.activity_score = score  # prime reverse cache, avoid N+1 below
+            observed_listings.append(score.listing)
 
         total_verified = Job.objects.filter(is_active=True).count()
         total_observed = ScrapedJobListing.objects.filter(
