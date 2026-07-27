@@ -218,6 +218,8 @@ python manage.py shell
 - **Landing page hero search** — search bar in the hero section lets users search immediately; subtitle shows live job/company counts
 - **Browse by Category** — 12 popular category pills on the home page (Software Engineering, Data Science, Marketing, etc.) linking to filtered search results
 - **How It Works section** — 3-step explainer (Search & Discover, Trust the Source, Apply with Confidence) shown to non-authenticated visitors
+- **Auto-created UserProfile for OAuth signups** — `jobs/signals.py` hooks allauth's `user_signed_up` signal to `get_or_create` a `UserProfile` (default `user_type='job_seeker'`) for any account that signs up via Google OAuth; previously only the manual job seeker/employer/recruiter signup forms created one, so OAuth accounts (and Django superusers) had none and 500'd on pages that assume `request.user.userprofile` exists (e.g. edit profile). One-time backfill in migration `0027`.
+- **Site traffic tracking enabled in production** (2026-07-27) — `TRAFFIC_NOTIFICATION_ENABLED=True` set in Render env; `SiteVisit` rows and the `/manage/traffic/` dashboard now populate. Was unset/False since launch, so no traffic data existed before this date.
 
 ## Management Commands
 
@@ -253,7 +255,7 @@ python manage.py update_directory_counts --employer google
 - GenZJobs Sync: `/manage/sync-genzjobs/` (superuser only)
 - Configure Site domain in Django admin for allauth
 - Social Applications configured for Google OAuth
-- **Requires** `TRAFFIC_NOTIFICATION_ENABLED=True` in env for `SiteVisit` records to be created by middleware
+- **Requires** `TRAFFIC_NOTIFICATION_ENABLED=True` in env for `SiteVisit` records to be created by middleware — set to `True` in production as of 2026-07-27
 
 ## Important Files to Know
 
@@ -262,6 +264,7 @@ python manage.py update_directory_counts --employer google
 - [jobs/models.py](jobs/models.py) - Database models
 - [jobs/forms.py](jobs/forms.py) - Form definitions and validation
 - [jobs/utils.py](jobs/utils.py) - SMS, email, Turnstile helpers
+- [jobs/signals.py](jobs/signals.py) - Auto-creates UserProfile for allauth (Google OAuth) signups
 - [jobs/templates/jobs/base.html](jobs/templates/jobs/base.html) - Base template (all CSS lives here inline)
 - [jobs/unified.py](jobs/unified.py) - UnifiedListing wrapper for merging Job + ScrapedJobListing
 - [jobs/scoring/](jobs/scoring/) - HAS scoring engine (config.py, engine.py, signals.py)
@@ -298,6 +301,7 @@ python manage.py update_directory_counts --employer google
 - **Scoring optimization**: only newly created listings are scored during `sync_genzjobs`; updates skip scoring to avoid OOM on large syncs
 - **Daily HAS rescore**: Render cron job (`RJRP-daily-rescore`) runs `score_listings --force` daily at 9 AM UTC (after 8 AM sync so `date_last_seen` is fresh); recalculates all scores so freshness decay and stale penalties take effect; listings dropping below 65 are auto-unpublished
 - **HAS tuning (2026-04-01)**: base_score 35→40, publish_threshold 75→65, freshness decay 30→60 days, stale threshold 14→21 days; previous config caused all listings to score below threshold and unpublish
+- **Homepage top-observed-listings query fix (2026-07-27)**: the homepage's top-6 published observed listings (sorted by HAS score) was causing near-daily `WORKER TIMEOUT` 500s on `GET /`, clustered around the 08:00-09:45 UTC cron windows. Root cause: no index on `HiringActivityScore.total_score`, forcing a per-row nested-loop join across all ~22k published listings just to sort and take 6 (12.3s baseline, 60s+ under rescore write load). Fixed with an index (migration `0026`) **and** restructuring the query to start FROM `HiringActivityScore` (which carries its own denormalized `published_to_board`) instead of `ScrapedJobListing`, since Postgres can't reorder a `LEFT JOIN` around an index on the joined table. Measured: 220ms. See `jobs/views.py` `home()`.
 
 ## SEO & Crawlability
 
