@@ -293,6 +293,16 @@ def job_list(request):
     # 500s the whole /jobs/ page.
     observed_qs = observed_qs.defer('description_summary', 'raw_data')
 
+    # True counts against the fully-filtered (pre-cap) querysets — cheap COUNT(*)
+    # queries, not a row materialization, so this doesn't reintroduce the cost the
+    # CAP below exists to avoid. Without this, "Found X positions" reported only
+    # what survived the CAP (max 500/type), which read as "the site lost its
+    # listings" when the true match count was much higher (e.g. homepage's
+    # unfiltered 23k vs a capped-at-500 browse).
+    verified_count = verified_qs.count()
+    observed_count = observed_qs.count()
+    total_results = verified_count + observed_count
+
     # Cap querysets for performance. merge_querysets() pulls these into memory and
     # builds + sorts UnifiedListing objects in Python on EVERY /jobs/ request
     # (regardless of page), so CAP directly drives per-request CPU/RSS. At 2000 the
@@ -303,11 +313,8 @@ def job_list(request):
     CAP = 500
     verified_qs = verified_qs[:CAP]
     observed_qs = observed_qs[:CAP]
-
-    # Count after capping so displayed count matches actual results
-    verified_count = len(verified_qs)
-    observed_count = len(observed_qs)
-    total_results = verified_count + observed_count
+    browsable_count = min(verified_count, CAP) + min(observed_count, CAP)
+    results_truncated = total_results > browsable_count
 
     # Merge and sort
     items = UnifiedListing.merge_querysets(verified_qs, observed_qs, sort_mode)
@@ -352,6 +359,7 @@ def job_list(request):
         'total_results': total_results,
         'verified_count': verified_count,
         'observed_count': observed_count,
+        'results_truncated': results_truncated,
         'filter_querystring': filter_querystring,
         'directory_employers': directory_employers,
         'directory_match_title': directory_match_title,

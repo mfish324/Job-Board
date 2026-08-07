@@ -271,6 +271,9 @@
                 <small class="ms-2">({{ verified_count }} verified, {{ observed_count }} observed)</small>
                 {% endif %}
             </h5>
+            {% if results_truncated %}
+            <p class="text-muted small mb-0">Showing the most relevant 500 per category — narrow your search (keywords, location, filters) to see more specific results.</p>
+            {% endif %}
         </div>
     </div>
 
