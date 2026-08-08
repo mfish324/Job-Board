@@ -152,7 +152,9 @@ def home(request):
     return render(request, 'jobs/home.html', context)
 
 def job_list(request):
+    import hashlib
     from datetime import timedelta
+    from django.core.cache import cache
     from django.core.paginator import Paginator
     from .unified import UnifiedListing
 
@@ -293,14 +295,28 @@ def job_list(request):
     # 500s the whole /jobs/ page.
     observed_qs = observed_qs.defer('description_summary', 'raw_data')
 
-    # True counts against the fully-filtered (pre-cap) querysets — cheap COUNT(*)
-    # queries, not a row materialization, so this doesn't reintroduce the cost the
-    # CAP below exists to avoid. Without this, "Found X positions" reported only
-    # what survived the CAP (max 500/type), which read as "the site lost its
-    # listings" when the true match count was much higher (e.g. homepage's
-    # unfiltered 23k vs a capped-at-500 browse).
-    verified_count = verified_qs.count()
-    observed_count = observed_qs.count()
+    # True counts against the fully-filtered (pre-cap) querysets. Unlike the old
+    # len()-after-slice (a LIMIT 500 query that can stop as soon as Postgres finds
+    # 500 matches), COUNT(*) has no LIMIT and must evaluate the WHERE clause across
+    # every matching row. The default (unfiltered) US-only filter is a ~100-term
+    # OR chain (2 conditions x 50 states) against the ~large observed table, which
+    # doesn't stay index-friendly across that many ORs — so an uncached COUNT(*)
+    # on every request risks being much slower than the old capped-fetch approach.
+    # Cache per unique filter combination (short TTL — counts don't need to be
+    # real-time, and this absorbs repeat hits on the default filter set, by far
+    # the most common case) instead of recomputing on every request.
+    count_cache_key = 'job_list_counts:' + hashlib.md5('|'.join([
+        search_query, location_filter, country_filter, salary_filter,
+        date_filter, job_type_filter, experience_filter, remote_filter,
+        source_filter, activity_filter,
+    ]).encode()).hexdigest()
+    cached_counts = cache.get(count_cache_key)
+    if cached_counts is not None:
+        verified_count, observed_count = cached_counts
+    else:
+        verified_count = verified_qs.count()
+        observed_count = observed_qs.count()
+        cache.set(count_cache_key, (verified_count, observed_count), 120)
     total_results = verified_count + observed_count
 
     # Cap querysets for performance. merge_querysets() pulls these into memory and
