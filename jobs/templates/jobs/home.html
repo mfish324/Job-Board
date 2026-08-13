@@ -102,8 +102,8 @@
     .v2-ticker-item .v2-why { color: #c9a889; }
     .v2-ticker-item .v2-score { color: #e8b49a; font-weight: 700; }
 
-    /* Delta block */
-    .v2-delta-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
+    /* Delta block — auto-fit so hidden zero-value cards don't leave gaps */
+    .v2-delta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; }
     .v2-dstat {
         background: #fff; border: 1px solid var(--border, #d9cbb8);
         border-radius: 12px; padding: 16px 16px 14px;
@@ -135,7 +135,6 @@
 
     /* Fresh cards */
     .v2-discovered { color: var(--primary-color); font-weight: 600; }
-    .v2-nosalary { color: #a97c2e; font-weight: 600; font-size: 0.85rem; }
     .v2-reasons { display: flex; flex-wrap: wrap; gap: 6px; }
     .v2-reason {
         font-size: 0.72rem; background: var(--light-bg, #F5F0E5);
@@ -238,26 +237,34 @@
             <b>{{ delta.new_24h }}</b>
             <span class="v2-lbl">listings passed scoring in the last 24h</span>
         </div>
+        {% if delta.closed_24h %}
         <div class="v2-dstat v2-up">
             <span class="v2-tag">Filled</span>
             <b>{{ delta.closed_24h }}</b>
             <span class="v2-lbl">listings closed — roles getting filled is a good sign</span>
         </div>
+        {% endif %}
+        {% if delta.reposts_24h %}
         <div class="v2-dstat v2-down">
             <span class="v2-tag">Caught</span>
             <b>{{ delta.reposts_24h }}</b>
             <span class="v2-lbl">new arrivals flagged as reposts of earlier listings</span>
         </div>
+        {% endif %}
+        {% if delta.ramping %}
         <div class="v2-dstat v2-up">
             <span class="v2-tag">Ramping</span>
             <b>{{ delta.ramping }}</b>
             <span class="v2-lbl">companies with meaningful net hiring growth (30d)</span>
         </div>
+        {% endif %}
+        {% if delta.quiet %}
         <div class="v2-dstat v2-neutral">
             <span class="v2-tag">Gone quiet</span>
             <b>{{ delta.quiet }}</b>
             <span class="v2-lbl">companies with 10+ open roles and none closed in 30 days</span>
         </div>
+        {% endif %}
     </div>
 </div>
 
@@ -292,13 +299,11 @@
                     <h6 class="text-primary mb-2">
                         <i class="bi bi-building me-1"></i>{{ card.item.company_name }}
                     </h6>
+                    {% if card.item.salary_display %}
                     <div class="mb-2">
-                        {% if card.item.salary_display %}
                         <span class="salary-display"><i class="bi bi-cash-stack me-1"></i>{{ card.item.salary_display }}</span>
-                        {% else %}
-                        <span class="v2-nosalary"><i class="bi bi-dash-circle me-1"></i>No salary listed</span>
-                        {% endif %}
                     </div>
+                    {% endif %}
                     <div class="text-muted small mb-2">
                         {% if card.item.location %}
                         <i class="bi bi-geo-alt-fill me-1"></i>{{ card.item.location }}
@@ -447,7 +452,6 @@
                     <th>Employer</th>
                     <th>Avg HAS</th>
                     <th>New this week</th>
-                    <th>Salary listed</th>
                     <th>Live listings</th>
                 </tr>
             </thead>
@@ -459,7 +463,6 @@
                     </td>
                     <td class="v2-num-good">{{ row.avg_has }}</td>
                     <td class="v2-num-good">{% if row.new_week %}&uarr; {{ row.new_week }}{% else %}&mdash;{% endif %}</td>
-                    <td>{{ row.salary_pct }}%</td>
                     <td>{{ row.live }}</td>
                 </tr>
                 {% endfor %}

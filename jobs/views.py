@@ -60,7 +60,7 @@ def home(request):
     # keeps rebuilds rare so they're unlikely to land inside the daily 09:00 UTC
     # rescore window (DB saturated → 60s timeout risk). Bumped key to v2 for the
     # filter-first redesign payload.
-    CACHE_KEY = 'home_page_data_v2'
+    CACHE_KEY = 'home_page_data_v3'  # v3: salary column removed, ticker title filter
     CACHE_TTL = 1800
 
     # NOTE: we cache RAW model instances (which pickle cleanly), not
@@ -176,6 +176,11 @@ def home(request):
                 score = listing.activity_score.total_score
             except (HiringActivityScore.DoesNotExist, AttributeError):
                 continue
+            # Skip junk titles (spammy feeds shout in all caps) — the ticker is
+            # brand surface, so only show listings that read like real roles.
+            title = (listing.title or '').strip()
+            if len(title) < 8 or (len(title) > 20 and title == title.upper()):
+                continue
             if listing.repost_count >= 3:
                 reason = 'reposted %d times with near-identical text' % listing.repost_count
             elif listing.days_since_posted() >= 90:
@@ -198,22 +203,22 @@ def home(request):
         # One grouped aggregate over the published set (~22k rows), cached.
         # Ranked by average HAS among companies with a meaningful live count —
         # behavior, not logo size.
+        # NOTE: no salary column here (yet). Structured salary_min/max is only
+        # populated for some feed sources; direct-ATS listings carry salary in
+        # description text the sync doesn't parse, so a "% salary listed" column
+        # would falsely shame the most transparent employers. Reinstate once
+        # salary extraction backfills the structured fields.
         employer_rows = list(
             published.values('company_name')
             .annotate(
                 live=Count('id'),
                 avg_has=Avg('activity_score__total_score'),
-                with_salary=Count(
-                    'id',
-                    filter=Q(salary_min__isnull=False) | Q(salary_max__isnull=False),
-                ),
                 new_week=Count('id', filter=Q(date_first_seen__gte=week_ago)),
             )
             .filter(live__gte=15, avg_has__isnull=False)
             .order_by('-avg_has')[:6]
         )
         for row in employer_rows:
-            row['salary_pct'] = round(100 * row['with_salary'] / row['live']) if row['live'] else 0
             row['avg_has'] = round(row['avg_has'])
 
         data = {
