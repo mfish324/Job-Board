@@ -25,6 +25,7 @@ import datetime as _dt
 from jobs.models import (
     Company, GenzjobsListing, ScrapedJobListing, HiringActivityScore,
 )
+from jobs.salary_extract import extract_salary_range
 
 
 # Map genzjobs source names to ScrapedJobListing SOURCE_ATS_CHOICES
@@ -257,6 +258,17 @@ class Command(BaseCommand):
             local.salary_max = gj.salary_max
         if gj.salary_currency:
             local.salary_currency = gj.salary_currency[:3]
+
+        # Fallback: parse salary out of the description text. Direct-ATS
+        # feeds routinely omit structured salary even though the listing text
+        # contains a legally-mandated pay-transparency range — without this,
+        # the most transparent employers lose the HAS salary signal and the
+        # salary filter/card display. Conservative extractor: returns None
+        # unless the match is unambiguous (annualized USD).
+        if local.salary_min is None and local.salary_max is None and local.description:
+            extracted = extract_salary_range(local.description)
+            if extracted:
+                local.salary_min, local.salary_max = extracted
 
         # Classification
         local.job_type = (gj.job_type or '')[:50]
