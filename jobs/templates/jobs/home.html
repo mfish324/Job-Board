@@ -1,10 +1,11 @@
 {% extends 'jobs/base.html' %}
+{% load has_tags %}
 
-{% block title %}Real Jobs, Real People | Verified Job Listings — No Ghost Jobs{% endblock %}
-{% block meta_description %}Browse thousands of verified and activity-scored job listings. RJRP eliminates ghost jobs with our Hiring Activity algorithm. Find real opportunities from real employers.{% endblock %}
+{% block title %}Real Jobs, Real People | The Job Board That Rejects Most Jobs — No Ghost Jobs{% endblock %}
+{% block meta_description %}We track {{ fmt.total_tracked }} listings from employer hiring systems and publish only the {{ fmt.total_jobs }} that pass our Hiring Activity Score. No ghost jobs, no stale posts, no resume-collection pipelines.{% endblock %}
 {% block canonical %}https://realjobsrealpeople.net/{% endblock %}
-{% block og_title %}Real Jobs, Real People | Verified Job Listings — No Ghost Jobs{% endblock %}
-{% block og_description %}Browse thousands of verified and activity-scored job listings. RJRP eliminates ghost jobs with our Hiring Activity algorithm.{% endblock %}
+{% block og_title %}Real Jobs, Real People | The Job Board That Rejects Most Jobs{% endblock %}
+{% block og_description %}Every listing passed a 12-signal filter for ghost jobs and stale posts. If it's listed, the evidence says someone is actually hiring.{% endblock %}
 {% block og_url %}https://realjobsrealpeople.net/{% endblock %}
 
 {% block structured_data %}
@@ -26,7 +27,7 @@
   "url": "https://realjobsrealpeople.net",
   "potentialAction": {
     "@type": "SearchAction",
-    "target": "https://realjobsrealpeople.net/jobs/?q={search_term_string}",
+    "target": "https://realjobsrealpeople.net/jobs/?search={search_term_string}",
     "query-input": "required name=search_term_string"
   }
 }
@@ -35,121 +36,304 @@
 
 {% block extra_css %}
 <style>
-    .hero-text {
-        opacity: 1;
-        transition: opacity 0.5s ease-in-out;
-        min-height: 4.5rem;
+    /* ---- v2 filter-first landing page styles (scoped with v2- prefix) ---- */
+    .v2-hero { text-align: left; }
+    .v2-eyebrow {
+        display: inline-block;
+        background: rgba(255,255,255,0.16);
+        border: 1px solid rgba(255,255,255,0.35);
+        padding: 5px 14px;
+        border-radius: 999px;
+        font-size: 0.8rem;
+        letter-spacing: 0.6px;
+        text-transform: uppercase;
+        margin-bottom: 1.2rem;
     }
-    .hero-text.fade-out {
-        opacity: 0;
+    .v2-hero h1 { line-height: 1.15; max-width: 860px; }
+    .v2-hero h1 .v2-cut { color: #ffe9c9; }
+    .v2-hero-sub { max-width: 700px; color: rgba(255,255,255,0.92); }
+    .v2-hero-sub a { color: #ffe9c9; text-decoration: underline; }
+    .v2-chips { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 14px; max-width: 780px; align-items: center; }
+    .v2-chip-label {
+        font-size: 0.72rem; font-weight: 700; letter-spacing: 0.8px;
+        text-transform: uppercase; color: rgba(255,255,255,0.75); margin-right: 2px;
+    }
+    .v2-chip {
+        background: rgba(255,255,255,0.14);
+        border: 1px solid rgba(255,255,255,0.4);
+        color: #fff; padding: 6px 14px; border-radius: 999px;
+        font-size: 0.85rem; text-decoration: none; transition: background 0.15s;
+    }
+    .v2-chip:hover { background: rgba(255,255,255,0.28); color: #fff; }
+    .v2-chip.v2-stack {
+        border-style: dashed;
+        font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+        font-size: 0.78rem; padding: 6px 12px;
+    }
+    .v2-hero-stats {
+        display: grid; grid-template-columns: repeat(4, 1fr);
+        gap: 14px; margin-top: 2.2rem; max-width: 900px;
+    }
+    .v2-hstat {
+        background: rgba(255,255,255,0.12);
+        border: 1px solid rgba(255,255,255,0.28);
+        border-radius: 12px; padding: 14px 18px;
+    }
+    .v2-hstat b { display: block; font-size: 1.45rem; font-variant-numeric: tabular-nums; }
+    .v2-hstat span { font-size: 0.78rem; color: rgba(255,255,255,0.85); }
+    .v2-hstat.v2-reject b { color: #ffd9c4; }
+
+    /* Rejected ticker */
+    .v2-ticker {
+        background: var(--ink, #3B3026); color: #efe6d8;
+        padding: 12px 0; margin: -3rem 0 0 0; /* tucks under hero's margin-bottom */
+        margin-bottom: 2.5rem;
+    }
+    .v2-ticker-inner { display: flex; align-items: center; gap: 18px; }
+    .v2-ticker-label {
+        flex-shrink: 0; font-size: 0.72rem; font-weight: 700; letter-spacing: 1px;
+        text-transform: uppercase; color: #e8b49a;
+        border: 1px solid #6d5a44; padding: 4px 10px; border-radius: 6px;
+    }
+    .v2-ticker-item {
+        font-size: 0.88rem; white-space: nowrap; overflow: hidden;
+        text-overflow: ellipsis; transition: opacity 0.4s;
+    }
+    .v2-ticker-item .v2-why { color: #c9a889; }
+    .v2-ticker-item .v2-score { color: #e8b49a; font-weight: 700; }
+
+    /* Delta block */
+    .v2-delta-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
+    .v2-dstat {
+        background: #fff; border: 1px solid var(--border, #d9cbb8);
+        border-radius: 12px; padding: 16px 16px 14px;
+    }
+    .v2-dstat b { display: block; font-size: 1.6rem; font-variant-numeric: tabular-nums; line-height: 1.1; }
+    .v2-dstat .v2-lbl { font-size: 0.78rem; color: #6d5a44; margin-top: 4px; display: block; line-height: 1.35; }
+    .v2-dstat .v2-tag {
+        display: inline-block; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.5px;
+        text-transform: uppercase; padding: 2px 7px; border-radius: 5px; margin-bottom: 8px;
+    }
+    .v2-dstat.v2-up b { color: #4a7a52; }
+    .v2-dstat.v2-up .v2-tag { background: #eef4ec; color: #4a7a52; }
+    .v2-dstat.v2-down b { color: #a05543; }
+    .v2-dstat.v2-down .v2-tag { background: #f6e9e4; color: #a05543; }
+    .v2-dstat.v2-neutral b { color: #a97c2e; }
+    .v2-dstat.v2-neutral .v2-tag { background: #f7efdd; color: #a97c2e; }
+
+    /* Freshness tier pills */
+    .v2-tiers { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 1.4rem; }
+    .v2-tier {
+        border: 1.5px solid var(--border, #d9cbb8); background: #fff;
+        color: #6d5a44; border-radius: 999px; padding: 8px 18px;
+        font-size: 0.88rem; text-decoration: none; font-variant-numeric: tabular-nums;
+        transition: all 0.15s;
+    }
+    .v2-tier:hover { border-color: var(--primary-color); color: var(--primary-color); }
+    .v2-tier.v2-on { background: var(--primary-color); border-color: var(--primary-color); color: #fff; font-weight: 600; }
+    .v2-tier.v2-on:hover { color: #fff; }
+
+    /* Fresh cards */
+    .v2-discovered { color: var(--primary-color); font-weight: 600; }
+    .v2-nosalary { color: #a97c2e; font-weight: 600; font-size: 0.85rem; }
+    .v2-reasons { display: flex; flex-wrap: wrap; gap: 6px; }
+    .v2-reason {
+        font-size: 0.72rem; background: var(--light-bg, #F5F0E5);
+        border: 1px solid var(--border, #d9cbb8); color: #6d5a44;
+        padding: 2.5px 9px; border-radius: 6px;
+    }
+    .v2-ats-note { font-size: 0.75rem; color: #9a866c; }
+
+    /* Employer behavior table */
+    .v2-emp-table { background: #fff; border-radius: 12px; overflow: hidden; }
+    .v2-emp-table th {
+        font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.6px;
+        color: #9a866c; background: var(--light-bg, #F5F0E5); font-weight: 700;
+    }
+    .v2-emp-table td { font-variant-numeric: tabular-nums; }
+    .v2-num-good { color: #4a7a52; font-weight: 700; }
+    .v2-table-note { font-size: 0.78rem; color: #9a866c; }
+
+    @media (max-width: 900px) {
+        .v2-delta-grid { grid-template-columns: repeat(2, 1fr); }
+        .v2-hero-stats { grid-template-columns: repeat(2, 1fr); }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<!-- Hero Section -->
-<div class="hero-section text-center">
+<!-- Hero: lead with what the filter rejects -->
+<div class="hero-section v2-hero">
     <div class="container">
-        <h1 class="display-4 fw-bold mb-3 hero-text" id="heroText">Where Real Opportunities Meet Real People</h1>
-        <p class="lead text-white-50 mb-4">{{ total_jobs|default:"5,000+" }} active jobs from {{ total_companies|default:"1,000+" }} companies</p>
-        <form action="{% url 'job_list' %}" method="get" class="mx-auto" style="max-width: 640px;">
+        <span class="v2-eyebrow">The job board that rejects most jobs</span>
+        <h1 class="display-5 fw-bold mb-3">
+            We're tracking {{ fmt.total_tracked }} listings.<br>
+            Only <span class="v2-cut">{{ fmt.total_jobs }}</span> made the cut.
+        </h1>
+        <p class="lead v2-hero-sub mb-4">
+            Every listing here passed the <a href="{% url 'has_info' %}">Hiring Activity Score</a> —
+            a 12-signal filter that rejects ghost jobs, stale posts, and resume-collection
+            pipelines at the source. If it's listed, the evidence says someone is actually hiring.
+        </p>
+        <form action="{% url 'job_list' %}" method="get" class="me-auto" style="max-width: 640px;">
             <div class="input-group input-group-lg shadow-lg">
-                <input type="text" name="search" class="form-control border-0 py-3" placeholder="Job title, company, or keyword..." aria-label="Search jobs" style="font-size: 1.1rem;">
+                <input type="text" name="search" class="form-control border-0 py-3" placeholder="Job title, company, or stack — e.g. 'senior react remote'" aria-label="Search jobs" style="font-size: 1.05rem;">
                 <button class="btn btn-light px-4 fw-semibold" type="submit">
                     <i class="bi bi-search me-1"></i> Search
                 </button>
             </div>
         </form>
-        <div class="mt-3">
-            {% if not user.is_authenticated %}
+        <div class="v2-chips">
+            <a class="v2-chip" href="{% url 'job_list' %}?date_posted=24h&sort=newest">Posted &lt; 24h</a>
+            <a class="v2-chip" href="{% url 'job_list' %}?date_posted=7d&sort=newest">Posted &lt; 7 days</a>
+            <a class="v2-chip" href="{% url 'job_list' %}?salary=with_salary">Salary listed</a>
+            <a class="v2-chip" href="{% url 'job_list' %}?remote=remote">Remote</a>
+            <a class="v2-chip" href="{% url 'job_list' %}?experience=senior">Senior</a>
+            <a class="v2-chip" href="{% url 'job_list' %}?activity=very_active">Score 80+</a>
+            <a class="v2-chip" href="{% url 'job_list' %}?source=verified">Verified only</a>
+        </div>
+        <div class="v2-chips">
+            <span class="v2-chip-label">Stack</span>
+            {% for tag in stack_tags %}
+            <a class="v2-chip v2-stack" href="{% url 'job_list' %}?search={{ tag|urlencode }}">{{ tag }}</a>
+            {% endfor %}
+        </div>
+        <div class="v2-hero-stats">
+            <div class="v2-hstat"><b>{{ fmt.total_tracked }}</b><span>listings tracked from employer hiring systems</span></div>
+            <div class="v2-hstat v2-reject"><b>{{ fmt.total_rejected }}</b><span>rejected — didn't clear the bar</span></div>
+            <div class="v2-hstat"><b>{{ fmt.total_jobs }}</b><span>published: verified &amp; high-activity</span></div>
+            <div class="v2-hstat"><b>{{ fmt.total_companies }}</b><span>companies that made the cut</span></div>
+        </div>
+        {% if not user.is_authenticated %}
+        <div class="mt-4">
             <a href="{% url 'signup_choice' %}" class="btn btn-outline-light px-4">
                 <i class="bi bi-person-plus me-2"></i>Create Free Account
             </a>
-            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Rejected today ticker: the filter, working, in public -->
+{% if ticker_items %}
+<div class="v2-ticker" aria-label="Recently rejected listings">
+    <div class="container v2-ticker-inner">
+        <span class="v2-ticker-label">Rejected</span>
+        <span class="v2-ticker-item" id="v2Ticker"></span>
+    </div>
+</div>
+{{ ticker_items|json_script:"v2-ticker-data" }}
+{% endif %}
+
+<!-- What changed since yesterday -->
+<div class="container mb-5" id="today">
+    <div class="d-flex justify-content-between align-items-baseline flex-wrap gap-2 mb-1">
+        <h2 class="fw-bold mb-0">What changed since yesterday</h2>
+        <span class="text-muted" style="font-size: 0.85rem;">{% now "l, N j" %} &middot; refreshed after each morning's scoring run</span>
+    </div>
+    <p class="text-muted mb-4">The number that matters isn't how many jobs exist — it's what moved since you last checked.</p>
+    <div class="v2-delta-grid">
+        <div class="v2-dstat v2-up">
+            <span class="v2-tag">New</span>
+            <b>{{ delta.new_24h }}</b>
+            <span class="v2-lbl">listings passed scoring in the last 24h</span>
+        </div>
+        <div class="v2-dstat v2-up">
+            <span class="v2-tag">Filled</span>
+            <b>{{ delta.closed_24h }}</b>
+            <span class="v2-lbl">listings closed — roles getting filled is a good sign</span>
+        </div>
+        <div class="v2-dstat v2-down">
+            <span class="v2-tag">Caught</span>
+            <b>{{ delta.reposts_24h }}</b>
+            <span class="v2-lbl">new arrivals flagged as reposts of earlier listings</span>
+        </div>
+        <div class="v2-dstat v2-up">
+            <span class="v2-tag">Ramping</span>
+            <b>{{ delta.ramping }}</b>
+            <span class="v2-lbl">companies with meaningful net hiring growth (30d)</span>
+        </div>
+        <div class="v2-dstat v2-neutral">
+            <span class="v2-tag">Gone quiet</span>
+            <b>{{ delta.quiet }}</b>
+            <span class="v2-lbl">companies with 10+ open roles and none closed in 30 days</span>
         </div>
     </div>
 </div>
 
-<!-- Stats Section -->
+<!-- Beat the crowd: freshness tiers + fresh high-signal cards -->
 <div class="container mb-5">
-    <div class="row g-4 justify-content-center">
-        <div class="col-md-4">
-            <div class="card text-center h-100">
-                <div class="card-body">
-                    <i class="bi bi-briefcase-fill text-primary" style="font-size: 3rem;"></i>
-                    <h3 class="mt-3 mb-0 fw-bold">{{ total_jobs }}</h3>
-                    <p class="text-muted mb-0">Active Jobs</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card text-center h-100">
-                <div class="card-body">
-                    <i class="bi bi-building text-primary" style="font-size: 3rem;"></i>
-                    <h3 class="mt-3 mb-0 fw-bold">{{ total_companies }}</h3>
-                    <p class="text-muted mb-0">Companies Hiring</p>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Popular Categories -->
-<div class="container mb-5">
-    <h2 class="fw-bold text-center mb-4">Browse by Category</h2>
-    <div class="d-flex flex-wrap justify-content-center gap-2">
-        {% for cat in popular_categories %}
-        <a href="{% url 'job_list' %}?search={{ cat.query|urlencode }}" class="btn btn-outline-primary rounded-pill px-4 py-2" style="font-size: 0.95rem;">
-            <i class="bi {{ cat.icon }} me-1"></i>{{ cat.label }}
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-1">
+        <h2 class="fw-bold mb-0">Beat the crowd</h2>
+        <a href="{% url 'job_list' %}?sort=newest" class="btn btn-outline-primary">
+            Browse all {{ fmt.total_jobs }} <i class="bi bi-arrow-right ms-1"></i>
         </a>
-        {% endfor %}
     </div>
-</div>
-
-<!-- Featured Employers (Tech) -->
-{% if featured_tech_employers %}
-<div class="container mb-5">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h2 class="fw-bold mb-1">Featured Employers</h2>
-            <p class="text-muted mb-0">Major tech employers hiring now — jump straight to their career portals.</p>
-        </div>
-        <a href="{% url 'directory:index' %}?industry=TECHNOLOGY" class="btn btn-outline-primary">
-            View all employers <i class="bi bi-arrow-right ms-1"></i>
-        </a>
+    <p class="text-muted mb-3" style="max-width: 720px;">
+        Nearly half of all applications go to listings less than 48 hours old — early applicants get read,
+        late ones get buried. {{ fmt.h48 }} listings here passed scoring in the last 48 hours.
+    </p>
+    <div class="v2-tiers">
+        <a class="v2-tier v2-on" href="{% url 'job_list' %}?date_posted=24h&sort=newest">Last 24 hours &middot; <b>{{ fmt.new_24h }}</b></a>
+        <a class="v2-tier" href="{% url 'job_list' %}?date_posted=7d&sort=newest">Last 7 days &middot; <b>{{ fmt.d7 }}</b></a>
+        <a class="v2-tier" href="{% url 'job_list' %}?sort=newest">All, newest first</a>
     </div>
 
     <div class="row">
-        {% for employer in featured_tech_employers %}
-        <div class="col-lg-3 col-md-4 col-sm-6 mb-3">
-            <a href="{% url 'directory:employer_detail' employer.slug %}" class="text-decoration-none">
-                <div class="card h-100 directory-card">
-                    <div class="card-body d-flex align-items-center gap-3 py-3">
-                        <div class="directory-logo-wrapper">
-                            {% if employer.logo %}
-                            <img src="{{ employer.logo.url }}" alt="{{ employer.name }}" class="directory-logo-sm">
-                            {% else %}
-                            <div class="directory-logo-placeholder-sm">{{ employer.logo_initial }}</div>
-                            {% endif %}
-                        </div>
-                        <div class="flex-grow-1">
-                            <div class="fw-bold" style="color: var(--ink); font-size: 0.95rem;">{{ employer.name }}</div>
-                            {% if employer.estimated_open_roles %}
-                            <div class="text-muted small">~{{ employer.estimated_open_roles|floatformat:0 }} open roles</div>
-                            {% else %}
-                            <div class="text-muted small">{{ employer.get_industry_display }}</div>
-                            {% endif %}
-                        </div>
+        {% for card in fresh_cards %}
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="card job-card job-card-observed h-100">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                        <span class="trust-badge trust-badge-observed">&#128269; Observed</span>
+                        {% has_indicator card.item %}
+                    </div>
+                    <h5 class="job-title mb-1">{{ card.item.title }}</h5>
+                    <h6 class="text-primary mb-2">
+                        <i class="bi bi-building me-1"></i>{{ card.item.company_name }}
+                    </h6>
+                    <div class="mb-2">
+                        {% if card.item.salary_display %}
+                        <span class="salary-display"><i class="bi bi-cash-stack me-1"></i>{{ card.item.salary_display }}</span>
+                        {% else %}
+                        <span class="v2-nosalary"><i class="bi bi-dash-circle me-1"></i>No salary listed</span>
+                        {% endif %}
+                    </div>
+                    <div class="text-muted small mb-2">
+                        {% if card.item.location %}
+                        <i class="bi bi-geo-alt-fill me-1"></i>{{ card.item.location }}
+                        {% endif %}
+                        <span class="v2-discovered {% if card.item.location %}ms-3{% endif %}">
+                            <i class="bi bi-clock-history me-1"></i>Discovered {{ card.discovered|timesince }} ago
+                        </span>
+                    </div>
+                    {% if card.reasons %}
+                    <div class="v2-reasons mb-3">
+                        {% for reason in card.reasons %}
+                        <span class="v2-reason">{{ reason }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    <div class="d-flex justify-content-between align-items-center mt-auto pt-2">
+                        <a href="{{ card.item.detail_url }}" class="btn btn-primary btn-sm">
+                            View &amp; apply <i class="bi bi-arrow-right ms-1"></i>
+                        </a>
+                        <span class="v2-ats-note">Applies on employer's site</span>
                     </div>
                 </div>
-            </a>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="card"><div class="card-body text-center py-5 text-muted">
+                No fresh listings right now — check back after the morning scoring run.
+            </div></div>
         </div>
         {% endfor %}
     </div>
 </div>
-{% endif %}
 
-<!-- Verified Postings Section -->
+<!-- Verified Postings (employer-posted; the highest trust tier) -->
 {% if verified_jobs %}
 <div class="container mb-5">
     <div class="d-flex justify-content-between align-items-center mb-4">
@@ -158,13 +342,12 @@
                 <span class="trust-badge trust-badge-verified">&#10003; Verified</span>
             </div>
             <h2 class="fw-bold mb-1">Verified Postings</h2>
-            <p class="text-muted mb-0">Jobs posted directly to RJRP by verified employers.</p>
+            <p class="text-muted mb-0">Posted directly to RJRP by vetted employers — the highest trust tier we have.</p>
         </div>
         <a href="{% url 'job_list' %}?source=verified" class="btn btn-outline-primary">
             View All <i class="bi bi-arrow-right ms-1"></i>
         </a>
     </div>
-
     <div class="row">
         {% for job in verified_jobs %}
         <div class="col-lg-6 mb-4">
@@ -182,10 +365,7 @@
                         <i class="bi bi-cash-stack me-1"></i>{{ job.salary }}
                     </div>
                     {% endif %}
-                    <p class="card-text text-muted mb-3" style="font-size: 0.9rem;">
-                        {{ job.description|striptags|truncatewords:25 }}
-                    </p>
-                    <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex justify-content-between align-items-center mt-2">
                         <div class="text-muted small">
                             <i class="bi bi-geo-alt-fill me-1"></i>{{ job.location }}
                             <span class="ms-3">
@@ -204,141 +384,111 @@
 </div>
 {% endif %}
 
-<!-- Market-Observed Roles Section -->
-{% if observed_jobs %}
+<!-- How the filter works -->
 <div class="container mb-5">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <div class="d-flex align-items-center gap-2 mb-1">
-                <span class="trust-badge trust-badge-observed">&#128269; Observed</span>
-            </div>
-            <h2 class="fw-bold mb-1">Market-Observed Roles</h2>
-            <p class="text-muted mb-0">Detected through employer hiring systems and scored by our Hiring Activity algorithm. Only high-scoring listings are shown.</p>
-        </div>
-        <a href="{% url 'job_list' %}?source=observed" class="btn btn-outline-primary">
-            View All <i class="bi bi-arrow-right ms-1"></i>
-        </a>
-    </div>
-
-    <div class="row">
-        {% for item in observed_jobs %}
-        <div class="col-lg-6 mb-4">
-            <div class="card job-card job-card-observed h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
-                        <span class="trust-badge trust-badge-observed">&#128269; Observed</span>
-                        {% if item.has_score_value %}
-                        <span class="activity-label">
-                            Active {{ item.has_score_value }}/100
-                        </span>
-                        {% endif %}
-                    </div>
-                    <h5 class="job-title mb-1">{{ item.title }}</h5>
-                    <h6 class="text-primary mb-1">
-                        <i class="bi bi-building me-1"></i>{{ item.company_name }}
-                    </h6>
-                    {% if item.salary_display %}
-                    <div class="salary-display mb-2">
-                        <i class="bi bi-cash-stack me-1"></i>{{ item.salary_display }}
-                    </div>
-                    {% endif %}
-                    <p class="card-text text-muted mb-3" style="font-size: 0.9rem;">
-                        {{ item.description|striptags|truncatewords:25 }}
-                    </p>
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div class="text-muted small">
-                            {% if item.location %}
-                            <i class="bi bi-geo-alt-fill me-1"></i>{{ item.location }}
-                            {% endif %}
-                            <span class="ms-3">
-                                <i class="bi bi-calendar3 me-1"></i>{{ item.posted_date|timesince }} ago
-                            </span>
-                        </div>
-                        <a href="{{ item.detail_url }}" class="btn btn-primary btn-sm">
-                            View Details <i class="bi bi-arrow-right ms-1"></i>
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% endfor %}
-    </div>
-
-    <div class="text-center mt-2">
-        <a href="{% url 'job_list' %}" class="btn btn-primary btn-lg">
-            <i class="bi bi-briefcase me-2"></i>Explore All Opportunities
-        </a>
-    </div>
-</div>
-{% endif %}
-
-{% if not verified_jobs and not observed_jobs %}
-<div class="container">
-    <div class="card">
-        <div class="card-body text-center py-5">
-            <i class="bi bi-inbox text-muted" style="font-size: 4rem;"></i>
-            <h5 class="mt-3 text-muted">No jobs posted yet</h5>
-            <p class="text-muted">Check back soon for new opportunities!</p>
-            {% if user.is_authenticated and user.userprofile.user_type == 'employer' %}
-            <a href="{% url 'post_job' %}" class="btn btn-primary mt-3">
-                <i class="bi bi-plus-circle me-2"></i>Post Your First Job
-            </a>
-            {% endif %}
-        </div>
-    </div>
-</div>
-{% endif %}
-
-<!-- How It Works Section -->
-{% if not user.is_authenticated %}
-<div class="container mb-5">
-    <h2 class="fw-bold text-center mb-2">How It Works</h2>
-    <p class="text-muted text-center mb-4">Three steps to your next opportunity</p>
+    <h2 class="fw-bold mb-2">How the filter works</h2>
+    <p class="text-muted mb-4" style="max-width: 720px;">
+        No black box. Every point in every score traces to a documented signal — and we publish the methodology.
+    </p>
     <div class="row g-4">
         <div class="col-md-4">
-            <div class="card text-center h-100 border-0" style="background: transparent;">
+            <div class="card h-100">
                 <div class="card-body">
-                    <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 72px; height: 72px; background: var(--light-bg);">
-                        <i class="bi bi-search" style="font-size: 1.8rem; color: var(--primary-color);"></i>
+                    <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 48px; height: 48px; background: var(--light-bg);">
+                        <span class="fw-bold" style="color: var(--primary-color);">1</span>
                     </div>
-                    <h5 class="fw-bold">Search &amp; Discover</h5>
-                    <p class="text-muted mb-0">Browse thousands of jobs from verified employers and market-observed roles scored by our Hiring Activity algorithm.</p>
+                    <h5 class="fw-bold">We watch employer hiring systems directly</h5>
+                    <p class="text-muted mb-0">Listings come from employer ATS platforms — not scraped aggregator soup. We track requisition IDs, repost patterns, and whether companies actually close the roles they post.</p>
                 </div>
             </div>
         </div>
         <div class="col-md-4">
-            <div class="card text-center h-100 border-0" style="background: transparent;">
+            <div class="card h-100">
                 <div class="card-body">
-                    <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 72px; height: 72px; background: var(--light-bg);">
-                        <i class="bi bi-shield-check" style="font-size: 1.8rem; color: var(--primary-color);"></i>
+                    <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 48px; height: 48px; background: var(--light-bg);">
+                        <span class="fw-bold" style="color: var(--primary-color);">2</span>
                     </div>
-                    <h5 class="fw-bold">Trust the Source</h5>
-                    <p class="text-muted mb-0">Every listing is labeled Verified or Market-Observed so you know exactly where it came from and how active the hiring is.</p>
+                    <h5 class="fw-bold">Twelve signals, one score</h5>
+                    <p class="text-muted mb-0">Freshness, salary transparency, repost detection, evergreen-language detection, company hiring velocity, and more — each grounded in published labor-market research. Scored 0–100, rescored daily.</p>
                 </div>
             </div>
         </div>
         <div class="col-md-4">
-            <div class="card text-center h-100 border-0" style="background: transparent;">
+            <div class="card h-100">
                 <div class="card-body">
-                    <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 72px; height: 72px; background: var(--light-bg);">
-                        <i class="bi bi-send" style="font-size: 1.8rem; color: var(--primary-color);"></i>
+                    <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 48px; height: 48px; background: var(--light-bg);">
+                        <span class="fw-bold" style="color: var(--primary-color);">3</span>
                     </div>
-                    <h5 class="fw-bold">Apply with Confidence</h5>
-                    <p class="text-muted mb-0">Apply directly through verified postings or follow deep-links to employer career portals for market-observed roles.</p>
+                    <h5 class="fw-bold">Below 65 never gets published</h5>
+                    <p class="text-muted mb-0">Most listings we track don't make it onto this site. That's the product: not more jobs — fewer, better ones. <a href="{% url 'has_info' %}">Read the full methodology &rarr;</a></p>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Employers ranked by behavior -->
+{% if employer_rows %}
+<div class="container mb-5">
+    <div class="d-flex justify-content-between align-items-center mb-1">
+        <h2 class="fw-bold mb-0">Employers ranked by behavior</h2>
+        <a href="{% url 'directory:index' %}" class="btn btn-outline-primary">
+            All employers <i class="bi bi-arrow-right ms-1"></i>
+        </a>
+    </div>
+    <p class="text-muted mb-3" style="max-width: 720px;">
+        Not by logo size. These companies earn placement by how they actually hire:
+        high activity scores, published salaries, and fresh openings.
+    </p>
+    <div class="table-responsive">
+        <table class="table v2-emp-table mb-2">
+            <thead>
+                <tr>
+                    <th>Employer</th>
+                    <th>Avg HAS</th>
+                    <th>New this week</th>
+                    <th>Salary listed</th>
+                    <th>Live listings</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in employer_rows %}
+                <tr>
+                    <td class="fw-semibold">
+                        <a href="{% url 'job_list' %}?search={{ row.company_name|urlencode }}" style="color: var(--ink); text-decoration: none;">{{ row.company_name }}</a>
+                    </td>
+                    <td class="v2-num-good">{{ row.avg_has }}</td>
+                    <td class="v2-num-good">{% if row.new_week %}&uarr; {{ row.new_week }}{% else %}&mdash;{% endif %}</td>
+                    <td>{{ row.salary_pct }}%</td>
+                    <td>{{ row.live }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <span class="v2-table-note">Rankings recompute from observed hiring behavior. An employer can't buy a spot on this list.</span>
+</div>
 {% endif %}
+
+<!-- Browse by Category (secondary navigation) -->
+<div class="container mb-5">
+    <h2 class="fw-bold mb-3">Browse by category</h2>
+    <div class="d-flex flex-wrap gap-2">
+        {% for cat in popular_categories %}
+        <a href="{% url 'job_list' %}?search={{ cat.query|urlencode }}" class="btn btn-outline-primary rounded-pill px-4 py-2" style="font-size: 0.95rem;">
+            <i class="bi {{ cat.icon }} me-1"></i>{{ cat.label }}
+        </a>
+        {% endfor %}
+    </div>
+</div>
 
 <!-- CTA Section -->
 {% if not user.is_authenticated %}
 <div class="container my-5">
     <div class="card bg-primary text-white">
         <div class="card-body text-center py-5">
-            <h3 class="fw-bold mb-3">Ready to Start Your Journey?</h3>
-            <p class="lead mb-4">Join thousands of job seekers and employers on Real Jobs, Real People today</p>
+            <h3 class="fw-bold mb-3">Stop wasting applications on ghost jobs</h3>
+            <p class="lead mb-4">Join Real Jobs, Real People — where every listing has evidence behind it.</p>
             <div class="d-flex justify-content-center gap-3">
                 <a href="{% url 'jobseeker_signup' %}" class="btn btn-light btn-lg">
                     <i class="bi bi-person me-2"></i>I'm Looking for Jobs
@@ -355,39 +505,37 @@
 
 {% block extra_js %}
 <script>
-    const heroTexts = [
-        "Where Real Opportunities Meet Real People",
-        "Your Next Chapter Starts Here",
-        "Connecting Talent with Opportunity",
-        "Jobs That Match Your Ambition",
-        "Find Work That Works for You",
-        "Real Jobs. Real Companies. Real Results.",
-        "Your Career, Your Terms",
-        "Where Careers Take Off",
-        "More Than a Job Board—A Launchpad",
-        "Discover Roles Worth Your Talent",
-        "The Shortest Path to Your Next Role",
-        "Built for Job Seekers, Not Algorithms"
-    ];
+    // Rotating "rejected today" ticker — real unpublished listings, anonymized
+    // server-side (category + title only, no company names).
+    (function () {
+        const dataEl = document.getElementById('v2-ticker-data');
+        const el = document.getElementById('v2Ticker');
+        if (!dataEl || !el) return;
+        let items = [];
+        try { items = JSON.parse(dataEl.textContent); } catch (e) { return; }
+        if (!items.length) return;
 
-    let currentIndex = 0;
-    const heroElement = document.getElementById('heroText');
-
-    function rotateHeroText() {
-        // Fade out
-        heroElement.classList.add('fade-out');
-
-        setTimeout(() => {
-            // Change text
-            currentIndex = (currentIndex + 1) % heroTexts.length;
-            heroElement.textContent = heroTexts[currentIndex];
-
-            // Fade in
-            heroElement.classList.remove('fade-out');
-        }, 500); // Wait for fade-out to complete
-    }
-
-    // Start rotation after 8 seconds, then every 8 seconds
-    setInterval(rotateHeroText, 8000);
+        function esc(s) {
+            const d = document.createElement('span');
+            d.textContent = s == null ? '' : String(s);
+            return d.innerHTML;
+        }
+        function renderItem(it) {
+            return esc(it.label) + ' · ' + esc(it.title) +
+                ' — <span class="v2-why">' + esc(it.reason) + '</span>' +
+                ' · <span class="v2-score">HAS ' + esc(it.score) + '</span>';
+        }
+        let i = 0;
+        el.innerHTML = renderItem(items[0]);
+        if (items.length < 2) return;
+        setInterval(function () {
+            el.style.opacity = 0;
+            setTimeout(function () {
+                i = (i + 1) % items.length;
+                el.innerHTML = renderItem(items[i]);
+                el.style.opacity = 1;
+            }, 400);
+        }, 5000);
+    })();
 </script>
 {% endblock %}

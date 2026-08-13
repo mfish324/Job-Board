@@ -42,80 +42,214 @@ def ratelimited_error(request, exception):
 
 # Your existing views stay the same
 def home(request):
+    """
+    Filter-first landing page (v2, 2026-08).
+
+    The page leads with what the HAS filter REJECTS (identity for first-time
+    visitors), then "what changed since yesterday" + freshness tiers (the
+    return-visit hook). All expensive data is cached for 30 minutes, same
+    pattern/rationale as v1 — see the cache notes below.
+    """
+    from datetime import timedelta
     from django.core.cache import cache
+    from django.db.models import Avg, Count
     from .unified import UnifiedListing
 
-    # The homepage shows the same listings + counts to every visitor, but the
-    # view fired 7 DB queries on every load — including two that pulled every
-    # company name out of the DB to dedupe in Python. On a cold/recycled worker
-    # against the remote Postgres that produced 6-10s p95 spikes. Cache the
-    # expensive data for 5 minutes; the template still renders per-request so
-    # the (per-user) navbar auth state stays correct.
-    CACHE_KEY = 'home_page_data_v1'
-    CACHE_TTL = 1800  # 30 minutes — longer TTL means the expensive rebuild fires
-    # rarely, so it's far less likely to land inside the daily 09:00 rescore window
-    # (when the DB is saturated and a rebuild would otherwise hit the 60s timeout).
+    # Cache the expensive data for 30 minutes; the template still renders
+    # per-request so the (per-user) navbar auth state stays correct. Longer TTL
+    # keeps rebuilds rare so they're unlikely to land inside the daily 09:00 UTC
+    # rescore window (DB saturated → 60s timeout risk). Bumped key to v2 for the
+    # filter-first redesign payload.
+    CACHE_KEY = 'home_page_data_v2'
+    CACHE_TTL = 1800
 
     # NOTE: we cache RAW model instances (which pickle cleanly), not
     # UnifiedListing wrappers — the wrapper's __getattr__ infinitely recurses
     # under pickle. The wrapping is cheap; it's the DB queries we're caching.
     data = cache.get(CACHE_KEY)
     if data is None:
+        now = timezone.now()
+        day_ago = now - timedelta(hours=24)
+        week_ago = now - timedelta(days=7)
+
+        OBSERVED_LIVE = dict(published_to_board=True, status__in=['active', 'published'])
+        published = ScrapedJobListing.objects.filter(**OBSERVED_LIVE)
+
+        # ---- Hero: the filter numbers -----------------------------------
         # Verified postings (employer-posted)
-        verified_jobs = list(Job.objects.filter(is_active=True).order_by('-posted_date')[:5])
-
-        # Market-observed roles (scored and published). Query FROM HiringActivityScore
-        # (not ScrapedJobListing) so Postgres can drive off the indexed total_score
-        # column directly instead of joining ~21k listings out to their scores just to
-        # sort and take 6 — the old direction (select_related('activity_score') off
-        # ScrapedJobListing) is a LEFT JOIN the planner can't reorder around an index,
-        # and measured ~12s even with total_score indexed. This form measured ~220ms.
-        top_scores = list(HiringActivityScore.objects.filter(
-            published_to_board=True, listing__status__in=['active', 'published']
-        ).select_related('listing').order_by('-total_score', '-listing__date_first_seen')[:6])
-        observed_listings = []
-        for score in top_scores:
-            score.listing.activity_score = score  # prime reverse cache, avoid N+1 below
-            observed_listings.append(score.listing)
-
+        verified_jobs = list(Job.objects.filter(is_active=True).order_by('-posted_date')[:4])
         total_verified = Job.objects.filter(is_active=True).count()
-        total_observed = ScrapedJobListing.objects.filter(
-            published_to_board=True, status__in=['active', 'published']
-        ).count()
+        total_observed = published.count()
         total_jobs = total_verified + total_observed
 
-        # Distinct company count. Computed DB-side per table (one aggregate each)
-        # rather than pulling every company name into Python to union — the old
-        # approach scanned + transferred ~9k names from the 67k-row observed table,
-        # which is what timed out (60s+) when this rebuilt during the 09:00 rescore.
-        # Summing the two per-table distinct counts can double-count a company that
-        # appears in BOTH tables, but the verified table is tiny (a handful of active
-        # postings) and its companies don't overlap the observed feed, so the
-        # overcount is negligible for a homepage stat — worth it to avoid the scan.
+        # Everything currently tracked from employer hiring systems that hasn't
+        # been confirmed closed. tracked - published = listings that did NOT
+        # clear the 65-point publish bar (the number the hero leads with).
+        total_tracked = ScrapedJobListing.objects.exclude(status='closed').count()
+        total_rejected = max(total_tracked - total_observed, 0)
+
+        # Distinct company count. Computed DB-side per table (one aggregate
+        # each) — see v1 note: pulling names into Python to union timed out
+        # during the 09:00 rescore. Slight double-count possible for a company
+        # in both tables; negligible for a homepage stat.
         verified_companies = (
             Job.objects.filter(is_active=True)
             .values('company').distinct().count()
         )
-        observed_companies = (
-            ScrapedJobListing.objects.filter(
-                published_to_board=True, status__in=['active', 'published']
-            ).values('company_name').distinct().count()
-        )
+        observed_companies = published.values('company_name').distinct().count()
         total_companies = verified_companies + observed_companies
 
-        total_seekers = UserProfile.objects.filter(user_type='job_seeker').count()
+        # ---- Freshness tiers (counts drive the "Beat the crowd" pills) --
+        fresh_counts = {
+            'h24': published.filter(date_first_seen__gte=day_ago).count(),
+            'h48': published.filter(date_first_seen__gte=now - timedelta(hours=48)).count(),
+            'd7': published.filter(date_first_seen__gte=week_ago).count(),
+        }
+
+        # Newest published listings for the card grid (score as tiebreaker).
+        # defer() the heavy columns the cards never read (see job_list note on
+        # raw_data/description_summary RSS cost).
+        fresh_listings = list(
+            published.select_related('activity_score')
+            .defer('description_summary', 'raw_data')
+            .order_by('-date_first_seen', '-activity_score__total_score')[:6]
+        )
+
+        # Compact per-card "why it's here" chips, derived from fields we
+        # already have in hand (not a full breakdown — that lives on the
+        # detail page). Keyed by pk because custom attrs shouldn't ride
+        # through the pickle cache.
+        fresh_reasons = {}
+        for listing in fresh_listings:
+            reasons = []
+            if listing.salary_min or listing.salary_max:
+                reasons.append('Salary listed')
+            days = listing.days_since_posted()
+            if days <= 2:
+                reasons.append('Posted in the last 48h')
+            elif days <= 7:
+                reasons.append('Posted this week')
+            if listing.repost_count == 0:
+                reasons.append('Not a repost')
+            try:
+                breakdown = listing.activity_score.score_breakdown or {}
+                velocity = breakdown.get('company_velocity', {})
+                if isinstance(velocity, dict) and velocity.get('points', 0) >= 4:
+                    reasons.append('Company hiring actively')
+            except (HiringActivityScore.DoesNotExist, AttributeError):
+                pass
+            fresh_reasons[listing.pk] = reasons[:3]
+
+        # ---- "What changed since yesterday" delta block ------------------
+        delta = {
+            'new_24h': fresh_counts['h24'],
+            'closed_24h': ScrapedJobListing.objects.filter(
+                date_removed__gte=day_ago
+            ).count(),
+            'reposts_24h': ScrapedJobListing.objects.filter(
+                date_first_seen__gte=day_ago, repost_count__gte=1
+            ).count(),
+            'ramping': CompanyHiringProfile.objects.filter(
+                net_job_movement_30d__gte=5
+            ).count(),
+            'quiet': CompanyHiringProfile.objects.filter(
+                total_active_listings__gte=10
+            ).filter(
+                Q(listing_close_rate_30d__isnull=True) | Q(listing_close_rate_30d__lte=0)
+            ).count(),
+        }
+
+        # ---- "Rejected today" ticker (anonymized) ------------------------
+        # Company names are deliberately withheld: a low score is a probability
+        # estimate of hiring activity, not an accusation of bad faith.
+        ticker_items = []
+        rejected_rows = (
+            ScrapedJobListing.objects.filter(
+                published_to_board=False, status__in=['active', 'stale']
+            )
+            .select_related('activity_score')
+            .defer('description', 'description_summary', 'raw_data')
+            .order_by('-date_last_seen')[:40]
+        )
+        for listing in rejected_rows:
+            try:
+                score = listing.activity_score.total_score
+            except (HiringActivityScore.DoesNotExist, AttributeError):
+                continue
+            if listing.repost_count >= 3:
+                reason = 'reposted %d times with near-identical text' % listing.repost_count
+            elif listing.days_since_posted() >= 90:
+                reason = 'open %d days' % listing.days_since_posted()
+            elif not (listing.salary_min or listing.salary_max):
+                reason = 'no salary, weak activity signals'
+            else:
+                reason = 'weak hiring-activity signals'
+            label = listing.get_job_category_display() if listing.job_category else 'Listing'
+            ticker_items.append({
+                'label': label,
+                'title': listing.title[:80],
+                'reason': reason,
+                'score': score,
+            })
+            if len(ticker_items) >= 6:
+                break
+
+        # ---- Employers ranked by behavior --------------------------------
+        # One grouped aggregate over the published set (~22k rows), cached.
+        # Ranked by average HAS among companies with a meaningful live count —
+        # behavior, not logo size.
+        employer_rows = list(
+            published.values('company_name')
+            .annotate(
+                live=Count('id'),
+                avg_has=Avg('activity_score__total_score'),
+                with_salary=Count(
+                    'id',
+                    filter=Q(salary_min__isnull=False) | Q(salary_max__isnull=False),
+                ),
+                new_week=Count('id', filter=Q(date_first_seen__gte=week_ago)),
+            )
+            .filter(live__gte=15, avg_has__isnull=False)
+            .order_by('-avg_has')[:6]
+        )
+        for row in employer_rows:
+            row['salary_pct'] = round(100 * row['with_salary'] / row['live']) if row['live'] else 0
+            row['avg_has'] = round(row['avg_has'])
 
         data = {
             'verified_jobs': verified_jobs,
-            'observed_listings': observed_listings,
+            'fresh_listings': fresh_listings,
+            'fresh_reasons': fresh_reasons,
+            'fresh_counts': fresh_counts,
+            'delta': delta,
+            'ticker_items': ticker_items,
+            'employer_rows': employer_rows,
             'total_jobs': total_jobs,
+            'total_tracked': total_tracked,
+            'total_rejected': total_rejected,
             'total_companies': total_companies,
-            'total_seekers': total_seekers,
+            # Pre-formatted display strings (humanize isn't installed)
+            'fmt': {
+                'total_jobs': f'{total_jobs:,}',
+                'total_tracked': f'{total_tracked:,}',
+                'total_rejected': f'{total_rejected:,}',
+                'total_companies': f'{total_companies:,}',
+                'new_24h': f"{delta['new_24h']:,}",
+                'h48': f"{fresh_counts['h48']:,}",
+                'd7': f"{fresh_counts['d7']:,}",
+            },
         }
         cache.set(CACHE_KEY, data, CACHE_TTL)
 
     # Wrap observed listings per-request (cheap; not cached — see note above)
-    observed_unified = [UnifiedListing(l) for l in data['observed_listings']]
+    fresh_cards = [
+        {
+            'item': UnifiedListing(listing),
+            'reasons': data['fresh_reasons'].get(listing.pk, []),
+            'discovered': listing.date_first_seen,
+        }
+        for listing in data['fresh_listings']
+    ]
 
     popular_categories = [
         {'label': 'Software Engineering', 'query': 'software engineer', 'icon': 'bi-code-slash'},
@@ -132,24 +266,26 @@ def home(request):
         {'label': 'Accounting', 'query': 'accountant', 'icon': 'bi-calculator'},
     ]
 
-    # Featured tech employers — surfaces the directory on the homepage targeting
-    # our primary audience. Hidden if no tech-tagged employers exist.
-    from directory.models import FeaturedEmployer
-    featured_tech_employers = list(
-        FeaturedEmployer.objects.filter(is_active=True, industry='TECHNOLOGY')
-        .order_by('display_priority', 'name')[:12]
-    )
+    # Stack chips in the hero — tech seekers search by stack, not category.
+    stack_tags = ['react', 'python', 'go', 'rust', 'kubernetes', 'aws', 'machine learning']
 
     context = {
         'verified_jobs': data['verified_jobs'],
-        'observed_jobs': observed_unified,
+        'fresh_cards': fresh_cards,
+        'fresh_counts': data['fresh_counts'],
+        'delta': data['delta'],
+        'ticker_items': data['ticker_items'],
+        'employer_rows': data['employer_rows'],
         'total_jobs': data['total_jobs'],
+        'total_tracked': data['total_tracked'],
+        'total_rejected': data['total_rejected'],
         'total_companies': data['total_companies'],
-        'total_seekers': data['total_seekers'],
+        'fmt': data['fmt'],
         'popular_categories': popular_categories,
-        'featured_tech_employers': featured_tech_employers,
+        'stack_tags': stack_tags,
     }
     return render(request, 'jobs/home.html', context)
+
 
 def job_list(request):
     import hashlib
