@@ -1,519 +1,647 @@
 {% extends 'jobs/base.html' %}
 {% load has_tags %}
 
-{% block title %}Browse Jobs{% if request.GET.q %} — {{ request.GET.q }}{% endif %}{% if request.GET.location %} in {{ request.GET.location }}{% endif %} | RJRP{% endblock %}
-{% block meta_description %}Browse verified and activity-scored job listings{% if request.GET.q %} for "{{ request.GET.q }}"{% endif %}{% if request.GET.location %} in {{ request.GET.location }}{% endif %}. Every listing is scored by our Hiring Activity algorithm to filter out ghost jobs.{% endblock %}
+{% block title %}Browse Jobs{% if request.GET.search %} — {{ request.GET.search }}{% endif %}{% if request.GET.location %} in {{ request.GET.location }}{% endif %} | RJRP{% endblock %}
+{% block meta_description %}Browse verified and activity-scored job listings{% if request.GET.search %} for "{{ request.GET.search }}"{% endif %}{% if request.GET.location %} in {{ request.GET.location }}{% endif %}. Every listing is scored by our Hiring Activity algorithm to filter out ghost jobs.{% endblock %}
 {% block canonical %}https://realjobsrealpeople.net/jobs/{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ---- v2 split-pane triage view for /jobs/ (scoped with jl- prefix) ---- */
+
+    /* Sticky search bar. Deliberately kept to a single fixed-height row so the
+       preview pane's sticky offset stays predictable; everything else (chips,
+       facets, filter drawer) scrolls away underneath it. */
+    .jl-bar {
+        position: sticky; top: 0; z-index: 30;
+        background: var(--light-bg, #EDE6D6);
+        border-bottom: 1px solid var(--border, #E9D7BF);
+        padding: 12px;
+        /* Bleed past the container gutters so row hover-shadows scrolling
+           underneath are covered rather than peeking out at the edges. */
+        margin: 0 -12px 14px;
+    }
+    .jl-bar-inner { display: flex; gap: 8px; align-items: center; }
+    .jl-bar .form-control, .jl-bar .btn { height: 46px; }
+    .jl-bar .input-group-text { background: #fff; border-right: 0; color: #9a866c; }
+    .jl-bar .form-control { border-left: 0; }
+    .jl-bar .form-control:focus { box-shadow: none; border-color: var(--clay, #B9834A); }
+    .jl-search-wrap { flex: 1 1 46%; min-width: 0; }
+    .jl-loc-wrap { flex: 1 1 30%; min-width: 0; }
+    .jl-filter-toggle {
+        white-space: nowrap; border: 1.5px solid var(--border, #E9D7BF);
+        background: #fff; color: var(--ink, #3B3026); border-radius: 8px;
+        padding: 0 16px; font-weight: 600; font-size: 0.92rem;
+    }
+    .jl-filter-toggle:hover { border-color: var(--primary-color); color: var(--primary-color); }
+    .jl-filter-toggle .jl-fcount {
+        display: inline-block; background: var(--primary-color); color: #fff;
+        border-radius: 999px; font-size: 0.72rem; padding: 1px 7px; margin-left: 6px;
+        font-variant-numeric: tabular-nums;
+    }
+
+    /* Filter drawer — the old always-open wall of selects, now collapsed */
+    .jl-drawer { display: none; margin-bottom: 16px; }
+    .jl-drawer.jl-open { display: block; }
+    .jl-drawer-card {
+        background: #fff; border: 1px solid var(--border, #E9D7BF);
+        border-radius: 12px; padding: 18px;
+    }
+    .jl-drawer label.form-label {
+        font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.6px;
+        color: #9a866c; font-weight: 700; margin-bottom: 4px;
+    }
+
+    /* Removable active-filter chips */
+    .jl-chips { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; margin-bottom: 12px; }
+    .jl-chip {
+        display: inline-flex; align-items: center; gap: 7px;
+        background: #fff; border: 1.5px solid var(--clay, #B9834A);
+        color: var(--ink, #3B3026); border-radius: 999px;
+        padding: 4px 6px 4px 13px; font-size: 0.85rem;
+        text-decoration: none; transition: background 0.12s;
+    }
+    .jl-chip:hover { background: #fdf6ec; color: var(--ink, #3B3026); }
+    .jl-chip .jl-x {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 18px; height: 18px; border-radius: 50%;
+        background: var(--light-bg, #EDE6D6); color: #6d5a44; font-size: 0.72rem;
+    }
+    .jl-chip:hover .jl-x { background: var(--clay, #B9834A); color: #fff; }
+    .jl-clear { font-size: 0.82rem; color: #9a866c; text-decoration: underline; }
+
+    /* Result meta + facet quick-pills */
+    .jl-meta { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
+    .jl-count { font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .jl-count small { font-weight: 400; color: #9a866c; font-size: 0.85rem; }
+    .jl-sort { display: flex; align-items: center; gap: 7px; }
+    .jl-sort label { font-size: 0.8rem; color: #9a866c; white-space: nowrap; }
+    .jl-sort .form-select { width: auto; font-size: 0.88rem; padding: 5px 30px 5px 11px; }
+
+    .jl-facets { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 14px; }
+    .jl-facet {
+        font-size: 0.82rem; border: 1px solid var(--border, #E9D7BF);
+        background: #fff; color: #6d5a44; border-radius: 999px;
+        padding: 5px 13px; text-decoration: none;
+        font-variant-numeric: tabular-nums; transition: all 0.12s;
+    }
+    .jl-facet:hover { border-color: var(--primary-color); color: var(--primary-color); }
+    .jl-facet b { color: var(--ink, #3B3026); }
+    .jl-facet.jl-on { background: var(--primary-color); border-color: var(--primary-color); color: #fff; font-weight: 600; }
+    .jl-facet.jl-on b { color: #fff; }
+    .jl-facet-note { font-size: 0.75rem; color: #9a866c; align-self: center; }
+
+    /* Split pane */
+    .jl-split { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 18px; align-items: start; }
+    .jl-list { min-width: 0; }
+
+    /* Result rows — dense, score-led, scannable */
+    .jl-row {
+        display: grid; grid-template-columns: 52px minmax(0, 1fr) auto;
+        gap: 13px; align-items: start;
+        padding: 13px 15px; margin-bottom: 8px;
+        background: #fff; border: 1px solid var(--border, #E9D7BF);
+        border-left: 4px solid var(--observed, #7F8F7A);
+        border-radius: 10px; text-decoration: none; color: var(--ink, #3B3026);
+        transition: border-color 0.12s, box-shadow 0.12s, background 0.12s;
+    }
+    .jl-row.jl-verified { border-left-color: var(--verified, #c49a3c); }
+    .jl-row:hover { color: var(--ink, #3B3026); box-shadow: 0 3px 12px rgba(0,0,0,0.07); }
+    .jl-row.jl-on {
+        background: #fffaf3; border-color: var(--clay, #B9834A);
+        box-shadow: 0 0 0 2px rgba(126, 81, 47, 0.15);
+    }
+    .jl-sc { text-align: center; padding-top: 1px; }
+    .jl-sc b { display: block; font-size: 1.12rem; line-height: 1; font-variant-numeric: tabular-nums; color: var(--primary-color); }
+    .jl-sc.jl-hi b { color: #4a7a52; }
+    .jl-sc .pips { display: inline-flex; transform: scale(0.72); transform-origin: center top; margin-top: 2px; }
+    .jl-sc .jl-vmark { font-size: 1.05rem; color: var(--verified, #c49a3c); line-height: 1; }
+    .jl-sc .jl-sc-lbl { display: block; font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.4px; color: #b3a189; margin-top: 3px; }
+
+    .jl-row-title { font-family: 'Lora', serif; font-size: 1.02rem; font-weight: 600; line-height: 1.3; margin-bottom: 2px; }
+    .jl-row-co { font-size: 0.88rem; color: var(--primary-color); font-weight: 600; margin-bottom: 3px; }
+    .jl-row-meta { font-size: 0.82rem; color: #6d5a44; display: flex; flex-wrap: wrap; gap: 4px 12px; }
+    .jl-row-meta .jl-sal { color: #4a7a52; font-weight: 600; }
+    .jl-row-meta .jl-nosal { color: #b3a189; }
+    .jl-row-reasons { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+    .jl-reason {
+        font-size: 0.68rem; background: var(--light-bg, #F5F0E5);
+        border: 1px solid var(--border, #E9D7BF); color: #6d5a44;
+        padding: 2px 8px; border-radius: 5px; white-space: nowrap;
+    }
+    .jl-age { font-size: 0.76rem; color: #9a866c; white-space: nowrap; padding-top: 2px; }
+
+    /* Section divider between verified and observed tiers */
+    .jl-tier { display: flex; align-items: center; gap: 9px; margin: 4px 0 10px; }
+    .jl-tier:not(:first-child) { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--border, #E9D7BF); }
+    .jl-tier h6 { margin: 0; font-weight: 700; font-size: 0.92rem; }
+    .jl-tier p { margin: 0; font-size: 0.78rem; color: #9a866c; }
+
+    /* Preview pane */
+    .jl-preview {
+        position: sticky; top: 84px;
+        max-height: calc(100vh - 104px); overflow-y: auto;
+        background: #fff; border: 1px solid var(--border, #E9D7BF);
+        border-radius: 12px; padding: 22px 24px;
+    }
+    .jl-preview::-webkit-scrollbar { width: 9px; }
+    .jl-preview::-webkit-scrollbar-thumb { background: var(--border, #E9D7BF); border-radius: 9px; }
+    .jl-pv-empty { text-align: center; color: #9a866c; padding: 64px 20px; }
+    .jl-pv-empty i { font-size: 2.4rem; color: var(--border, #E9D7BF); display: block; margin-bottom: 12px; }
+    .jl-pv-kbd {
+        display: inline-block; font-family: ui-monospace, Consolas, monospace;
+        font-size: 0.74rem; background: var(--light-bg, #F5F0E5);
+        border: 1px solid var(--border, #E9D7BF); border-bottom-width: 2px;
+        border-radius: 5px; padding: 1px 6px; margin: 0 2px; color: #6d5a44;
+    }
+    .jl-pv-loading { opacity: 0.45; transition: opacity 0.1s; }
+
+    .jl-pv-title { font-size: 1.42rem; line-height: 1.25; margin: 0 0 4px; }
+    .jl-pv-co { font-size: 1rem; font-weight: 600; color: var(--primary-color); margin-bottom: 9px; }
+    .jl-pv-meta { display: flex; flex-wrap: wrap; gap: 5px 15px; font-size: 0.84rem; color: #6d5a44; margin-bottom: 11px; }
+    .jl-pv-score { font-size: 0.92rem; font-weight: 700; color: var(--primary-color); font-variant-numeric: tabular-nums; }
+    .jl-pv-score-max { font-weight: 400; font-size: 0.76rem; color: #b3a189; }
+    .jl-pv-salary { font-size: 1.05rem; font-weight: 700; color: #4a7a52; }
+    .jl-pv-nosalary { font-size: 0.88rem; color: #b3a189; }
+
+    .jl-pv-evidence {
+        background: var(--light-bg, #F5F0E5); border: 1px solid var(--border, #E9D7BF);
+        border-radius: 10px; padding: 13px 15px; margin: 16px 0;
+    }
+    .jl-pv-evidence-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 9px; }
+    .jl-pv-band { font-weight: 700; font-size: 0.9rem; color: var(--ink, #3B3026); }
+    .jl-pv-method { font-size: 0.78rem; color: var(--primary-color); }
+    .jl-pv-signals { display: flex; flex-wrap: wrap; gap: 6px; }
+    .jl-pv-signal {
+        font-size: 0.73rem; background: #fff; border: 1px solid var(--border, #E9D7BF);
+        color: #6d5a44; padding: 3px 9px; border-radius: 6px; cursor: help;
+    }
+    .jl-pv-signal b { color: #4a7a52; }
+
+    .jl-pv-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; margin: 16px 0; }
+    .jl-pv-note { font-size: 0.76rem; color: #9a866c; }
+    .jl-pv-body { border-top: 1px solid var(--border, #E9D7BF); padding-top: 15px; }
+    .jl-pv-h { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.7px; color: #9a866c; font-weight: 700; margin-bottom: 9px; }
+    .jl-pv-desc { font-size: 0.9rem; line-height: 1.65; color: #4a3f33; }
+    .jl-pv-desc p { margin-bottom: 0.7rem; }
+    .jl-pv-desc ul { padding-left: 1.15rem; }
+    /* Feed descriptions carry their own h2-h6. Flatten them to one modest
+       size so an employer's markup can't out-shout the listing title above. */
+    .jl-pv-desc h1, .jl-pv-desc h2, .jl-pv-desc h3,
+    .jl-pv-desc h4, .jl-pv-desc h5, .jl-pv-desc h6,
+    .jl-pv-desc .desc-section-heading {
+        font-family: 'DM Sans', sans-serif; font-size: 0.88rem; font-weight: 700;
+        margin: 1rem 0 0.4rem; color: var(--ink, #3B3026); line-height: 1.35;
+    }
+    .jl-pv-desc table { width: 100%; font-size: 0.84rem; display: block; overflow-x: auto; }
+    .jl-pv-more { display: inline-block; margin-top: 10px; font-size: 0.85rem; font-weight: 600; color: var(--primary-color); }
+    .jl-pv-foot { border-top: 1px solid var(--border, #E9D7BF); margin-top: 16px; padding-top: 14px; }
+
+    /* Directory strip — replaces the old third column, which the split pane
+       leaves no room for. Same deep-link targets, horizontal layout. */
+    .jl-dir {
+        background: #fff; border: 1px solid var(--directory-color, #7E512F);
+        border-radius: 12px; padding: 14px 16px; margin-bottom: 16px;
+    }
+    .jl-dir-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+    .jl-dir-top h6 { margin: 0; font-weight: 700; font-size: 0.95rem; color: var(--directory-color, #7E512F); }
+    .jl-dir-top p { margin: 0; font-size: 0.78rem; color: #9a866c; }
+    .jl-dir-row { display: flex; flex-wrap: wrap; gap: 8px; }
+    .jl-dir-emp {
+        display: inline-flex; align-items: center; gap: 8px;
+        border: 1px solid var(--border, #E9D7BF); border-radius: 999px;
+        padding: 5px 13px 5px 6px; text-decoration: none;
+        background: var(--light-bg, #F5F0E5); transition: all 0.12s;
+    }
+    .jl-dir-emp:hover { border-color: var(--directory-color, #7E512F); background: #fff; }
+    .jl-dir-emp span { font-size: 0.85rem; font-weight: 600; color: var(--ink, #3B3026); }
+    .jl-dir-emp i { font-size: 0.7rem; color: var(--directory-color, #7E512F); }
+
+    .jl-empty { background: #fff; border: 1px solid var(--border, #E9D7BF); border-radius: 12px; padding: 60px 24px; text-align: center; }
+    .jl-trunc { font-size: 0.78rem; color: #9a866c; margin-top: 12px; }
+
+    /* Below lg the preview pane can't earn its width — rows become plain links
+       straight to the detail page and the JS stops intercepting clicks. */
+    @media (max-width: 991.98px) {
+        .jl-split { grid-template-columns: minmax(0, 1fr); }
+        .jl-preview { display: none; }
+        .jl-bar-inner { flex-wrap: wrap; }
+        .jl-search-wrap, .jl-loc-wrap { flex: 1 1 100%; }
+    }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="container">
-    <!-- Header -->
-    <div class="row mb-4">
-        <div class="col">
-            <h1 class="fw-bold mb-3">
-                <i class="bi bi-briefcase text-primary me-2"></i>Browse Job Openings
-            </h1>
-        </div>
-    </div>
 
-    <!-- Search and Filters -->
-    <div class="row mb-4">
-        <div class="col-lg-12">
-            <div class="card shadow-sm">
-                <div class="card-body">
-                    <form method="get" action="{% url 'job_list' %}" id="filterForm">
-                        <!-- Search Bar -->
-                        <div class="row g-3 mb-3">
-                            <div class="col-md-5">
-                                <div class="input-group input-group-lg">
-                                    <span class="input-group-text bg-white">
-                                        <i class="bi bi-search"></i>
-                                    </span>
-                                    <input type="text"
-                                           name="search"
-                                           class="form-control form-control-lg border-start-0"
-                                           placeholder="Job title, keyword, or company"
-                                           value="{{ search_query }}">
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="input-group input-group-lg">
-                                    <span class="input-group-text bg-white">
-                                        <i class="bi bi-geo-alt"></i>
-                                    </span>
-                                    <input type="text"
-                                           name="location"
-                                           class="form-control form-control-lg border-start-0"
-                                           placeholder="City or state (e.g. Austin, TX)"
-                                           value="{{ location_filter }}">
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <button type="submit" class="btn btn-primary btn-lg w-100">
-                                    <i class="bi bi-search me-2"></i>Search
-                                </button>
+    <!-- Sticky search bar -->
+    <div class="jl-bar">
+        <form method="get" action="{% url 'job_list' %}" id="filterForm">
+            {# Filter state the drawer owns but the bar must not drop on submit #}
+            <input type="hidden" name="country" value="">
+            {% if sort_mode and sort_mode != 'relevant' %}<input type="hidden" name="sort" value="{{ sort_mode }}">{% endif %}
+
+            <div class="jl-bar-inner">
+                <div class="jl-search-wrap">
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input type="text" name="search" class="form-control"
+                               placeholder="Job title, company, or stack" value="{{ search_query }}">
+                    </div>
+                </div>
+                <div class="jl-loc-wrap">
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-geo-alt"></i></span>
+                        <input type="text" name="location" class="form-control"
+                               placeholder="City or state" value="{{ location_filter }}">
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary px-4">Search</button>
+                <button type="button" class="jl-filter-toggle" id="jlFilterBtn" onclick="jlToggleDrawer()">
+                    <i class="bi bi-sliders me-1"></i>Filters{% if active_chips %}<span class="jl-fcount">{{ active_chips|length }}</span>{% endif %}
+                </button>
+            </div>
+
+            <!-- Collapsible filter drawer -->
+            <div class="jl-drawer" id="jlDrawer">
+                <div class="jl-drawer-card mt-3">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label">Source</label>
+                            <select name="source" class="form-select" onchange="this.form.submit()">
+                                <option value="">All ({{ fmt.total }})</option>
+                                <option value="verified" {% if source_filter == 'verified' %}selected{% endif %}>Verified ({{ fmt.verified }})</option>
+                                <option value="observed" {% if source_filter == 'observed' %}selected{% endif %}>Observed ({{ fmt.observed }})</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Job type</label>
+                            <select name="job_type" class="form-select" onchange="this.form.submit()">
+                                <option value="">All types</option>
+                                {% for value, label in job_type_choices %}
+                                <option value="{{ value }}" {% if job_type_filter == value %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Experience</label>
+                            <select name="experience" class="form-select" onchange="this.form.submit()">
+                                <option value="">All levels</option>
+                                {% for value, label in experience_level_choices %}
+                                <option value="{{ value }}" {% if experience_filter == value %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Activity score</label>
+                            <select name="activity" class="form-select" onchange="this.form.submit()">
+                                <option value="">All scores</option>
+                                {% for value, label in score_band_choices %}
+                                <option value="{{ value }}" {% if activity_filter == value %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Date posted</label>
+                            <select name="date_posted" class="form-select" onchange="this.form.submit()">
+                                <option value="">Any time</option>
+                                <option value="24h" {% if date_filter == '24h' %}selected{% endif %}>Last 24 hours</option>
+                                <option value="7d" {% if date_filter == '7d' %}selected{% endif %}>Last 7 days</option>
+                                <option value="30d" {% if date_filter == '30d' %}selected{% endif %}>Last 30 days</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Salary</label>
+                            <select name="salary" class="form-select" onchange="this.form.submit()">
+                                <option value="">All jobs</option>
+                                <option value="with_salary" {% if salary_filter == 'with_salary' %}selected{% endif %}>With salary info only</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Work location</label>
+                            <div class="btn-group work-location-group w-100" role="group" aria-label="Work location">
+                                <input type="radio" class="btn-check" name="remote" id="remote-all" value="" {% if not remote_filter %}checked{% endif %} onchange="this.form.submit()">
+                                <label class="btn" for="remote-all">Any</label>
+                                {% for value, label in remote_status_choices %}
+                                <input type="radio" class="btn-check" name="remote" id="remote-{{ value }}" value="{{ value }}" {% if remote_filter == value %}checked{% endif %} onchange="this.form.submit()">
+                                <label class="btn" for="remote-{{ value }}">{{ label }}</label>
+                                {% endfor %}
                             </div>
                         </div>
-
-                        <!-- US Only Toggle -->
-                        <div class="row g-2 mb-3">
-                            <div class="col-auto">
-                                <div class="form-check form-switch" style="padding-top: 4px;">
-                                    <input type="hidden" name="country" value="">
-                                    <input class="form-check-input" type="checkbox" role="switch" id="usOnlyToggle"
-                                           name="country" value="us" {% if country_filter == 'us' %}checked{% endif %}
-                                           onchange="this.form.submit()" style="cursor: pointer; width: 2.5em; height: 1.3em;">
-                                    <label class="form-check-label fw-semibold" for="usOnlyToggle" style="cursor: pointer; font-size: 0.9rem;">
-                                        <i class="bi bi-geo-alt me-1"></i>U.S. Only
-                                    </label>
-                                </div>
+                        <div class="col-md-2 d-flex align-items-end">
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" role="switch" id="usOnlyToggle"
+                                       name="country" value="us" {% if country_filter == 'us' %}checked{% endif %}
+                                       onchange="this.form.submit()" style="cursor: pointer; width: 2.4em; height: 1.25em;">
+                                <label class="form-check-label fw-semibold" for="usOnlyToggle" style="cursor: pointer; font-size: 0.87rem;">U.S. only</label>
                             </div>
                         </div>
-
-                        <!-- Filters Row 1 -->
-                        <div class="row g-3 mb-3">
-                            <div class="col-md-3">
-                                <label class="form-label fw-semibold">
-                                    <i class="bi bi-funnel me-1"></i>Source
-                                </label>
-                                <select name="source" class="form-select" onchange="this.form.submit()">
-                                    <option value="">All Jobs ({{ total_results }})</option>
-                                    <option value="verified" {% if source_filter == 'verified' %}selected{% endif %}>
-                                        Verified ({{ verified_count }})
-                                    </option>
-                                    <option value="observed" {% if source_filter == 'observed' %}selected{% endif %}>
-                                        Observed ({{ observed_count }})
-                                    </option>
-                                </select>
-                            </div>
-
-                            <div class="col-md-3">
-                                <label class="form-label fw-semibold">
-                                    <i class="bi bi-briefcase me-1"></i>Job Type
-                                </label>
-                                <select name="job_type" class="form-select" onchange="this.form.submit()">
-                                    <option value="">All Types</option>
-                                    {% for value, label in job_type_choices %}
-                                    <option value="{{ value }}" {% if job_type_filter == value %}selected{% endif %}>
-                                        {{ label }}
-                                    </option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-
-                            <div class="col-md-3">
-                                <label class="form-label fw-semibold">
-                                    <i class="bi bi-globe me-1"></i>Work Location
-                                </label>
-                                <div class="btn-group work-location-group w-100" role="group" aria-label="Work location">
-                                    <input type="radio" class="btn-check" name="remote" id="remote-all" value="" {% if not remote_filter %}checked{% endif %} onchange="this.form.submit()">
-                                    <label class="btn" for="remote-all">Any</label>
-                                    {% for value, label in remote_status_choices %}
-                                    <input type="radio" class="btn-check" name="remote" id="remote-{{ value }}" value="{{ value }}" {% if remote_filter == value %}checked{% endif %} onchange="this.form.submit()">
-                                    <label class="btn" for="remote-{{ value }}">{{ label }}</label>
-                                    {% endfor %}
-                                </div>
-                            </div>
-
-                            <div class="col-md-3">
-                                <label class="form-label fw-semibold">
-                                    <i class="bi bi-sort-down me-1"></i>Sort By
-                                </label>
-                                <select name="sort" class="form-select" onchange="this.form.submit()">
-                                    <option value="relevant" {% if sort_mode == 'relevant' %}selected{% endif %}>Most Relevant</option>
-                                    <option value="newest" {% if sort_mode == 'newest' %}selected{% endif %}>Newest First</option>
-                                    <option value="activity" {% if sort_mode == 'activity' %}selected{% endif %}>Activity Score</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <!-- More Filters Toggle -->
-                        <div class="row g-3 mb-3">
-                            <div class="col-12">
-                                <button type="button" class="btn-more-filters" id="moreFiltersBtn" onclick="toggleMoreFilters()">
-                                    <i class="bi bi-sliders me-1"></i>More Filters <i class="bi bi-chevron-down ms-1"></i>
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- Filters Row 2 (collapsible) -->
-                        <div class="row g-3 more-filters-row" id="moreFiltersRow">
-                            <div class="col-md-3">
-                                <label class="form-label fw-semibold">
-                                    <i class="bi bi-bar-chart me-1"></i>Experience Level
-                                </label>
-                                <select name="experience" class="form-select" onchange="this.form.submit()">
-                                    <option value="">All Levels</option>
-                                    {% for value, label in experience_level_choices %}
-                                    <option value="{{ value }}" {% if experience_filter == value %}selected{% endif %}>
-                                        {{ label }}
-                                    </option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-
-                            <div class="col-md-3">
-                                <label class="form-label fw-semibold">
-                                    <i class="bi bi-cash me-1"></i>Salary
-                                </label>
-                                <select name="salary" class="form-select" onchange="this.form.submit()">
-                                    <option value="">All Jobs</option>
-                                    <option value="with_salary" {% if salary_filter == 'with_salary' %}selected{% endif %}>
-                                        With Salary Info Only
-                                    </option>
-                                </select>
-                            </div>
-
-                            <div class="col-md-3">
-                                <label class="form-label fw-semibold">
-                                    <i class="bi bi-calendar me-1"></i>Date Posted
-                                </label>
-                                <select name="date_posted" class="form-select" onchange="this.form.submit()">
-                                    <option value="">Any Time</option>
-                                    <option value="24h" {% if date_filter == '24h' %}selected{% endif %}>
-                                        Last 24 Hours
-                                    </option>
-                                    <option value="7d" {% if date_filter == '7d' %}selected{% endif %}>
-                                        Last 7 Days
-                                    </option>
-                                    <option value="30d" {% if date_filter == '30d' %}selected{% endif %}>
-                                        Last 30 Days
-                                    </option>
-                                </select>
-                            </div>
-
-                            <div class="col-md-3">
-                                <label class="form-label fw-semibold">
-                                    <i class="bi bi-speedometer2 me-1"></i>Activity Score
-                                </label>
-                                <select name="activity" class="form-select" onchange="this.form.submit()">
-                                    <option value="">All Scores</option>
-                                    {% for value, label in score_band_choices %}
-                                    <option value="{{ value }}" {% if activity_filter == value %}selected{% endif %}>
-                                        {{ label }}
-                                    </option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                        </div>
-
-                        <!-- Clear Filters -->
-                        {% if search_query or location_filter or country_filter or salary_filter or date_filter or job_type_filter or experience_filter or remote_filter or source_filter or activity_filter or sort_mode != 'relevant' %}
-                        <div class="row mt-3">
-                            <div class="col text-center">
-                                <a href="{% url 'job_list' %}" class="btn btn-outline-secondary">
-                                    <i class="bi bi-x-circle me-1"></i>Clear All Filters
-                                </a>
-                            </div>
-                        </div>
-                        {% endif %}
-                    </form>
+                    </div>
                 </div>
             </div>
-        </div>
+        </form>
     </div>
 
-    <!-- Active Filters Display -->
-    {% if search_query or location_filter or country_filter or salary_filter or date_filter or job_type_filter or experience_filter or remote_filter or source_filter or activity_filter %}
-    <div class="row mb-3">
-        <div class="col">
-            <div class="d-flex flex-wrap gap-2 align-items-center">
-                <span class="fw-semibold">Active Filters:</span>
-                {% if search_query %}
-                <span class="badge bg-primary">Search: "{{ search_query }}"</span>
+    <!-- Active filter chips -->
+    {% if active_chips %}
+    <div class="jl-chips">
+        {% for chip in active_chips %}
+        <a href="{{ chip.url }}" class="jl-chip" title="Remove this filter">
+            {{ chip.label }}<span class="jl-x">&times;</span>
+        </a>
+        {% endfor %}
+        <a href="{% url 'job_list' %}" class="jl-clear">Reset to defaults</a>
+    </div>
+    {% endif %}
+
+    <!-- Result count + sort -->
+    <div class="jl-meta">
+        <div>
+            <div class="jl-count">
+                {{ fmt.total }} position{{ total_results|pluralize }}
+                {% if verified_count and observed_count and not source_filter %}
+                <small>&middot; {{ fmt.verified }} verified, {{ fmt.observed }} observed</small>
                 {% endif %}
-                {% if source_filter %}
-                <span class="badge" style="background-color: {% if source_filter == 'verified' %}#c49a3c{% else %}#7a8c6e{% endif %}; color: #fff;">
-                    Source: {{ source_filter|title }}
-                </span>
-                {% endif %}
-                {% if country_filter %}
-                <span class="badge bg-primary">Country: US Only</span>
-                {% endif %}
-                {% if location_filter %}
-                <span class="badge bg-primary">Location: {{ location_filter }}</span>
-                {% endif %}
-                {% if job_type_filter %}
-                <span class="badge badge-job-type">Type: {{ job_type_filter }}</span>
-                {% endif %}
-                {% if experience_filter %}
-                <span class="badge" style="background-color: var(--primary-color); color: #fff;">Experience: {{ experience_filter }}</span>
-                {% endif %}
-                {% if remote_filter %}
-                <span class="badge badge-remote">{{ remote_filter }}</span>
-                {% endif %}
-                {% if salary_filter %}
-                <span class="badge bg-success">With Salary</span>
-                {% endif %}
-                {% if date_filter %}
-                <span class="badge bg-primary">
-                    {% if date_filter == '24h' %}Last 24 Hours{% elif date_filter == '7d' %}Last 7 Days{% elif date_filter == '30d' %}Last 30 Days{% endif %}
-                </span>
-                {% endif %}
-                {% if activity_filter %}
-                <span class="badge bg-warning text-dark">Activity: {{ activity_filter|title }}</span>
-                {% endif %}
-                <a href="{% url 'job_list' %}" class="badge text-decoration-none" style="background-color: var(--charcoal); color: #fff;">
-                    <i class="bi bi-x me-1"></i>Clear All
-                </a>
             </div>
+        </div>
+        <form method="get" action="{% url 'job_list' %}" class="jl-sort">
+            {% for key, value in sort_hidden %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endfor %}
+            <label for="jlSort">Sort</label>
+            <select name="sort" id="jlSort" class="form-select" onchange="this.form.submit()">
+                <option value="relevant" {% if sort_mode == 'relevant' %}selected{% endif %}>Most relevant</option>
+                <option value="newest" {% if sort_mode == 'newest' %}selected{% endif %}>Newest first</option>
+                <option value="activity" {% if sort_mode == 'activity' %}selected{% endif %}>Activity score</option>
+            </select>
+        </form>
+    </div>
+
+    <!-- Facet quick-pills: what narrowing actually costs, before you click -->
+    {% if page_obj %}
+    <div class="jl-facets">
+        {% for facet in facet_links %}
+        <a class="jl-facet {% if facet.on %}jl-on{% endif %}" href="{{ facet.url }}">
+            {{ facet.label }} &middot; <b>{{ facet.count }}</b>
+        </a>
+        {% endfor %}
+        <span class="jl-facet-note">counts within these results</span>
+    </div>
+    {% endif %}
+
+    <!-- Directory deep-links (horizontal strip; the split pane has no third column) -->
+    {% if directory_employers %}
+    <div class="jl-dir">
+        <div class="jl-dir-top">
+            <div>
+                <h6><i class="bi bi-building me-1"></i>Major employers hiring {{ directory_match_title }}s</h6>
+                <p>Skip the board — search their career portals directly.</p>
+            </div>
+            <a href="{% url 'directory:index' %}" class="jl-pv-method">All employers &rarr;</a>
+        </div>
+        <div class="jl-dir-row">
+            {% for entry in directory_employers %}
+            <a href="{% url 'directory:employer_redirect' entry.employer.slug %}?q={{ search_query|urlencode }}&location={{ location_filter|urlencode }}&source=search_sidebar"
+               target="_blank" rel="noopener noreferrer" class="jl-dir-emp">
+                {% if entry.employer.logo %}
+                <img src="{{ entry.employer.logo.url }}" alt="" class="directory-logo-sm" style="width:22px;height:22px;">
+                {% else %}
+                <div class="directory-logo-placeholder-sm" style="width:22px;height:22px;font-size:0.7rem;">{{ entry.employer.logo_initial }}</div>
+                {% endif %}
+                <span>{{ entry.employer.name }}</span>
+                <i class="bi bi-box-arrow-up-right"></i>
+            </a>
+            {% endfor %}
         </div>
     </div>
     {% endif %}
 
-    <!-- Results Info -->
-    <div class="row mb-3">
-        <div class="col">
-            <h5 class="text-muted">
-                <i class="bi bi-filter-circle me-2"></i>
-                Found <strong>{{ total_results }}</strong> position{{ total_results|pluralize }}
-                {% if verified_count and observed_count and not source_filter %}
-                <small class="ms-2">({{ verified_count }} verified, {{ observed_count }} observed)</small>
-                {% endif %}
-            </h5>
-            {% if results_truncated %}
-            <p class="text-muted small mb-0">Showing the most relevant 500 per category — narrow your search (keywords, location, filters) to see more specific results.</p>
-            {% endif %}
-        </div>
-    </div>
-
-    <!-- Job Listings + Directory Sidebar -->
+    <!-- Split pane: scannable list left, sticky preview right -->
     {% if page_obj %}
-        <div class="row">
-            <!-- Main job listings column -->
-            <div class="{% if directory_employers %}col-lg-8{% else %}col-12{% endif %}">
-                <div class="row">
-                    {% for item in page_obj %}
+    <div class="jl-split">
+        <div class="jl-list" id="jlList">
+            {% for item in page_obj %}
 
-                    {# Section headers — ifchanged fires when is_verified transitions #}
-                    {% ifchanged item.is_verified %}
-                        {% if item.is_verified %}
-                        <div class="col-12 mb-3">
-                            <div class="d-flex align-items-center gap-2 mb-1">
-                                <span class="trust-badge trust-badge-verified">&#10003; Verified</span>
-                                <h5 class="fw-bold mb-0">Verified Postings</h5>
-                            </div>
-                            <p class="text-muted small mb-0">Posted directly to RJRP by verified employers.</p>
-                        </div>
-                        {% else %}
-                        <div class="col-12 mb-3 {% if not forloop.first %}mt-4 pt-3 border-top{% endif %}">
-                            <div class="d-flex align-items-center gap-2 mb-1">
-                                <span class="trust-badge trust-badge-observed">&#128269; Observed</span>
-                                <h5 class="fw-bold mb-0">Market-Observed Roles</h5>
-                            </div>
-                            <p class="text-muted small mb-0">Detected through employer hiring systems and scored by our Hiring Activity algorithm.</p>
-                        </div>
-                        {% endif %}
-                    {% endifchanged %}
-
-                    <div class="{% if directory_employers %}col-12{% else %}col-lg-6{% endif %} mb-4">
-                        <div class="card job-card h-100 {% if item.is_verified %}job-card-verified{% else %}job-card-observed{% endif %}">
-                            <div class="card-body">
-                                <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
-                                    {% if item.is_verified %}
-                                    <span class="trust-badge trust-badge-verified">&#10003; Verified</span>
-                                    {% else %}
-                                    <span class="trust-badge trust-badge-observed">&#128269; Observed</span>
-                                    {% if item.has_score_value %}
-                                    {% include "jobs/partials/has_pips.html" with score=item.has_score_value %}
-                                    {% endif %}
-                                    {% endif %}
-                                </div>
-
-                                <h5 class="job-title mb-1">{{ item.title }}</h5>
-                                <h6 class="text-primary mb-1">
-                                    <i class="bi bi-building me-1"></i>{{ item.company_name }}
-                                </h6>
-
-                                {% if item.salary_display %}
-                                <div class="salary-display mb-2">
-                                    <i class="bi bi-cash-stack me-1"></i>{{ item.salary_display }}
-                                </div>
-                                {% endif %}
-
-                                <p class="card-text text-muted mb-3" style="font-size: 0.9rem; line-height: 1.55;">
-                                    {{ item.description|clean_snippet|truncatewords:30 }}
-                                </p>
-
-                                <div class="d-flex flex-wrap gap-2 mb-3">
-                                    {% if item.location %}
-                                    <span class="badge badge-location">
-                                        <i class="bi bi-geo-alt-fill me-1"></i>{{ item.location }}
-                                    </span>
-                                    {% endif %}
-                                    {% if item.job_type_display %}
-                                    <span class="badge badge-job-type">
-                                        <i class="bi bi-briefcase me-1"></i>{{ item.job_type_display }}
-                                    </span>
-                                    {% endif %}
-                                    {% if item.remote_status_display %}
-                                    <span class="badge badge-remote">
-                                        <i class="bi bi-globe me-1"></i>{{ item.remote_status_display }}
-                                    </span>
-                                    {% endif %}
-                                    {% if item.experience_level_display %}
-                                    <span class="badge badge-experience">
-                                        <i class="bi bi-bar-chart me-1"></i>{{ item.experience_level_display }}
-                                    </span>
-                                    {% endif %}
-                                </div>
-
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <span class="text-muted small">
-                                        <i class="bi bi-clock me-1"></i>{{ item.posted_date|timesince }} ago
-                                    </span>
-                                    <a href="{{ item.detail_url }}" class="btn btn-primary btn-sm">
-                                        View Details <i class="bi bi-arrow-right ms-1"></i>
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-
-                <!-- Pagination -->
-                {% if page_obj.has_other_pages %}
-                <nav aria-label="Job listings pagination" class="mt-4">
-                    <ul class="pagination justify-content-center">
-                        {% if page_obj.has_previous %}
-                        <li class="page-item">
-                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if filter_querystring %}&{{ filter_querystring }}{% endif %}">
-                                <i class="bi bi-chevron-left"></i> Previous
-                            </a>
-                        </li>
-                        {% endif %}
-
-                        {% for num in page_obj.paginator.page_range %}
-                            {% if page_obj.number == num %}
-                            <li class="page-item active"><span class="page-link">{{ num }}</span></li>
-                            {% elif num > page_obj.number|add:"-3" and num < page_obj.number|add:"3" %}
-                            <li class="page-item">
-                                <a class="page-link" href="?page={{ num }}{% if filter_querystring %}&{{ filter_querystring }}{% endif %}">{{ num }}</a>
-                            </li>
-                            {% elif num == 1 or num == page_obj.paginator.num_pages %}
-                            <li class="page-item">
-                                <a class="page-link" href="?page={{ num }}{% if filter_querystring %}&{{ filter_querystring }}{% endif %}">{{ num }}</a>
-                            </li>
-                            {% elif num == 2 or num == page_obj.paginator.num_pages|add:"-1" %}
-                            <li class="page-item disabled"><span class="page-link">...</span></li>
-                            {% endif %}
-                        {% endfor %}
-
-                        {% if page_obj.has_next %}
-                        <li class="page-item">
-                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if filter_querystring %}&{{ filter_querystring }}{% endif %}">
-                                Next <i class="bi bi-chevron-right"></i>
-                            </a>
-                        </li>
-                        {% endif %}
-                    </ul>
-                </nav>
+            {# Tier headers — ifchanged fires when is_verified transitions #}
+            {% ifchanged item.is_verified %}
+            <div class="jl-tier">
+                {% if item.is_verified %}
+                <span class="trust-badge trust-badge-verified">&#10003; Verified</span>
+                <div><h6>Verified postings</h6><p>Posted directly to RJRP by verified employers.</p></div>
+                {% else %}
+                <span class="trust-badge trust-badge-observed">&#128269; Observed</span>
+                <div><h6>Market-observed roles</h6><p>Detected in employer hiring systems and scored by our algorithm.</p></div>
                 {% endif %}
             </div>
+            {% endifchanged %}
 
-            <!-- Directory Sidebar (appears when search matches a job category) -->
-            {% if directory_employers %}
-            <div class="col-lg-4">
-                <div class="directory-sidebar">
-                    <div class="card" style="border: 2px solid var(--directory-color); border-radius: 12px; position: sticky; top: 20px;">
-                        <div class="card-body">
-                            <div class="d-flex align-items-center gap-2 mb-3">
-                                <i class="bi bi-building" style="color: var(--directory-color); font-size: 1.3rem;"></i>
-                                <h6 class="mb-0 fw-bold" style="color: var(--directory-color);">
-                                    Companies Hiring {{ directory_match_title }}s
-                                </h6>
-                            </div>
-                            <p class="text-muted small mb-3">
-                                These major employers often hire for "{{ search_query }}" roles. Click to search their career portals directly.
-                            </p>
-
-                            <div class="d-flex flex-column gap-2">
-                                {% for item in directory_employers %}
-                                <a href="{% url 'directory:employer_redirect' item.employer.slug %}?q={{ search_query|urlencode }}&location={{ location_filter|urlencode }}&source=search_sidebar"
-                                   target="_blank" rel="noopener noreferrer"
-                                   class="text-decoration-none">
-                                    <div class="directory-sidebar-employer">
-                                        <div class="d-flex align-items-center gap-3">
-                                            {% if item.employer.logo %}
-                                            <img src="{{ item.employer.logo.url }}" alt="{{ item.employer.name }}" class="directory-logo-sm">
-                                            {% else %}
-                                            <div class="directory-logo-placeholder-sm">{{ item.employer.logo_initial }}</div>
-                                            {% endif %}
-
-                                            <div class="flex-grow-1 min-width-0">
-                                                <div class="fw-semibold text-truncate" style="color: var(--ink); font-size: 0.9rem;">
-                                                    {{ item.employer.name }}
-                                                </div>
-                                                <div class="small" style="color: var(--directory-color);">
-                                                    {% if item.role_count %}
-                                                    ~{{ item.role_count }} open roles
-                                                    {% else %}
-                                                    Open roles available
-                                                    {% endif %}
-                                                </div>
-                                            </div>
-
-                                            <i class="bi bi-box-arrow-up-right" style="color: var(--directory-color); font-size: 0.85rem;"></i>
-                                        </div>
-                                    </div>
-                                </a>
-                                {% endfor %}
-                            </div>
-
-                            <div class="mt-3 pt-2" style="border-top: 1px solid #e8e0f0;">
-                                <a href="{% url 'directory:index' %}" class="small fw-semibold text-decoration-none d-block text-center" style="color: var(--directory-color);">
-                                    Browse all employers <i class="bi bi-arrow-right"></i>
-                                </a>
-                            </div>
-                        </div>
-                    </div>
+            <a class="jl-row {% if item.is_verified %}jl-verified{% endif %}"
+               href="{{ item.detail_url }}"
+               data-kind="{{ item.preview_kind }}" data-pk="{{ item.id }}">
+                <div class="jl-sc {% if item.has_score_value >= 80 %}jl-hi{% endif %}">
+                    {% if item.is_verified %}
+                    <span class="jl-vmark">&#10003;</span>
+                    <span class="jl-sc-lbl">Verified</span>
+                    {% elif item.has_score_value %}
+                    <b>{{ item.has_score_value }}</b>
+                    {% include "jobs/partials/has_pips.html" with score=item.has_score_value %}
+                    {% endif %}
                 </div>
-            </div>
+
+                <div>
+                    <div class="jl-row-title">{{ item.title }}</div>
+                    <div class="jl-row-co">{{ item.company_name }}</div>
+                    <div class="jl-row-meta">
+                        {% if item.location %}<span><i class="bi bi-geo-alt-fill me-1"></i>{{ item.location }}</span>{% endif %}
+                        {% if item.salary_display %}
+                        <span class="jl-sal">{{ item.salary_display }}</span>
+                        {% else %}
+                        <span class="jl-nosal">No salary listed</span>
+                        {% endif %}
+                        {% if item.remote_status_display %}<span>{{ item.remote_status_display }}</span>{% endif %}
+                    </div>
+                    {% if item.reasons %}
+                    <div class="jl-row-reasons">
+                        {% for reason in item.reasons %}<span class="jl-reason">{{ reason }}</span>{% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="jl-age">{{ item.posted_date|timesince }} ago</div>
+            </a>
+            {% endfor %}
+
+            {% if results_truncated %}
+            <p class="jl-trunc">
+                Showing the most relevant {{ page_obj.paginator.count }} of {{ fmt.total }} matches —
+                add keywords, a location, or a filter to reach the rest.
+            </p>
+            {% endif %}
+
+            <!-- Pagination -->
+            {% if page_obj.has_other_pages %}
+            <nav aria-label="Job listings pagination" class="mt-4">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if filter_querystring %}&{{ filter_querystring }}{% endif %}">
+                            <i class="bi bi-chevron-left"></i> Previous
+                        </a>
+                    </li>
+                    {% endif %}
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                        <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                        {% elif num > page_obj.number|add:"-3" and num < page_obj.number|add:"3" %}
+                        <li class="page-item"><a class="page-link" href="?page={{ num }}{% if filter_querystring %}&{{ filter_querystring }}{% endif %}">{{ num }}</a></li>
+                        {% elif num == 1 or num == page_obj.paginator.num_pages %}
+                        <li class="page-item"><a class="page-link" href="?page={{ num }}{% if filter_querystring %}&{{ filter_querystring }}{% endif %}">{{ num }}</a></li>
+                        {% elif num == 2 or num == page_obj.paginator.num_pages|add:"-1" %}
+                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                        {% endif %}
+                    {% endfor %}
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if filter_querystring %}&{{ filter_querystring }}{% endif %}">
+                            Next <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
             {% endif %}
         </div>
-    {% else %}
-        <div class="row">
-            <div class="col-lg-8 mx-auto">
-                <div class="card">
-                    <div class="card-body text-center py-5">
-                        <i class="bi bi-search text-muted" style="font-size: 4rem;"></i>
-                        <h4 class="mt-3">No jobs found</h4>
-                        <p class="text-muted">
-                            {% if search_query or location_filter or salary_filter or date_filter or source_filter or activity_filter %}
-                            Try adjusting your filters or <a href="{% url 'job_list' %}">view all jobs</a>
-                            {% else %}
-                            No jobs are currently available. Check back soon!
-                            {% endif %}
-                        </p>
-                    </div>
-                </div>
+
+        <aside class="jl-preview" id="jlPreview" aria-live="polite">
+            <div class="jl-pv-empty">
+                <i class="bi bi-arrow-left-circle"></i>
+                Select a listing to preview it here.<br>
+                <span class="small">
+                    Navigate with <span class="jl-pv-kbd">J</span><span class="jl-pv-kbd">K</span>
+                    or <span class="jl-pv-kbd">&uarr;</span><span class="jl-pv-kbd">&darr;</span>,
+                    open with <span class="jl-pv-kbd">Enter</span>
+                </span>
             </div>
-        </div>
+        </aside>
+    </div>
+    {% else %}
+    <div class="jl-empty">
+        <i class="bi bi-search text-muted" style="font-size: 3rem;"></i>
+        <h4 class="mt-3">No jobs found</h4>
+        <p class="text-muted mb-0">
+            {% if active_chips %}
+            Nothing matches every filter at once. Try removing one of the chips above,
+            or <a href="{% url 'job_list' %}">start over</a>.
+            {% else %}
+            No jobs are currently available. Check back soon!
+            {% endif %}
+        </p>
+    </div>
     {% endif %}
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-    function toggleMoreFilters() {
-        var row = document.getElementById('moreFiltersRow');
-        var btn = document.getElementById('moreFiltersBtn');
-        row.classList.toggle('show');
-        btn.classList.toggle('active');
-        if (row.classList.contains('show')) {
-            btn.innerHTML = '<i class="bi bi-sliders me-1"></i>Fewer Filters <i class="bi bi-chevron-up ms-1"></i>';
-        } else {
-            btn.innerHTML = '<i class="bi bi-sliders me-1"></i>More Filters <i class="bi bi-chevron-down ms-1"></i>';
-        }
+    function jlToggleDrawer() {
+        var d = document.getElementById('jlDrawer');
+        var b = document.getElementById('jlFilterBtn');
+        d.classList.toggle('jl-open');
+        b.classList.toggle('active');
     }
 
-    // Auto-expand if any advanced filter is active
-    (function() {
-        var hasAdvancedFilter = {% if experience_filter or salary_filter or date_filter or activity_filter %}true{% else %}false{% endif %};
-        if (hasAdvancedFilter) {
-            toggleMoreFilters();
+    // Open the drawer on load if a filter it owns is active, so the control
+    // that produced the current result set is visible rather than hidden.
+    (function () {
+        var hasDrawerFilter = {% if experience_filter or salary_filter or date_filter or activity_filter or job_type_filter or source_filter or remote_filter %}true{% else %}false{% endif %};
+        if (hasDrawerFilter) { jlToggleDrawer(); }
+    })();
+
+    // ---- Split-pane triage -------------------------------------------------
+    // Progressive enhancement: every row is a real <a> to the detail page.
+    // We only intercept when the preview pane is actually visible (>= lg), so
+    // narrow viewports and no-JS both fall through to normal navigation.
+    (function () {
+        var list = document.getElementById('jlList');
+        var pane = document.getElementById('jlPreview');
+        if (!list || !pane) return;
+
+        var rows = Array.prototype.slice.call(list.querySelectorAll('.jl-row'));
+        if (!rows.length) return;
+
+        var wide = window.matchMedia('(min-width: 992px)');
+        var current = -1;
+        var reqId = 0;
+
+        function load(idx, scrollIntoView) {
+            if (idx < 0 || idx >= rows.length) return;
+            var row = rows[idx];
+
+            rows.forEach(function (r) { r.classList.remove('jl-on'); });
+            row.classList.add('jl-on');
+            current = idx;
+
+            if (scrollIntoView) {
+                row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            }
+
+            var url = '/jobs/preview/' + row.dataset.kind + '/' + row.dataset.pk + '/';
+            var mine = ++reqId;
+            pane.classList.add('jl-pv-loading');
+
+            fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(function (res) {
+                    if (!res.ok) throw new Error(res.status);
+                    return res.text();
+                })
+                .then(function (html) {
+                    // Ignore responses from superseded requests so fast j/k
+                    // scrubbing can't paint an older listing over a newer one.
+                    if (mine !== reqId) return;
+                    pane.innerHTML = html;
+                    pane.scrollTop = 0;
+                    pane.classList.remove('jl-pv-loading');
+                })
+                .catch(function () {
+                    if (mine !== reqId) return;
+                    pane.classList.remove('jl-pv-loading');
+                    pane.innerHTML = '<div class="jl-pv-empty">' +
+                        '<i class="bi bi-exclamation-circle"></i>' +
+                        "Couldn't load this preview. " +
+                        '<a href="' + row.getAttribute('href') + '">Open the full page instead &rarr;</a></div>';
+                });
         }
+
+        rows.forEach(function (row, idx) {
+            row.addEventListener('click', function (e) {
+                // Let modified clicks (new tab/window) and narrow screens through.
+                if (!wide.matches || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+                e.preventDefault();
+                load(idx, false);
+            });
+        });
+
+        document.addEventListener('keydown', function (e) {
+            if (!wide.matches) return;
+            var t = e.target;
+            if (t && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+            if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+            if (e.key === 'j' || e.key === 'ArrowDown') {
+                e.preventDefault();
+                load(current < 0 ? 0 : Math.min(current + 1, rows.length - 1), true);
+            } else if (e.key === 'k' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                load(current < 0 ? 0 : Math.max(current - 1, 0), true);
+            } else if (e.key === 'Enter' && current >= 0) {
+                e.preventDefault();
+                window.location.href = rows[current].getAttribute('href');
+            }
+        });
+
+        // Preselect the top result so the pane is never dead on arrival.
+        if (wide.matches) { load(0, false); }
+        wide.addEventListener('change', function (ev) {
+            if (ev.matches && current < 0) { load(0, false); }
+        });
     })();
 </script>
 {% endblock %}

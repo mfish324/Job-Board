@@ -140,6 +140,10 @@ urlpatterns = [
     # Chatbot API
     path('api/chatbot/', views.chatbot_api, name='chatbot_api'),
 
+    # Split-pane preview fragment for /jobs/ (progressive enhancement; the
+    # results list always carries real links to the canonical detail pages)
+    path('jobs/preview/<str:kind>/<int:pk>/', views.listing_preview, name='listing_preview'),
+
     # Observed Listings (Scraped Jobs with HAS) - now under /jobs/
     path('jobs/observed/<int:listing_id>/', views.observed_listing_detail, name='observed_listing_detail'),
     path('jobs/observed/<int:listing_id>/feedback/', views.submit_listing_feedback, name='submit_listing_feedback'),

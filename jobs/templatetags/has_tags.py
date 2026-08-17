@@ -10,6 +10,7 @@ Usage in templates:
     {% has_tooltip listing %}
 """
 
+import html
 import re
 
 from django import template
@@ -36,6 +37,33 @@ def _has_meaningful_html(text):
     """Check if text contains block-level HTML that provides structure."""
     block_tags = re.findall(r'<(?:p|ul|ol|li|h[1-6]|br|div)\b', text, re.IGNORECASE)
     return len(block_tags) >= 2
+
+
+# Tags that, when found ESCAPED, mean the source stored HTML with its entities
+# already encoded (e.g. the literal characters "&lt;h2&gt;" instead of "<h2>").
+_ESCAPED_TAG_RE = re.compile(
+    r'&lt;/?(?:p|div|span|br|ul|ol|li|h[1-6]|strong|b|em|i|table|tr|td)\b',
+    re.IGNORECASE,
+)
+
+
+def _decode_double_encoded(text):
+    """Undo one layer of entity encoding when a feed double-escaped its HTML.
+
+    Several direct-ATS feeds hand us descriptions whose markup arrives already
+    escaped, so the stored text literally contains "&lt;h2&gt;&lt;strong&gt;".
+    Rendered as-is that shows the reader raw tag soup instead of a formatted
+    description. Unescaping once turns it back into real markup.
+
+    Safe because every caller pipes the result through bleach.clean() afterward
+    — anything dangerous that unescaping reveals (a <script>, an onclick) is
+    stripped there, not trusted here. Only runs when escaped block tags are
+    actually detected, so normally-escaped prose (a description that merely
+    mentions "&lt;" in passing) is left alone.
+    """
+    if _ESCAPED_TAG_RE.search(text):
+        return html.unescape(text)
+    return text
 
 
 # Common section heading patterns in job descriptions
@@ -143,7 +171,7 @@ def safe_description(value):
     """
     if not value:
         return ''
-    text = str(value)
+    text = _decode_double_encoded(str(value))
 
     # If the text has meaningful HTML structure, just sanitize it
     if _has_meaningful_html(text):
@@ -182,7 +210,7 @@ def clean_snippet(value):
     """
     if not value:
         return ''
-    text = str(value)
+    text = _decode_double_encoded(str(value))
     # Insert a space before closing block-level tags and between adjacent tags
     text = re.sub(r'<[^>]+>', ' ', text)
     # Collapse multiple whitespace into single spaces
@@ -475,6 +503,21 @@ def has_pip_count(score):
     if score >= 35:
         return 2
     return 1
+
+
+@register.filter
+def signal_label(name):
+    """
+    Turn a HAS signal key into a display label.
+
+    "company_velocity" -> "Company Velocity". Note that `|cut:"_"|title`
+    does NOT work here — cut deletes the underscore rather than replacing it,
+    yielding "Companyvelocity".
+
+    Usage:
+        {{ signal|signal_label }}
+    """
+    return str(name).replace('_', ' ').title()
 
 
 @register.filter

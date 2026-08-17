@@ -1,0 +1,108 @@
+{% load has_tags %}
+{% comment %}
+Right-hand preview pane for the /jobs/ split-pane triage view.
+
+Rendered as a bare fragment by jobs.views.listing_preview and injected via
+fetch(). Intentionally NOT a full page: the canonical, indexable content for
+every listing lives on its detail page, which every results row links to
+directly. Keep this cheap — it re-renders on every arrow-key press.
+{% endcomment %}
+
+<div class="jl-pv-head">
+    <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+        {% if is_verified %}
+        <span class="trust-badge trust-badge-verified">&#10003; Verified</span>
+        {% else %}
+        <span class="trust-badge trust-badge-observed">&#128269; Observed</span>
+        {% if item.has_score_value %}
+        {% include "jobs/partials/has_pips.html" with score=item.has_score_value %}
+        <span class="jl-pv-score">{{ item.has_score_value }}<span class="jl-pv-score-max">/100</span></span>
+        {% endif %}
+        {% endif %}
+    </div>
+
+    <h2 class="job-title jl-pv-title">{{ item.title }}</h2>
+    <div class="jl-pv-co">
+        <i class="bi bi-building me-1"></i>{{ item.company_name }}
+    </div>
+
+    <div class="jl-pv-meta">
+        {% if item.location %}
+        <span><i class="bi bi-geo-alt-fill me-1"></i>{{ item.location }}</span>
+        {% endif %}
+        {% if item.remote_status_display %}
+        <span><i class="bi bi-globe me-1"></i>{{ item.remote_status_display }}</span>
+        {% endif %}
+        {% if item.job_type_display %}
+        <span><i class="bi bi-briefcase me-1"></i>{{ item.job_type_display }}</span>
+        {% endif %}
+        {% if item.experience_level_display %}
+        <span><i class="bi bi-bar-chart me-1"></i>{{ item.experience_level_display }}</span>
+        {% endif %}
+        <span><i class="bi bi-clock-history me-1"></i>{{ item.posted_date|timesince }} ago</span>
+    </div>
+
+    {% if item.salary_display %}
+    <div class="jl-pv-salary"><i class="bi bi-cash-stack me-1"></i>{{ item.salary_display }}</div>
+    {% else %}
+    <div class="jl-pv-nosalary"><i class="bi bi-dash-circle me-1"></i>No salary listed</div>
+    {% endif %}
+</div>
+
+{% if not is_verified and has_score %}
+<div class="jl-pv-evidence">
+    <div class="jl-pv-evidence-top">
+        <span class="jl-pv-band">{{ has_score.get_score_band_display }}</span>
+        <a href="{% url 'has_info' %}" class="jl-pv-method">How scoring works &rarr;</a>
+    </div>
+    <div class="jl-pv-signals">
+        {% for signal, data in has_score.score_breakdown.items %}
+        {% if data.points > 0 and signal != 'base' %}
+        <span class="jl-pv-signal" title="{{ data.explanation|default:'' }}">
+            {{ signal|signal_label }} <b>+{{ data.points }}</b>
+        </span>
+        {% endif %}
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<div class="jl-pv-actions">
+    {% if is_verified %}
+    <a href="{{ apply_url }}" class="btn btn-primary">
+        View &amp; apply <i class="bi bi-arrow-right ms-1"></i>
+    </a>
+    <span class="jl-pv-note">Apply directly on RJRP</span>
+    {% else %}
+    {% if workday_fallback_url %}
+    <a href="{{ workday_fallback_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
+        Search employer portal <i class="bi bi-box-arrow-up-right ms-1"></i>
+    </a>
+    {% elif listing.source_url %}
+    <a href="{{ listing.source_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
+        Apply on employer's site <i class="bi bi-box-arrow-up-right ms-1"></i>
+    </a>
+    {% endif %}
+    <a href="{{ apply_url }}" class="btn btn-outline-primary">Full details</a>
+    <span class="jl-pv-note">Applies on the employer's own site</span>
+    {% endif %}
+</div>
+
+<div class="jl-pv-body">
+    <h6 class="jl-pv-h">About this role</h6>
+    <div class="jl-pv-desc">
+        {{ item.description|safe_description|truncatewords_html:130 }}
+    </div>
+    <a href="{{ apply_url }}" class="jl-pv-more">
+        Read the full description <i class="bi bi-arrow-right ms-1"></i>
+    </a>
+</div>
+
+{% if not is_verified and google_fallback_url %}
+<div class="jl-pv-foot">
+    <span class="jl-pv-note d-block mb-2">ATS links expire often. If the link above is dead:</span>
+    <a href="{{ google_fallback_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-search me-1"></i>Search Google for this role
+    </a>
+</div>
+{% endif %}

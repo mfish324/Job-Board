@@ -476,10 +476,137 @@ def job_list(request):
     # Merge and sort
     items = UnifiedListing.merge_querysets(verified_qs, observed_qs, sort_mode)
 
+    # --- Facet counts over the already-materialized result set -------------
+    # Computed in Python from `items`, which merge_querysets() has already
+    # pulled into memory and walked once (compute_sort_score touches
+    # posted_date and has_score_value on every element). So this second pass
+    # adds ZERO database queries and loads no new columns — it's the one place
+    # we can afford live facet counts. Do NOT reimplement these as per-facet
+    # .count() queries: the default US-only filter is a ~100-term OR chain, and
+    # running seven more COUNT(*)s across it per request is exactly the shape
+    # that tripped the 60s gunicorn timeout before (see the count-cache note).
+    #
+    # These describe the CAPPED browsable set, not the true total, so the
+    # template labels them "in these results" — a truncated set must never
+    # read as a global claim.
+    now = timezone.now()
+    cutoff_24h = now - timedelta(hours=24)
+    cutoff_7d = now - timedelta(days=7)
+    facets = {
+        'h24': 0, 'd7': 0, 'salary': 0,
+        'remote': 0, 'score80': 0, 'verified': 0,
+    }
+    for entry in items:
+        if entry.is_verified:
+            facets['verified'] += 1
+        elif (entry.has_score_value or 0) >= 80:
+            facets['score80'] += 1
+        entry_posted = entry.posted_date
+        if entry_posted:
+            if entry_posted >= cutoff_24h:
+                facets['h24'] += 1
+            if entry_posted >= cutoff_7d:
+                facets['d7'] += 1
+        if entry.has_salary:
+            facets['salary'] += 1
+        if 'remote' in (entry.remote_status_display or '').lower():
+            facets['remote'] += 1
+
     # Paginate
-    paginator = Paginator(items, 24)
+    paginator = Paginator(items, 25)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
+
+    # --- Per-row "why it's here" chips + preview keys ----------------------
+    # Only for the 25 rows actually rendered, never the full capped set.
+    # Attributes are set on the UnifiedListing wrapper (which has no __slots__
+    # and is built fresh per request, so nothing rides through a cache).
+    for entry in page_obj:
+        reasons = []
+        if entry.has_salary:
+            reasons.append('Salary listed')
+        entry_posted = entry.posted_date
+        if entry_posted:
+            age_days = (now - entry_posted).days
+            if age_days <= 2:
+                reasons.append('Posted in the last 48h')
+            elif age_days <= 7:
+                reasons.append('Posted this week')
+        if entry.is_observed and getattr(entry, 'repost_count', 0) == 0:
+            reasons.append('Not a repost')
+        entry.reasons = reasons[:3]
+        # 'v'/'o' disambiguates the two id spaces (Job and ScrapedJobListing
+        # pks collide) for the preview endpoint and the DOM row keys.
+        entry.preview_kind = 'v' if entry.is_verified else 'o'
+
+    # --- URL builders for chips, facets, and the sort control --------------
+    def _url_with(**overrides):
+        """Current filter URL with params overridden. None removes a param.
+
+        Always writes 'country' explicitly. job_list() re-defaults a completely
+        empty querystring back to US-only, so a URL that merely omits country
+        would silently switch the filter back on instead of off.
+        """
+        params = request.GET.copy()
+        params.pop('page', None)
+        params.setlist('country', [country_filter])
+        for key, value in overrides.items():
+            if value is None:
+                params.pop(key, None)
+            else:
+                params.setlist(key, [value])
+        query = params.urlencode()
+        return f'{request.path}?{query}' if query else request.path
+
+    def _chip(label, param, clear_to=None):
+        """A chip whose URL is the current search minus this one filter."""
+        return {'label': label, 'url': _url_with(**{param: clear_to})}
+
+    # Facet quick-pills. Each toggles: clicking an active one clears it.
+    facet_links = [
+        {'label': 'Last 24h', 'count': f"{facets['h24']:,}", 'on': date_filter == '24h',
+         'url': _url_with(date_posted=None if date_filter == '24h' else '24h')},
+        {'label': 'Last 7d', 'count': f"{facets['d7']:,}", 'on': date_filter == '7d',
+         'url': _url_with(date_posted=None if date_filter == '7d' else '7d')},
+        {'label': 'Salary listed', 'count': f"{facets['salary']:,}", 'on': bool(salary_filter),
+         'url': _url_with(salary=None if salary_filter else 'with_salary')},
+        {'label': 'Remote', 'count': f"{facets['remote']:,}", 'on': remote_filter == 'remote',
+         'url': _url_with(remote=None if remote_filter == 'remote' else 'remote')},
+        {'label': 'Score 80+', 'count': f"{facets['score80']:,}", 'on': activity_filter == 'very_active',
+         'url': _url_with(activity=None if activity_filter == 'very_active' else 'very_active')},
+    ]
+
+    # Hidden inputs that let the standalone sort form preserve every other
+    # filter without duplicating 'country' (which arrives twice from the
+    # drawer's hidden-input + checkbox pair).
+    sort_params = request.GET.copy()
+    sort_params.pop('page', None)
+    sort_params.pop('sort', None)
+    sort_params.setlist('country', [country_filter])
+    sort_hidden = [(key, value) for key in sort_params for value in sort_params.getlist(key)]
+
+    active_chips = []
+    if search_query:
+        active_chips.append(_chip(f'"{search_query}"', 'search'))
+    if location_filter:
+        active_chips.append(_chip(location_filter, 'location'))
+    if country_filter == 'us':
+        active_chips.append(_chip('U.S. only', 'country', clear_to=''))
+    if source_filter:
+        active_chips.append(_chip(source_filter.title(), 'source'))
+    if job_type_filter:
+        active_chips.append(_chip(job_type_filter.replace('_', ' ').title(), 'job_type'))
+    if experience_filter:
+        active_chips.append(_chip(experience_filter.title(), 'experience'))
+    if remote_filter:
+        active_chips.append(_chip(remote_filter.replace('_', ' ').title(), 'remote'))
+    if salary_filter:
+        active_chips.append(_chip('Salary listed', 'salary'))
+    if date_filter:
+        date_labels = {'24h': 'Last 24 hours', '7d': 'Last 7 days', '30d': 'Last 30 days'}
+        active_chips.append(_chip(date_labels.get(date_filter, date_filter), 'date_posted'))
+    if activity_filter:
+        active_chips.append(_chip(activity_filter.replace('_', ' ').title(), 'activity'))
 
     # Directory employer results (sidebar — shown on all pages when search matches)
     directory_employers = []
@@ -520,6 +647,21 @@ def job_list(request):
         'filter_querystring': filter_querystring,
         'directory_employers': directory_employers,
         'directory_match_title': directory_match_title,
+        'facets': facets,
+        'facet_links': facet_links,
+        'sort_hidden': sort_hidden,
+        'active_chips': active_chips,
+        # Pre-formatted display strings (humanize isn't installed)
+        'fmt': {
+            'total': f'{total_results:,}',
+            'verified': f'{verified_count:,}',
+            'observed': f'{observed_count:,}',
+            'h24': f"{facets['h24']:,}",
+            'd7': f"{facets['d7']:,}",
+            'salary': f"{facets['salary']:,}",
+            'remote': f"{facets['remote']:,}",
+            'score80': f"{facets['score80']:,}",
+        },
         # Provide choices for filters
         'job_type_choices': Job.JOB_TYPE_CHOICES,
         'experience_level_choices': Job.EXPERIENCE_LEVEL_CHOICES,
@@ -527,6 +669,66 @@ def job_list(request):
         'score_band_choices': HiringActivityScore.SCORE_BAND_CHOICES,
     }
     return render(request, 'jobs/job_list.html', context)
+
+
+def listing_preview(request, kind, pk):
+    """HTML fragment for the /jobs/ split-pane preview.
+
+    Progressive enhancement ONLY. Every row in the results list is a real
+    <a href> to the canonical detail page, so this endpoint is never the sole
+    path to any content — crawlers, no-JS users, and narrow viewports all go
+    straight to the detail page and never call this. It's also Disallowed in
+    robots.txt so a crawler that somehow discovers it won't walk it.
+
+    Deliberately thin: one indexed PK lookup and nothing else. No genzjobs
+    enrichment, no related-listings query, no AI summary generation — this
+    fires on every arrow-key press during triage, so it has to stay cheap.
+    """
+    from .unified import UnifiedListing
+
+    if kind == 'v':
+        job = get_object_or_404(
+            Job.objects.filter(is_active=True).filter(
+                Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now())
+            ),
+            pk=pk,
+        )
+        return render(request, 'jobs/partials/listing_preview.html', {
+            'item': UnifiedListing(job),
+            'is_verified': True,
+            'apply_url': reverse('job_detail', args=[job.pk]),
+        })
+
+    listing = get_object_or_404(
+        ScrapedJobListing.objects.select_related('activity_score'),
+        pk=pk,
+        published_to_board=True,
+    )
+
+    # Apply-path hierarchy mirrors scraped_listing_detail: Workday portal
+    # search (their direct URLs are session-based and expire) -> direct ATS
+    # link -> Google search as the universal safety net.
+    from jobs.utils import build_google_jobs_fallback_url, build_workday_fallback_url
+    workday_fallback_url = (
+        build_workday_fallback_url(listing) if listing.source_ats == 'workday' else None
+    )
+
+    has_score = None
+    try:
+        has_score = listing.activity_score
+    except HiringActivityScore.DoesNotExist:
+        pass
+
+    return render(request, 'jobs/partials/listing_preview.html', {
+        'item': UnifiedListing(listing),
+        'listing': listing,
+        'is_verified': False,
+        'has_score': has_score,
+        'workday_fallback_url': workday_fallback_url,
+        'google_fallback_url': build_google_jobs_fallback_url(listing),
+        'apply_url': reverse('observed_listing_detail', args=[listing.pk]),
+    })
+
 
 def _parse_salary_jsonld(salary):
     """Extract a numeric base salary from Job.salary (freeform text) for JSON-LD.
