@@ -4066,6 +4066,12 @@ def admin_sync_genzjobs(request):
 # SITE TRAFFIC DASHBOARD (SUPERUSER ONLY)
 # =============================================================================
 
+SITE_VISIT_BOT_UA_REGEX = (
+    r'bot|crawl|spider|slurp|curl|wget|python|go-http|java/|axios|okhttp|scrapy|headless|'
+    r'preview|monitor|uptime|libwww|node-fetch|http-client|facebookexternalhit|keenable|barkrowler|petal|^$'
+)
+
+
 @login_required
 def site_traffic_dashboard(request):
     """Admin-only dashboard showing site-wide traffic analytics from SiteVisit."""
@@ -4088,7 +4094,28 @@ def site_traffic_dashboard(request):
     now = timezone.now()
     start_date = now - timedelta(days=days)
 
-    visits = SiteVisit.objects.filter(visited_at__gte=start_date)
+    # Bot filtering. "Likely human" (default) drops declared crawlers plus a
+    # heuristic for the distributed listing scraper seen from 2026-09-18: browser-like
+    # UAs, no referrer, one hit per IP on /jobs/observed/<id>/.
+    traffic_mode = 'all' if request.GET.get('traffic') == 'all' else 'human'
+    crawler_q = Q(user_agent__iregex=SITE_VISIT_BOT_UA_REGEX)
+    scraper_q = (
+        ~crawler_q
+        & (Q(referer__isnull=True) | Q(referer=''))
+        & Q(path__regex=r'^/jobs/observed/[0-9]+/?$')
+    )
+
+    all_visits = SiteVisit.objects.filter(visited_at__gte=start_date)
+    traffic_breakdown = all_visits.aggregate(
+        total=Count('id'),
+        crawlers=Count('id', filter=crawler_q),
+        scrapers=Count('id', filter=scraper_q),
+    )
+    traffic_breakdown['human'] = (
+        traffic_breakdown['total'] - traffic_breakdown['crawlers'] - traffic_breakdown['scrapers']
+    )
+
+    visits = all_visits if traffic_mode == 'all' else all_visits.exclude(crawler_q | scraper_q)
 
     # ---- Key metrics ----
     total_views = visits.count()
@@ -4172,6 +4199,8 @@ def site_traffic_dashboard(request):
 
     context = {
         'days': days,
+        'traffic_mode': traffic_mode,
+        'traffic_breakdown': traffic_breakdown,
         'total_views': total_views,
         'unique_visitors': unique_visitors,
         'authenticated_visits': authenticated_visits,

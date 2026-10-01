@@ -148,11 +148,26 @@
             </h2>
             <p class="text-muted mb-0">Pageview analytics from SiteVisit tracking</p>
         </div>
-        <div class="d-flex gap-2 align-items-center">
-            <a href="?range=7" class="range-btn {% if days == 7 %}active{% endif %}">7d</a>
-            <a href="?range=30" class="range-btn {% if days == 30 %}active{% endif %}">30d</a>
-            <a href="?range=90" class="range-btn {% if days == 90 %}active{% endif %}">90d</a>
-            <a href="?range=365" class="range-btn {% if days == 365 %}active{% endif %}">1y</a>
+        <div class="d-flex gap-2 align-items-center flex-wrap">
+            <a href="?range={{ days }}&traffic=human" class="range-btn {% if traffic_mode == 'human' %}active{% endif %}">Likely human</a>
+            <a href="?range={{ days }}&traffic=all" class="range-btn {% if traffic_mode == 'all' %}active{% endif %}">All traffic</a>
+            <span class="mx-1"></span>
+            <a href="?range=7&traffic={{ traffic_mode }}" class="range-btn {% if days == 7 %}active{% endif %}">7d</a>
+            <a href="?range=30&traffic={{ traffic_mode }}" class="range-btn {% if days == 30 %}active{% endif %}">30d</a>
+            <a href="?range=90&traffic={{ traffic_mode }}" class="range-btn {% if days == 90 %}active{% endif %}">90d</a>
+            <a href="?range=365&traffic={{ traffic_mode }}" class="range-btn {% if days == 365 %}active{% endif %}">1y</a>
+        </div>
+    </div>
+
+    <!-- Traffic classification -->
+    <div class="dashboard-section" style="padding: 0.9rem 1.25rem;">
+        <div class="small" style="color: var(--ink);">
+            <strong>Last {{ days }} days, {{ traffic_breakdown.total }} hits:</strong>
+            {{ traffic_breakdown.human }} likely human &middot;
+            {{ traffic_breakdown.crawlers }} declared crawlers/bots &middot;
+            {{ traffic_breakdown.scrapers }} suspected scraper
+            <span class="text-muted">(no referrer hits on /jobs/observed/&lt;id&gt;/ from non-bot user agents; heuristic)</span>.
+            Showing: <strong>{% if traffic_mode == 'human' %}likely human only{% else %}all traffic{% endif %}</strong>.
         </div>
     </div>
 
