@@ -3759,30 +3759,18 @@ def observed_listing_detail(request, listing_id):
         except UserProfile.DoesNotExist:
             pass
 
-    # Fetch genzjobs enrichment data (requirements, benefits, skills)
-    genzjobs_data = {}
-    if listing.genzjobs_id and settings.GENZJOBS_ENABLED:
-        try:
-            from jobs.models import GenzjobsListing
-            gj = GenzjobsListing.objects.get(id=listing.genzjobs_id)
-            if gj.requirements:
-                genzjobs_data['requirements'] = gj.requirements
-            if gj.benefits:
-                genzjobs_data['benefits'] = gj.benefits
-            if gj.skills and isinstance(gj.skills, list):
-                genzjobs_data['skills'] = gj.skills
-        except Exception:
-            pass  # Graceful fallback if genzjobs unavailable
-    elif listing.raw_data:
-        # Fallback to cached raw_data
-        genzjobs_data = listing.raw_data
+    # Enrichment data (requirements, benefits, skills) comes from raw_data, which
+    # sync_genzjobs refreshes on every run. This used to also do a live
+    # GenzjobsListing.objects.get() against the remote GenZJobs DB on every page
+    # view, which a bot crawl turned into thousands of cross-database reads a day.
+    genzjobs_data = listing.raw_data or {}
 
     # Get related listings from the same company
     related_listings = ScrapedJobListing.objects.filter(
         company_name=listing.company_name,
         status='active',
         published_to_board=True
-    ).exclude(id=listing.id)[:5]
+    ).exclude(id=listing.id).defer('description', 'description_summary', 'raw_data')[:5]
 
     # Link health indicators
     link_dead = listing.link_status_code in (404, 410, 403) if listing.link_status_code else False
