@@ -70,6 +70,7 @@ SITE_ID = 1
 
 MIDDLEWARE = [
     'jobs.middleware.BlockBadBotsMiddleware',  # Drop abusive crawlers before any work
+    'jobs.middleware.ObservedDetailRateLimitMiddleware',  # Throttle /jobs/observed/<id>/ scrapers
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',  # Add WhiteNoise for static files
     'django.contrib.sessions.middleware.SessionMiddleware',

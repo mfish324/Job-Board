@@ -57,6 +57,59 @@ class BlockBadBotsMiddleware:
         return self.get_response(request)
 
 
+class ObservedDetailRateLimitMiddleware:
+    """
+    Cheap per-IP rate limit on /jobs/observed/<id>/ pages.
+
+    A scraper rotating Chrome user agents walks these pages continuously; each
+    hit costs several DB queries on a small, I/O-bound database. In-memory
+    sliding window (per gunicorn worker, so the effective limit is up to
+    workers x LIMIT) -- no DB or cache round trip. Over the limit gets 429 with
+    Retry-After, which well-behaved crawlers (Googlebot) honor.
+    """
+
+    PATH_PREFIX = '/jobs/observed/'
+    LIMIT = 20          # requests per IP per window, per worker
+    WINDOW = 60         # seconds
+    MAX_TRACKED_IPS = 5000
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+        self._hits = {}  # ip -> list[float] of recent request times
+
+    @staticmethod
+    def _client_ip(request):
+        # Rightmost X-Forwarded-For entry is the one appended by Render's
+        # proxy; earlier entries are client-supplied and trivially spoofed.
+        xff = request.META.get('HTTP_X_FORWARDED_FOR', '')
+        if xff:
+            return xff.split(',')[-1].strip()
+        return request.META.get('REMOTE_ADDR', '')
+
+    def __call__(self, request):
+        if request.path.startswith(self.PATH_PREFIX) and request.method in ('GET', 'HEAD'):
+            import time
+            now = time.monotonic()
+            ip = self._client_ip(request)
+            cutoff = now - self.WINDOW
+
+            if len(self._hits) > self.MAX_TRACKED_IPS:
+                self._hits = {
+                    k: v for k, v in self._hits.items() if v and v[-1] > cutoff
+                }
+
+            recent = [t for t in self._hits.get(ip, ()) if t > cutoff]
+            if len(recent) >= self.LIMIT:
+                self._hits[ip] = recent
+                from django.http import HttpResponse
+                response = HttpResponse('Too many requests', status=429)
+                response['Retry-After'] = str(self.WINDOW)
+                return response
+            recent.append(now)
+            self._hits[ip] = recent
+        return self.get_response(request)
+
+
 class TrafficNotificationMiddleware:
     """
     Middleware to track site visits and notify admin of new traffic.
