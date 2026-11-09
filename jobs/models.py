@@ -395,6 +395,12 @@ class SiteVisit(models.Model):
 
     class Meta:
         ordering = ['-visited_at']
+        indexes = [
+            # Middleware runs an (ip_address, visited_at) EXISTS check on every
+            # request; without this it seq-scanned the whole table each time.
+            models.Index(fields=['ip_address', 'visited_at'], name='sitevisit_ip_visited_idx'),
+            models.Index(fields=['visited_at'], name='sitevisit_visited_idx'),
+        ]
 
 class SavedJob(models.Model):
     """Job bookmarks - allows users to save jobs for later"""
