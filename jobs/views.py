@@ -40,6 +40,55 @@ def ratelimited_error(request, exception):
     return render(request, '429.html', status=429)
 
 
+def _home_fallback_data():
+    """Minimal payload used only on a fully cold cache (first build running)."""
+    dash = '—'
+    return {
+        'verified_jobs': [], 'fresh_listings': [], 'fresh_reasons': {},
+        'fresh_counts': {'h24': 0, 'h48': 0, 'd7': 0},
+        'delta': {'new_24h': 0, 'closed_24h': 0, 'reposts_24h': 0, 'ramping': 0, 'quiet': 0},
+        'ticker_items': [], 'employer_rows': [],
+        'total_jobs': 0, 'total_tracked': 0, 'total_rejected': 0, 'total_companies': 0,
+        'fmt': {k: dash for k in (
+            'total_jobs', 'total_tracked', 'total_rejected', 'total_companies',
+            'new_24h', 'h48', 'd7')},
+    }
+
+
+def _home_data_swr(key, ttl, build):
+    import threading
+    import time
+    from django.core.cache import caches
+    from django.db import close_old_connections
+
+    cache = caches['home']
+    lock_key = key + ':rebuilding'
+
+    def _rebuild():
+        try:
+            data = build()
+            cache.set(key, {'built': time.time(), 'data': data}, 7 * 24 * 3600)
+        except Exception:
+            logger.exception('Homepage cache rebuild failed')
+        finally:
+            cache.delete(lock_key)
+            close_old_connections()
+
+    def _kick():
+        # cache.add is the cross-worker "someone is already rebuilding" guard;
+        # the 5 min expiry frees it if a worker is recycled mid-build.
+        if cache.add(lock_key, 1, 300):
+            threading.Thread(target=_rebuild, daemon=True).start()
+
+    entry = cache.get(key)
+    if entry is None:
+        _kick()
+        return _home_fallback_data()
+    if time.time() - entry['built'] > ttl:
+        _kick()
+    return entry['data']
+
+
 # Your existing views stay the same
 def home(request):
     """
@@ -66,8 +115,7 @@ def home(request):
     # NOTE: we cache RAW model instances (which pickle cleanly), not
     # UnifiedListing wrappers — the wrapper's __getattr__ infinitely recurses
     # under pickle. The wrapping is cheap; it's the DB queries we're caching.
-    data = cache.get(CACHE_KEY)
-    if data is None:
+    def _build():
         now = timezone.now()
         day_ago = now - timedelta(hours=24)
         week_ago = now - timedelta(days=7)
@@ -244,7 +292,13 @@ def home(request):
                 'd7': f"{fresh_counts['d7']:,}",
             },
         }
-        cache.set(CACHE_KEY, data, CACHE_TTL)
+        return data
+
+    # Stale-while-revalidate over a file-based cache shared by all workers and
+    # surviving worker recycling. The rebuild (~15 slow queries on an I/O-bound
+    # DB) runs in a background thread, never inside a request that gunicorn can
+    # kill at 60s. A fully cold start serves a light fallback until it finishes.
+    data = _home_data_swr(CACHE_KEY, CACHE_TTL, _build)
 
     # Wrap observed listings per-request (cheap; not cached — see note above)
     fresh_cards = [

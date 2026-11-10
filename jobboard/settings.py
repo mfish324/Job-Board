@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 from decouple import config
 import os
+import tempfile
 import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -291,7 +292,13 @@ CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
         'LOCATION': 'unique-snowflake',
-    }
+    },
+    # Shared across gunicorn workers and survives worker recycling (unlike
+    # LocMemCache); used for the homepage stale-while-revalidate payload.
+    'home': {
+        'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+        'LOCATION': os.path.join(tempfile.gettempdir(), 'rjrp_home_cache'),
+    },
 }
 
 # Logging Configuration
