@@ -1139,6 +1139,9 @@ class ScrapedJobListing(models.Model):
     title = models.CharField(max_length=300)
     description = models.TextField()
     location = models.CharField(max_length=200, blank=True)
+    # Denormalized from `location` in save() (see jobs/us_location.py) so the
+    # US-only browse filter is an indexed boolean, not ~100 LIKEs per row.
+    is_us = models.BooleanField(default=False)
 
     # Structured fields
     job_type = models.CharField(max_length=50, blank=True)
@@ -1216,6 +1219,13 @@ class ScrapedJobListing(models.Model):
             models.Index(fields=['source_ats', 'status']),
             models.Index(fields=['date_last_seen', 'status']),
             models.Index(fields=['published_to_board', 'status']),
+            # Serves the default /jobs/ US-only browse: filter + ORDER BY
+            # -date_last_seen LIMIT, and the count (status is in the index).
+            models.Index(
+                fields=['-date_last_seen', 'status'],
+                name='sjl_us_published_idx',
+                condition=models.Q(published_to_board=True, is_us=True),
+            ),
         ]
         verbose_name = 'Scraped Job Listing'
         verbose_name_plural = 'Scraped Job Listings'
@@ -1244,6 +1254,9 @@ class ScrapedJobListing(models.Model):
         normalized_title = ' '.join(self.title.lower().split())
         title_company = f"{normalized_title}|{self.company_name.lower()}"
         self.title_hash = hashlib.sha256(title_company.encode()).hexdigest()
+
+        from .us_location import is_us_location
+        self.is_us = is_us_location(self.location)
 
         super().save(*args, **kwargs)
 

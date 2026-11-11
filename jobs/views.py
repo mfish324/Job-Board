@@ -430,7 +430,9 @@ def job_list(request):
             us_q |= Q(location__endswith=f', {state}')
             us_q |= Q(location__icontains=f', {state} ')
         verified_qs = verified_qs.filter(us_q)
-        observed_qs = observed_qs.filter(us_q)
+        # Observed table is large: use the denormalized, indexed is_us flag
+        # (jobs/us_location.py, same semantics as us_q) instead of ~100 LIKEs.
+        observed_qs = observed_qs.filter(is_us=True)
 
     if salary_filter == 'with_salary':
         verified_qs = verified_qs.exclude(salary='')
