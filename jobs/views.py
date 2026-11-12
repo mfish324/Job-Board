@@ -468,7 +468,13 @@ def job_list(request):
 
     # Activity band filter (observed only)
     if activity_filter:
-        observed_qs = observed_qs.filter(activity_score__score_band=activity_filter)
+        # published_to_board is redundant (observed_qs is already published, and
+        # the score row's flag is kept in sync) but lets Postgres use the partial
+        # index has_band_published_idx instead of seq-scanning the score table.
+        observed_qs = observed_qs.filter(
+            activity_score__score_band=activity_filter,
+            activity_score__published_to_board=True,
+        )
 
     # Source filter: show only one type if requested
     if source_filter == 'verified':

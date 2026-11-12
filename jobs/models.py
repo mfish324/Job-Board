@@ -1344,6 +1344,14 @@ class HiringActivityScore(models.Model):
 
     class Meta:
         ordering = ['-total_score']
+        indexes = [
+            # Serves the /jobs/?activity=<band> filter (published rows only).
+            models.Index(
+                fields=['score_band'],
+                condition=models.Q(published_to_board=True),
+                name='has_band_published_idx',
+            ),
+        ]
         verbose_name = 'Hiring Activity Score'
         verbose_name_plural = 'Hiring Activity Scores'
 
