@@ -44,6 +44,12 @@ class BlockBadBotsMiddleware:
         'claudebot',
         'ccbot',
         'perplexitybot',
+        # Declared crawlers seen hammering /jobs/ (SiteVisit, Nov 2026)
+        'elevenlabscrawler',
+        'exasearchbot',
+        'baiduspider',
+        'tokenfoundrybot',
+        'terncrawler',
     )
 
     def __init__(self, get_response):
@@ -59,23 +65,30 @@ class BlockBadBotsMiddleware:
 
 class ObservedDetailRateLimitMiddleware:
     """
-    Cheap per-IP rate limit on /jobs/observed/<id>/ pages.
+    Cheap per-IP rate limits on the scraper-favoured browse/detail paths.
 
     A scraper rotating Chrome user agents walks these pages continuously; each
     hit costs several DB queries on a small, I/O-bound database. In-memory
     sliding window (per gunicorn worker, so the effective limit is up to
     workers x LIMIT) -- no DB or cache round trip. Over the limit gets 429 with
     Retry-After, which well-behaved crawlers (Googlebot) honor.
+
+    RULES are (path_prefix, limit_per_window); the first matching prefix wins,
+    so the more specific /jobs/observed/ must come before /jobs/. Each rule has
+    its own counters. The /jobs/ limit is deliberately generous: the split-pane
+    UI fires a /jobs/preview/ request per row click.
     """
 
-    PATH_PREFIX = '/jobs/observed/'
-    LIMIT = 20          # requests per IP per window, per worker
+    RULES = (
+        ('/jobs/observed/', 20),
+        ('/jobs/', 60),
+    )
     WINDOW = 60         # seconds
     MAX_TRACKED_IPS = 5000
 
     def __init__(self, get_response):
         self.get_response = get_response
-        self._hits = {}  # ip -> list[float] of recent request times
+        self._hits = {}  # (prefix, ip) -> list[float] of recent request times
 
     @staticmethod
     def _client_ip(request):
@@ -87,27 +100,35 @@ class ObservedDetailRateLimitMiddleware:
         return request.META.get('REMOTE_ADDR', '')
 
     def __call__(self, request):
-        if request.path.startswith(self.PATH_PREFIX) and request.method in ('GET', 'HEAD'):
-            import time
-            now = time.monotonic()
-            ip = self._client_ip(request)
-            cutoff = now - self.WINDOW
-
-            if len(self._hits) > self.MAX_TRACKED_IPS:
-                self._hits = {
-                    k: v for k, v in self._hits.items() if v and v[-1] > cutoff
-                }
-
-            recent = [t for t in self._hits.get(ip, ()) if t > cutoff]
-            if len(recent) >= self.LIMIT:
-                self._hits[ip] = recent
-                from django.http import HttpResponse
-                response = HttpResponse('Too many requests', status=429)
-                response['Retry-After'] = str(self.WINDOW)
-                return response
-            recent.append(now)
-            self._hits[ip] = recent
+        if request.method in ('GET', 'HEAD'):
+            for prefix, limit in self.RULES:
+                if request.path.startswith(prefix):
+                    if self._over_limit(prefix, limit, self._client_ip(request)):
+                        from django.http import HttpResponse
+                        response = HttpResponse('Too many requests', status=429)
+                        response['Retry-After'] = str(self.WINDOW)
+                        return response
+                    break
         return self.get_response(request)
+
+    def _over_limit(self, prefix, limit, ip):
+        import time
+        now = time.monotonic()
+        cutoff = now - self.WINDOW
+
+        if len(self._hits) > self.MAX_TRACKED_IPS:
+            self._hits = {
+                k: v for k, v in self._hits.items() if v and v[-1] > cutoff
+            }
+
+        key = (prefix, ip)
+        recent = [t for t in self._hits.get(key, ()) if t > cutoff]
+        if len(recent) >= limit:
+            self._hits[key] = recent
+            return True
+        recent.append(now)
+        self._hits[key] = recent
+        return False
 
 
 class TrafficNotificationMiddleware:
@@ -122,6 +143,12 @@ class TrafficNotificationMiddleware:
     - TRAFFIC_NOTIFICATION_EXCLUDE_PATHS = ['/static/', '/media/', '/admin/']
     - TRAFFIC_NOTIFICATION_COOLDOWN_MINUTES = 5  # Don't notify for same IP within X minutes
     """
+
+    BOT_UA_TOKENS = (
+        'bot', 'spider', 'crawl', 'slurp', 'scrapy', 'python-requests',
+        'python-urllib', 'curl/', 'wget', 'go-http-client', 'httpclient',
+        'headless', 'facebookexternalhit', 'preview',
+    )
 
     def __init__(self, get_response):
         self.get_response = get_response
@@ -144,6 +171,12 @@ class TrafficNotificationMiddleware:
         if any(path.startswith(excluded) for excluded in exclude_paths):
             return response
 
+        # Don't log self-identified bots: they inflate the dashboard and every
+        # row is a write (plus 2 index updates) on a tiny database.
+        ua = request.META.get('HTTP_USER_AGENT', '').lower()
+        if not ua or any(tok in ua for tok in self.BOT_UA_TOKENS):
+            return response
+
         # Skip non-successful responses
         if response.status_code >= 400:
             return response
@@ -159,7 +192,8 @@ class TrafficNotificationMiddleware:
         """Get the client's IP address"""
         x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
         if x_forwarded_for:
-            ip = x_forwarded_for.split(',')[0].strip()
+            # Rightmost = appended by Render's proxy; leftmost is spoofable.
+            ip = x_forwarded_for.split(',')[-1].strip()
         else:
             ip = request.META.get('REMOTE_ADDR', '0.0.0.0')
         return ip
