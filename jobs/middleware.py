@@ -50,6 +50,7 @@ class BlockBadBotsMiddleware:
         'baiduspider',
         'tokenfoundrybot',
         'terncrawler',
+        'petalbot',  # Huawei; 60s /jobs/ timeout at 09:19 UTC 2026-11-12
     )
 
     def __init__(self, get_response):
